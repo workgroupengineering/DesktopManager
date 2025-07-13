@@ -55,6 +55,12 @@ Describe 'DesktopManager basic tests' {
     It 'Exports Get-DesktopWindowControl' {
         Get-Command Get-DesktopWindowControl | Should -Not -BeNullOrEmpty
     }
+    It 'Exports Get-DesktopControlCheck' {
+        Get-Command Get-DesktopControlCheck | Should -Not -BeNullOrEmpty
+    }
+    It 'Exports Set-DesktopControlCheck' {
+        Get-Command Set-DesktopControlCheck | Should -Not -BeNullOrEmpty
+    }
     It 'Exports Set-DefaultAudioDevice' {
         Get-Command Set-DefaultAudioDevice | Should -Not -BeNullOrEmpty
     }

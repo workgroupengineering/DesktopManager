@@ -364,6 +364,16 @@ public static partial class MonitorNativeMethods
     public const uint BM_CLICK = 0x00F5;
 
     /// <summary>
+    /// Button message to retrieve check state.
+    /// </summary>
+    public const uint BM_GETCHECK = 0x00F0;
+
+    /// <summary>
+    /// Button message to set check state.
+    /// </summary>
+    public const uint BM_SETCHECK = 0x00F1;
+
+    /// <summary>
     /// Memory allocation flag for movable memory.
     /// </summary>
     public const uint GMEM_MOVEABLE = 0x0002;
