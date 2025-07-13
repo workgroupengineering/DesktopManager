@@ -354,6 +354,16 @@ public static partial class MonitorNativeMethods
     public const uint WM_PASTE = 0x0302;
 
     /// <summary>
+    /// Message used for key down events.
+    /// </summary>
+    public const uint WM_KEYDOWN = 0x0100;
+
+    /// <summary>
+    /// Message used for character input events.
+    /// </summary>
+    public const uint WM_CHAR = 0x0102;
+
+    /// <summary>
     /// Clipboard format for Unicode text.
     /// </summary>
     public const uint CF_UNICODETEXT = 13;

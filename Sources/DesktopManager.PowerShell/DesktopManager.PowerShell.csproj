@@ -19,6 +19,7 @@
   <ItemGroup>
       <Compile Include="..\Shared\SupportedOSPlatformAttribute.cs" />
       <Compile Update="CmdletInvokeDesktopKeyPress.cs" />
+      <Compile Update="CmdletSendDesktopControlKey.cs" />
   </ItemGroup>
 
     <PropertyGroup>
