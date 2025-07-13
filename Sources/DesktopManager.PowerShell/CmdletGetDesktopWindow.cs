@@ -46,11 +46,17 @@ namespace DesktopManager.PowerShell {
         public int ProcessId { get; set; } = 0;
 
         /// <summary>
+        /// <para type="description">Include hidden windows in the results.</para>
+        /// </summary>
+        [Parameter]
+        public SwitchParameter IncludeHidden { get; set; }
+
+        /// <summary>
         /// Retrieves and outputs matching windows.
         /// </summary>
         protected override void BeginProcessing() {
             var manager = new WindowManager();
-            var windows = manager.GetWindows(Name, ProcessName, ClassName, Regex, ProcessId);
+            var windows = manager.GetWindows(Name, ProcessName, ClassName, Regex, ProcessId, IncludeHidden);
             WriteObject(windows, true);
         }
     }
