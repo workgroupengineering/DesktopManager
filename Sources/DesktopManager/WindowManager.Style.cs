@@ -34,6 +34,13 @@ public partial class WindowManager {
         long style = GetWindowStyle(windowInfo, extended);
         long newStyle = enable ? (style | flags) : (style & ~flags);
         MonitorNativeMethods.SetWindowLongPtr(windowInfo.Handle, index, new IntPtr(newStyle));
+
+        if (extended && (flags & MonitorNativeMethods.WS_EX_TOPMOST) != 0) {
+            const int SWP_NOMOVE = 0x0002;
+            const int SWP_NOSIZE = 0x0001;
+            var insertAfter = enable ? MonitorNativeMethods.HWND_TOPMOST : MonitorNativeMethods.HWND_NOTOPMOST;
+            MonitorNativeMethods.SetWindowPos(windowInfo.Handle, insertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        }
     }
 }
 
