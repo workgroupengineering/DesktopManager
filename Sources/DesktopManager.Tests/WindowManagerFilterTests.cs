@@ -35,6 +35,39 @@ public class WindowManagerFilterTests {
 
     [TestMethod]
     /// <summary>
+    /// Ensures filtering by process ID returns matching window.
+    /// </summary>
+    public void GetWindows_ProcessIdFilter_ReturnsWindow() {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+            Assert.Inconclusive("Test requires Windows");
+        }
+
+        using var proc = Process.Start(new ProcessStartInfo("notepad.exe") {
+            WindowStyle = ProcessWindowStyle.Normal
+        });
+        if (proc == null) {
+            Assert.Inconclusive("Failed to start notepad");
+        }
+
+        proc.WaitForInputIdle(2000);
+
+        try {
+            var manager = new WindowManager();
+            var windows = manager.GetWindows(processId: proc.Id);
+            Assert.IsTrue(windows.Any());
+
+            var windows2 = manager.GetWindowsForProcess(proc);
+            Assert.IsTrue(windows2.Any());
+        } finally {
+            if (!proc.HasExited) {
+                proc.Kill();
+                proc.WaitForExit();
+            }
+        }
+    }
+
+    [TestMethod]
+    /// <summary>
     /// Ensures filtering by class name returns matching window.
     /// </summary>
     public void GetWindows_ClassNameFilter_ReturnsWindow() {

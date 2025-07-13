@@ -359,6 +359,11 @@ public static partial class MonitorNativeMethods
     public const uint CF_UNICODETEXT = 13;
 
     /// <summary>
+    /// Button message to programmatically click a control.
+    /// </summary>
+    public const uint BM_CLICK = 0x00F5;
+
+    /// <summary>
     /// Memory allocation flag for movable memory.
     /// </summary>
     public const uint GMEM_MOVEABLE = 0x0002;
