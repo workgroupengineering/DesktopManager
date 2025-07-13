@@ -412,6 +412,16 @@ public static partial class MonitorNativeMethods
     public const uint BM_CLICK = 0x00F5;
 
     /// <summary>
+    /// Button message to retrieve check state.
+    /// </summary>
+    public const uint BM_GETCHECK = 0x00F0;
+
+    /// <summary>
+    /// Button message to set check state.
+    /// </summary>
+    public const uint BM_SETCHECK = 0x00F1;
+  
+    /// <summary>
     /// SendMessageTimeout flag that aborts if the target window is hung.
     /// </summary>
     public const uint SMTO_ABORTIFHUNG = 0x0002;
