@@ -5,6 +5,12 @@ Get-DesktopWindow | Format-Table *
 # Filter windows by process name
 Get-DesktopWindow -ProcessName 'notepad'
 
+# Filter windows by process ID
+$notepad = Get-Process -Name notepad -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($notepad) {
+    Get-DesktopWindow -ProcessId $notepad.Id
+}
+
 # Filter by class name
 Get-DesktopWindow -ClassName 'Notepad'
 
