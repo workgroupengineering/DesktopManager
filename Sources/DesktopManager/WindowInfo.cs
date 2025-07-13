@@ -22,6 +22,11 @@ public class WindowInfo {
     public uint ProcessId { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the window is currently visible.
+    /// </summary>
+    public bool IsVisible { get; set; }
+
+    /// <summary>
     /// Gets the width of the window.
     /// </summary>
     public int Width => Right - Left;

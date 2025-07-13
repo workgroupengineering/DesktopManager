@@ -33,14 +33,16 @@ public partial class WindowManager {
         /// <param name="regex">Optional regular expression to match the window title.</param>
         /// <param name="processId">Optional process ID filter.</param>
         /// <returns>A list of WindowInfo objects.</returns>
-        public List<WindowInfo> GetWindows(string name = "*", string processName = "*", string className = "*", Regex regex = null, int processId = 0) {
+        public List<WindowInfo> GetWindows(string name = "*", string processName = "*", string className = "*", Regex regex = null, int processId = 0, bool includeHidden = false) {
             var handles = new List<IntPtr>();
             var shellWindowhWnd = MonitorNativeMethods.GetShellWindow();
 
             if (!MonitorNativeMethods.EnumWindows(
                 (handle, lParam) => {
-                    if (handle != shellWindowhWnd && MonitorNativeMethods.IsWindowVisible(handle)) {
-                        handles.Add(handle);
+                    if (handle != shellWindowhWnd) {
+                        if (includeHidden || MonitorNativeMethods.IsWindowVisible(handle)) {
+                            handles.Add(handle);
+                        }
                     }
                     return true;
                 }, IntPtr.Zero)) {
@@ -89,7 +91,8 @@ public partial class WindowManager {
                     var windowInfo = new WindowInfo {
                         Title = title,
                         Handle = handle,
-                        ProcessId = windowProcessId
+                        ProcessId = windowProcessId,
+                        IsVisible = MonitorNativeMethods.IsWindowVisible(handle)
                     };
 
                         // Get window position and state
@@ -142,12 +145,12 @@ public partial class WindowManager {
         /// </summary>
         /// <param name="process">Process whose windows to retrieve.</param>
         /// <returns>List of windows owned by the process.</returns>
-        public List<WindowInfo> GetWindowsForProcess(Process process) {
+        public List<WindowInfo> GetWindowsForProcess(Process process, bool includeHidden = false) {
             if (process == null) {
                 throw new ArgumentNullException(nameof(process));
             }
 
-            return GetWindows(processId: process.Id);
+            return GetWindows(processId: process.Id, includeHidden: includeHidden);
         }
 
         /// <summary>
