@@ -77,4 +77,28 @@ public static class KeyboardInputService {
             }
         }
     }
+
+    /// <summary>
+    /// Sends key presses directly to a background control.
+    /// </summary>
+    /// <param name="control">Target control.</param>
+    /// <param name="keys">Keys to send.</param>
+    public static void SendToControl(WindowControlInfo control, params VirtualKey[] keys) {
+        if (control == null) {
+            throw new ArgumentNullException(nameof(control));
+        }
+        if (control.Handle == IntPtr.Zero) {
+            throw new ArgumentException("Invalid control handle", nameof(control));
+        }
+        if (keys == null || keys.Length == 0) {
+            throw new ArgumentException("No keys specified", nameof(keys));
+        }
+
+        foreach (VirtualKey key in keys) {
+            MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_KEYDOWN, (uint)key, 0);
+            if ((key >= VirtualKey.VK_SPACE && key <= VirtualKey.VK_Z) || (key >= VirtualKey.VK_0 && key <= VirtualKey.VK_9)) {
+                MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_CHAR, (uint)key, 0);
+            }
+        }
+    }
 }
