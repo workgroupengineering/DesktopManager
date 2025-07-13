@@ -31,4 +31,37 @@ public static class WindowControlService {
             MouseInputService.Click(button);
         }
     }
+
+    /// <summary>
+    /// Retrieves the check state of a button control.
+    /// </summary>
+    /// <param name="control">Control to query.</param>
+    /// <returns><c>true</c> if checked; otherwise <c>false</c>.</returns>
+    public static bool GetCheckState(WindowControlInfo control) {
+        if (control == null) {
+            throw new ArgumentNullException(nameof(control));
+        }
+        if (control.Handle == IntPtr.Zero) {
+            throw new ArgumentException("Invalid control handle", nameof(control));
+        }
+
+        int state = (int)MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.BM_GETCHECK, 0u, 0u);
+        return state != 0;
+    }
+
+    /// <summary>
+    /// Sets the check state of a button control.
+    /// </summary>
+    /// <param name="control">Control to modify.</param>
+    /// <param name="check">Desired check state.</param>
+    public static void SetCheckState(WindowControlInfo control, bool check) {
+        if (control == null) {
+            throw new ArgumentNullException(nameof(control));
+        }
+        if (control.Handle == IntPtr.Zero) {
+            throw new ArgumentException("Invalid control handle", nameof(control));
+        }
+
+        MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.BM_SETCHECK, check ? 1u : 0u, 0u);
+    }
 }
