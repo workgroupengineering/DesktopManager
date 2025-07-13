@@ -51,6 +51,10 @@ Describe 'DesktopManager basic tests' {
     It 'Exports Wait-DesktopWindow' {
         Get-Command Wait-DesktopWindow | Should -Not -BeNullOrEmpty
     }
+
+    It 'Exports Get-DesktopWindowControl' {
+        Get-Command Get-DesktopWindowControl | Should -Not -BeNullOrEmpty
+    }
     It 'Exports Set-DefaultAudioDevice' {
         Get-Command Set-DefaultAudioDevice | Should -Not -BeNullOrEmpty
     }
