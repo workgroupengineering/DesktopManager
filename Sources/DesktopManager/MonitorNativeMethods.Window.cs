@@ -140,6 +140,40 @@ public static partial class MonitorNativeMethods
     public static extern uint SendMessage(IntPtr hWnd, uint Msg, uint wParam, uint lParam);
 
     /// <summary>
+    /// Sends a message with a timeout.
+    /// </summary>
+    /// <param name="hWnd">Window handle.</param>
+    /// <param name="Msg">Message identifier.</param>
+    /// <param name="wParam">First message parameter.</param>
+    /// <param name="lParam">Second message parameter.</param>
+    /// <param name="fuFlags">Timeout flags.</param>
+    /// <param name="uTimeout">Timeout in milliseconds.</param>
+    /// <param name="lpdwResult">Result of the message.</param>
+    /// <returns>Pointer to the result.</returns>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr SendMessageTimeout(
+        IntPtr hWnd,
+        uint Msg,
+        IntPtr wParam,
+        IntPtr lParam,
+        uint fuFlags,
+        uint uTimeout,
+        out IntPtr lpdwResult);
+
+    /// <summary>
+    /// Sends a message with a timeout using a string buffer parameter.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr SendMessageTimeout(
+        IntPtr hWnd,
+        uint Msg,
+        IntPtr wParam,
+        StringBuilder lParam,
+        uint fuFlags,
+        uint uTimeout,
+        out IntPtr lpdwResult);
+
+    /// <summary>
     /// Sends simulated input events to the system.
     /// </summary>
     /// <param name="nInputs">The number of structures in the array.</param>
@@ -220,6 +254,15 @@ public static partial class MonitorNativeMethods
     /// <returns>Handle to the memory.</returns>
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern IntPtr GlobalFree(IntPtr hMem);
+
+    /// <summary>
+    /// Determines whether the specified process is running under WOW64.
+    /// </summary>
+    /// <param name="hProcess">Process handle.</param>
+    /// <param name="wow64Process">True if the process is WOW64.</param>
+    /// <returns>True on success.</returns>
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool IsWow64Process(IntPtr hProcess, out bool wow64Process);
 
     /// <summary>
     /// 32-bit variant of <c>GetWindowLongPtr</c>.
@@ -349,6 +392,11 @@ public static partial class MonitorNativeMethods
     public const uint WM_SETTINGCHANGE = 0x001A;
 
     /// <summary>
+    /// Retrieves text from a window.
+    /// </summary>
+    public const uint WM_GETTEXT = 0x000D;
+
+    /// <summary>
     /// Message used to paste data from the clipboard.
     /// </summary>
     public const uint WM_PASTE = 0x0302;
@@ -362,6 +410,11 @@ public static partial class MonitorNativeMethods
     /// Button message to programmatically click a control.
     /// </summary>
     public const uint BM_CLICK = 0x00F5;
+
+    /// <summary>
+    /// SendMessageTimeout flag that aborts if the target window is hung.
+    /// </summary>
+    public const uint SMTO_ABORTIFHUNG = 0x0002;
 
     /// <summary>
     /// Memory allocation flag for movable memory.
