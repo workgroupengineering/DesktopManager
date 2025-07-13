@@ -40,11 +40,17 @@ namespace DesktopManager.PowerShell {
         public Regex Regex { get; set; }
 
         /// <summary>
+        /// <para type="description">Filter windows by process ID.</para>
+        /// </summary>
+        [Parameter]
+        public int ProcessId { get; set; } = 0;
+
+        /// <summary>
         /// Retrieves and outputs matching windows.
         /// </summary>
         protected override void BeginProcessing() {
             var manager = new WindowManager();
-            var windows = manager.GetWindows(Name, ProcessName, ClassName, Regex);
+            var windows = manager.GetWindows(Name, ProcessName, ClassName, Regex, ProcessId);
             WriteObject(windows, true);
         }
     }

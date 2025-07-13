@@ -124,7 +124,7 @@ The table below shows the most relevant API methods behind each PowerShell cmdle
 | Invoke-DesktopMouseClick | `WindowManager.ClickMouse` |
 | Invoke-DesktopMouseScroll | `WindowManager.ScrollMouse` |
 | Invoke-DesktopScreenshot | `ScreenshotService.CaptureScreen`, `ScreenshotService.CaptureRegion` |
-| Get-DesktopWindow | `WindowManager.GetWindows` |
+| Get-DesktopWindow | `WindowManager.GetWindows` / `GetWindowsForProcess` |
 | Set-DesktopWindow | `WindowManager.SetWindowPosition`, `MoveWindowToMonitor`, etc. |
 | Set-DesktopWindowSnap | `WindowManager.SnapWindow` |
 | Set-DesktopWindowText | `WindowInputService` |
@@ -282,6 +282,12 @@ Set-DesktopPosition -Index 1 -Left 0 -Top 0 -Right 3840 -Bottom 2160 -WhatIf
 
 ```powershell
 Get-DesktopWindow | Format-Table *
+```
+
+```powershell
+$np = Start-Process notepad -PassThru
+Get-DesktopWindow -ProcessId $np.Id
+$np | Stop-Process
 ```
 
 ![image](https://github.com/user-attachments/assets/e4d026f7-2035-4a45-9779-a85423acdb21)

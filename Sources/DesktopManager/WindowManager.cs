@@ -24,14 +24,16 @@ public partial class WindowManager {
         }
 
         /// <summary>
-        /// Gets all visible windows.
+        /// Gets all visible windows, optionally filtered by title, process name,
+        /// class name, regular expression or process ID.
         /// </summary>
         /// <param name="name">Optional window title filter. Supports wildcards.</param>
         /// <param name="processName">Optional process name filter. Supports wildcards.</param>
         /// <param name="className">Optional window class name filter. Supports wildcards.</param>
         /// <param name="regex">Optional regular expression to match the window title.</param>
+        /// <param name="processId">Optional process ID filter.</param>
         /// <returns>A list of WindowInfo objects.</returns>
-        public List<WindowInfo> GetWindows(string name = "*", string processName = "*", string className = "*", Regex regex = null) {
+        public List<WindowInfo> GetWindows(string name = "*", string processName = "*", string className = "*", Regex regex = null, int processId = 0) {
             var handles = new List<IntPtr>();
             var shellWindowhWnd = MonitorNativeMethods.GetShellWindow();
 
@@ -58,12 +60,12 @@ public partial class WindowManager {
                         continue;
                     }
 
-                    uint processId = 0;
-                    MonitorNativeMethods.GetWindowThreadProcessId(handle, out processId);
+                    uint windowProcessId = 0;
+                    MonitorNativeMethods.GetWindowThreadProcessId(handle, out windowProcessId);
 
                     if (!string.IsNullOrEmpty(processName) && processName != "*") {
                         try {
-                            var process = Process.GetProcessById((int)processId);
+                            var process = Process.GetProcessById((int)windowProcessId);
                             if (!MatchesWildcard(process.ProcessName, processName)) {
                                 continue;
                             }
@@ -80,10 +82,14 @@ public partial class WindowManager {
                         }
                     }
 
+                    if (processId > 0 && windowProcessId != processId) {
+                        continue;
+                    }
+
                     var windowInfo = new WindowInfo {
                         Title = title,
                         Handle = handle,
-                        ProcessId = processId
+                        ProcessId = windowProcessId
                     };
 
                         // Get window position and state
@@ -129,6 +135,19 @@ public partial class WindowManager {
                 }
 
             return windows;
+        }
+
+        /// <summary>
+        /// Gets windows belonging to the specified process.
+        /// </summary>
+        /// <param name="process">Process whose windows to retrieve.</param>
+        /// <returns>List of windows owned by the process.</returns>
+        public List<WindowInfo> GetWindowsForProcess(Process process) {
+            if (process == null) {
+                throw new ArgumentNullException(nameof(process));
+            }
+
+            return GetWindows(processId: process.Id);
         }
 
         /// <summary>
