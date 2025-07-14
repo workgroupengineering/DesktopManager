@@ -93,4 +93,12 @@ Describe 'DesktopManager basic tests' {
     It 'Exports Get-LockScreenWallpaper alias' {
         Get-Command Get-LockScreenWallpaper | Should -Not -BeNullOrEmpty
     }
+
+    It 'Exports Register-DesktopHotkey' {
+        Get-Command Register-DesktopHotkey | Should -Not -BeNullOrEmpty
+    }
+
+    It 'Exports Unregister-DesktopHotkey' {
+        Get-Command Unregister-DesktopHotkey | Should -Not -BeNullOrEmpty
+    }
 }
