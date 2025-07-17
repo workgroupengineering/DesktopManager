@@ -30,12 +30,12 @@ public class KeyboardInputControlTests {
             var win2 = manager.GetWindowsForProcess(proc2!).First();
             MonitorNativeMethods.SetForegroundWindow(win2.Handle);
 
-        var enumerator = new ControlEnumerator();
-        var ctrl = enumerator.EnumerateControls(win1.Handle).FirstOrDefault(c => c.ClassName == "Edit");
-        if (ctrl == null) {
-            Assert.Inconclusive("Edit control not found");
-        }
-        KeyboardInputService.SendToControl(ctrl, VirtualKey.VK_H, VirtualKey.VK_I);
+            var enumerator = new ControlEnumerator();
+            var ctrl = enumerator.EnumerateControls(win1.Handle).FirstOrDefault(c => c.ClassName == "Edit");
+            if (ctrl == null) {
+                Assert.Inconclusive("Edit control not found");
+            }
+            KeyboardInputService.SendToControl(ctrl, VirtualKey.VK_H, VirtualKey.VK_I);
             Thread.Sleep(500);
 
             int len = MonitorNativeMethods.GetWindowTextLength(ctrl.Handle);
