@@ -25,4 +25,7 @@ public static partial class MonitorNativeMethods {
 
     /// <summary>Message identifier for hotkeys.</summary>
     public const uint WM_HOTKEY = 0x0312;
+
+    /// <summary>Base value for application-defined messages.</summary>
+    public const uint WM_APP = 0x8000;
 }

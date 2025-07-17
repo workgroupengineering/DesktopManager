@@ -22,11 +22,43 @@ public sealed class HotkeyService : IDisposable {
     private Thread? _thread;
     private MonitorNativeMethods.WndProc? _wndProc;
     private readonly ManualResetEventSlim _ready = new(false);
+    private readonly Queue<Action> _actions = new();
+    private const uint WM_RUN = MonitorNativeMethods.WM_APP + 1;
 
     private HotkeyService() {
         _thread = new Thread(MessageLoop) { IsBackground = true };
         _thread.Start();
         _ready.Wait();
+    }
+
+    private void Invoke(Action action) {
+        if (_thread == null) {
+            throw new ObjectDisposedException(nameof(HotkeyService));
+        }
+
+        if (Thread.CurrentThread.ManagedThreadId == _thread.ManagedThreadId) {
+            action();
+            return;
+        }
+
+        using var done = new ManualResetEventSlim(false);
+        Exception? ex = null;
+        lock (_actions) {
+            _actions.Enqueue(() => {
+                try {
+                    action();
+                } catch (Exception e) {
+                    ex = e;
+                } finally {
+                    done.Set();
+                }
+            });
+        }
+        MonitorNativeMethods.PostMessage(_hwnd, WM_RUN, IntPtr.Zero, IntPtr.Zero);
+        done.Wait();
+        if (ex != null) {
+            throw ex;
+        }
     }
 
     /// <summary>Window handle used for hotkey messages.</summary>
@@ -44,20 +76,18 @@ public sealed class HotkeyService : IDisposable {
             throw new ArgumentNullException(nameof(callback));
         }
 
-        int id;
-        lock (_callbacks) {
+        int id = 0;
+        Invoke(() => {
             id = ++_nextId;
             _callbacks[id] = callback;
-        }
 
-        if (!MonitorNativeMethods.RegisterHotKey(_hwnd, id, (uint)modifiers, (uint)key)) {
-            lock (_callbacks) {
+            if (!MonitorNativeMethods.RegisterHotKey(_hwnd, id, (uint)modifiers, (uint)key)) {
                 _callbacks.Remove(id);
+                int error = Marshal.GetLastWin32Error();
+                var ex = new System.ComponentModel.Win32Exception(error);
+                throw new DesktopManagerException("RegisterHotKey", ex);
             }
-            int error = Marshal.GetLastWin32Error();
-            var ex = new System.ComponentModel.Win32Exception(error);
-            throw new DesktopManagerException("RegisterHotKey", ex);
-        }
+        });
 
         return id;
     }
@@ -67,7 +97,7 @@ public sealed class HotkeyService : IDisposable {
     /// </summary>
     /// <param name="id">Identifier returned from <see cref="RegisterHotkey"/>.</param>
     public void UnregisterHotkey(int id) {
-        MonitorNativeMethods.UnregisterHotKey(_hwnd, id);
+        Invoke(() => MonitorNativeMethods.UnregisterHotKey(_hwnd, id));
         lock (_callbacks) {
             _callbacks.Remove(id);
         }
@@ -101,6 +131,22 @@ public sealed class HotkeyService : IDisposable {
                 _callbacks.TryGetValue(id, out callback);
             }
             callback?.Invoke();
+            return IntPtr.Zero;
+        }
+
+        if (msg == WM_RUN) {
+            while (true) {
+                Action? next = null;
+                lock (_actions) {
+                    if (_actions.Count > 0) {
+                        next = _actions.Dequeue();
+                    }
+                }
+                if (next == null) {
+                    break;
+                }
+                next();
+            }
             return IntPtr.Zero;
         }
 

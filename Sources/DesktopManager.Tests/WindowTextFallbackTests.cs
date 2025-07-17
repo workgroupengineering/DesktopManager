@@ -38,10 +38,13 @@ public class WindowTextFallbackTests {
             var window = manager.GetWindows(processId: proc.Id).First();
             string expected = window.Title;
 
-            string helperPath = Path.Combine(TestContext.DeploymentDirectory, "WindowTextHelper32.exe");
-            if (!File.Exists(helperPath)) {
-                helperPath = Path.Combine(AppContext.BaseDirectory, "WindowTextHelper32.exe");
-            }
+        string helperPath = Path.Combine(TestContext.DeploymentDirectory, "WindowTextHelper32.exe");
+        if (!File.Exists(helperPath)) {
+            helperPath = Path.Combine(AppContext.BaseDirectory, "WindowTextHelper32.exe");
+        }
+        if (!File.Exists(helperPath)) {
+            Assert.Inconclusive("Helper executable not found");
+        }
 
             using var helper = Process.Start(new ProcessStartInfo(helperPath, window.Handle.ToInt64().ToString()) {
                 RedirectStandardOutput = true,

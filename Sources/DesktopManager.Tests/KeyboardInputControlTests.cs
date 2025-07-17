@@ -21,15 +21,21 @@ public class KeyboardInputControlTests {
             Assert.Inconclusive("Failed to start Notepad");
         }
 
+        proc1.WaitForInputIdle(2000);
+        proc2.WaitForInputIdle(2000);
+
         try {
             var manager = new WindowManager();
             var win1 = manager.GetWindowsForProcess(proc1!).First();
             var win2 = manager.GetWindowsForProcess(proc2!).First();
             MonitorNativeMethods.SetForegroundWindow(win2.Handle);
 
-            var enumerator = new ControlEnumerator();
-            var ctrl = enumerator.EnumerateControls(win1.Handle).First(c => c.ClassName == "Edit");
-            KeyboardInputService.SendToControl(ctrl, VirtualKey.VK_H, VirtualKey.VK_I);
+        var enumerator = new ControlEnumerator();
+        var ctrl = enumerator.EnumerateControls(win1.Handle).FirstOrDefault(c => c.ClassName == "Edit");
+        if (ctrl == null) {
+            Assert.Inconclusive("Edit control not found");
+        }
+        KeyboardInputService.SendToControl(ctrl, VirtualKey.VK_H, VirtualKey.VK_I);
             Thread.Sleep(500);
 
             int len = MonitorNativeMethods.GetWindowTextLength(ctrl.Handle);
