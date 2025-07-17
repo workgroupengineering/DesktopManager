@@ -30,10 +30,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DesktopManager\DesktopManager.csproj" />
-    <ProjectReference Include="..\WindowTextHelper32\WindowTextHelper32.csproj" OutputItemType="Content" ReferenceOutputAssembly="false">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </ProjectReference>
+    <ProjectReference Include="..\WindowTextHelper32\WindowTextHelper32.csproj" OutputItemType="Content" ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <Target Name="CopyWindowHelperDependencies" AfterTargets="Build">
+    <ItemGroup>
+      <HelperFiles Include="$(MSBuildProjectDirectory)\..\WindowTextHelper32\bin\$(Configuration)\net472\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(HelperFiles)" DestinationFiles="@(HelperFiles->'$(OutDir)WindowTextHelper32\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
