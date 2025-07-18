@@ -27,6 +27,7 @@ public sealed class HotkeyService : IDisposable {
 
     private HotkeyService() {
         _thread = new Thread(MessageLoop) { IsBackground = true };
+        _thread.SetApartmentState(ApartmentState.STA);
         _thread.Start();
         _ready.Wait();
     }

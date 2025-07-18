@@ -12,8 +12,8 @@ public partial class WindowManager {
         }
 
         int command = show ? MonitorNativeMethods.SW_SHOW : MonitorNativeMethods.SW_HIDE;
-        if (!MonitorNativeMethods.ShowWindow(window.Handle, command)) {
-            throw new InvalidOperationException("ShowWindow failed");
-        }
+        // The native ShowWindow API returns the previous visibility state, not
+        // whether the call succeeded, so ignore the return value.
+        MonitorNativeMethods.ShowWindow(window.Handle, command);
     }
 }
