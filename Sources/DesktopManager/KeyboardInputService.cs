@@ -95,14 +95,19 @@ public static class KeyboardInputService {
         }
 
         foreach (VirtualKey key in keys) {
-            // Send a standard key sequence: KEYDOWN, optional CHAR for printable
-            // characters, then KEYUP so controls receive the full input.
-            MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_KEYDOWN, (uint)key, 0);
-            if ((key >= VirtualKey.VK_SPACE && key <= VirtualKey.VK_Z) ||
-                (key >= VirtualKey.VK_0 && key <= VirtualKey.VK_9)) {
-                MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_CHAR, (uint)key, 0);
+            bool printable =
+                (key >= VirtualKey.VK_SPACE && key <= VirtualKey.VK_Z) ||
+                (key >= VirtualKey.VK_0 && key <= VirtualKey.VK_9);
+
+            if (printable) {
+                int len = MonitorNativeMethods.GetWindowTextLength(control.Handle);
+                MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.EM_SETSEL, (uint)len, (uint)len);
+                string text = ((char)key).ToString();
+                MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.EM_REPLACESEL, (IntPtr)1, text);
+            } else {
+                MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_KEYDOWN, (uint)key, 0);
+                MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_KEYUP, (uint)key, 0);
             }
-            MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_KEYUP, (uint)key, 0);
         }
     }
 }

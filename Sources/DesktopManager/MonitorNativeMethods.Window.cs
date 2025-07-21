@@ -140,6 +140,12 @@ public static partial class MonitorNativeMethods
     public static extern uint SendMessage(IntPtr hWnd, uint Msg, uint wParam, uint lParam);
 
     /// <summary>
+    /// Sends a string message to a window.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam);
+
+    /// <summary>
     /// Sends a message with a timeout.
     /// </summary>
     /// <param name="hWnd">Window handle.</param>
@@ -392,6 +398,11 @@ public static partial class MonitorNativeMethods
     public const uint WM_SETTINGCHANGE = 0x001A;
 
     /// <summary>
+    /// Sets text of a window.
+    /// </summary>
+    public const uint WM_SETTEXT = 0x000C;
+
+    /// <summary>
     /// Retrieves text from a window.
     /// </summary>
     public const uint WM_GETTEXT = 0x000D;
@@ -415,6 +426,16 @@ public static partial class MonitorNativeMethods
     /// Message used for character input events.
     /// </summary>
     public const uint WM_CHAR = 0x0102;
+
+    /// <summary>
+    /// Edit control message to set selection.
+    /// </summary>
+    public const uint EM_SETSEL = 0x00B1;
+
+    /// <summary>
+    /// Edit control message to replace selection.
+    /// </summary>
+    public const uint EM_REPLACESEL = 0x00C2;
 
     /// <summary>
     /// Clipboard format for Unicode text.
