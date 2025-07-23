@@ -102,8 +102,7 @@ public static class KeyboardInputService {
             if (printable) {
                 uint end = unchecked((uint)0xFFFFFFFF);
                 MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.EM_SETSEL, end, end);
-                string text = ((char)key).ToString();
-                MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.EM_REPLACESEL, new IntPtr(1), text);
+                MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_CHAR, (uint)key, 0);
             } else {
                 MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_KEYDOWN, (uint)key, 0);
                 MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_KEYUP, (uint)key, 0);
