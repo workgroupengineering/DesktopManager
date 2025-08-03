@@ -25,9 +25,17 @@ public class ComInitializationTests {
             Assert.Inconclusive("Test requires Windows");
         }
         var service = new ComTrackingService();
-        try { service.SetLogonWallpaper("path"); } catch { }
-        Assert.IsTrue(service.InitCalled);
-        Assert.IsTrue(service.UninitCalled);
+        try { 
+            service.SetLogonWallpaper("path"); 
+        } catch (UnauthorizedAccessException) {
+            // Expected when not elevated - COM should still be initialized before privilege check
+        } catch (InvalidOperationException) {
+            // Expected when Windows runtime isn't available - COM should still be initialized
+        } catch { 
+            // Other exceptions are fine for this test
+        }
+        Assert.IsTrue(service.InitCalled, "InitializeCom should have been called");
+        Assert.IsTrue(service.UninitCalled, "UninitializeCom should have been called");
     }
 
     [TestMethod]

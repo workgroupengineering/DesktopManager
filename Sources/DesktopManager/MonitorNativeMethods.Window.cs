@@ -436,6 +436,32 @@ public static partial class MonitorNativeMethods
     /// Edit control message to replace selection.
     /// </summary>
     public const uint EM_REPLACESEL = 0x00C2;
+    
+    /// <summary>
+    /// Gets the handle to the window that has the keyboard focus.
+    /// </summary>
+    /// <returns>Handle to the window with keyboard focus.</returns>
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetFocus();
+    
+    /// <summary>
+    /// Sets the keyboard focus to the specified window.
+    /// </summary>
+    /// <param name="hWnd">Handle to the window to receive focus.</param>
+    /// <returns>Handle to the window that previously had focus.</returns>
+    [DllImport("user32.dll")]
+    public static extern IntPtr SetFocus(IntPtr hWnd);
+    
+    /// <summary>
+    /// Posts a message to a window's message queue.
+    /// </summary>
+    /// <param name="hWnd">Handle to the window.</param>
+    /// <param name="Msg">Message to post.</param>
+    /// <param name="wParam">First message parameter.</param>
+    /// <param name="lParam">Second message parameter.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll")]
+    public static extern bool PostMessage(IntPtr hWnd, uint Msg, uint wParam, uint lParam);
 
     /// <summary>
     /// Clipboard format for Unicode text.

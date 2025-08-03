@@ -19,21 +19,15 @@ public static class ScreenshotService {
     /// </summary>
     /// <returns>A <see cref="Bitmap"/> containing the screenshot.</returns>
     public static Bitmap CaptureScreen() {
-        Monitors monitors = new();
-        var rects = monitors.GetMonitors(connectedOnly: true)
-                            .Select(m => m.GetMonitorBounds())
-                            .ToList();
-
-        if (!rects.Any()) {
-            throw new InvalidOperationException("No monitors detected");
-        }
-
-        int left = rects.Min(r => r.Left);
-        int top = rects.Min(r => r.Top);
-        int right = rects.Max(r => r.Right);
-        int bottom = rects.Max(r => r.Bottom);
-
-        return CaptureRegion(left, top, right - left, bottom - top);
+        // Use the system-reported virtual screen bounds instead of calculating from individual monitors
+        // This ensures we capture exactly what Windows considers the virtual screen
+#if NETFRAMEWORK
+        var bounds = SystemInformation.VirtualScreen;
+#else
+        var bounds = GetVirtualScreenBounds();
+#endif
+        
+        return CaptureRegion(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
     }
 
     /// <summary>
@@ -87,8 +81,33 @@ public static class ScreenshotService {
 #else
         bounds = GetVirtualScreenBounds();
 #endif
-        if (left < bounds.Left || top < bounds.Top || left + width > bounds.Right || top + height > bounds.Bottom) {
-            throw new ArgumentOutOfRangeException(nameof(left), "Region is outside the bounds of the virtual screen");
+        // Check if the requested region is within the virtual screen bounds
+        int requestedRight = left + width;
+        int requestedBottom = top + height;
+        int boundsRight = bounds.Left + bounds.Width;
+        int boundsBottom = bounds.Top + bounds.Height;
+        
+        // First try to capture as-is if it's within bounds
+        bool isWithinBounds = left >= bounds.Left && top >= bounds.Top && 
+                             requestedRight <= boundsRight && requestedBottom <= boundsBottom;
+        
+        if (!isWithinBounds) {
+            // For monitor capture, try to intersect with virtual screen bounds to handle coordinate system mismatches
+            int adjustedLeft = Math.Max(left, bounds.Left);
+            int adjustedTop = Math.Max(top, bounds.Top);
+            int adjustedRight = Math.Min(requestedRight, boundsRight);
+            int adjustedBottom = Math.Min(requestedBottom, boundsBottom);
+            
+            // If there's still a valid intersection, use it
+            if (adjustedLeft < adjustedRight && adjustedTop < adjustedBottom) {
+                left = adjustedLeft;
+                top = adjustedTop;
+                width = adjustedRight - adjustedLeft;
+                height = adjustedBottom - adjustedTop;
+            } else {
+                throw new ArgumentOutOfRangeException(nameof(left), 
+                    $"Region ({left}, {top}, {width}x{height}) is outside the bounds of the virtual screen ({bounds.Left}, {bounds.Top}, {bounds.Width}x{bounds.Height})");
+            }
         }
 
         Bitmap bitmap = new Bitmap(width, height);

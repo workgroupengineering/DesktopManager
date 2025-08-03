@@ -52,11 +52,23 @@ public partial class WindowManager {
             var windows = new List<WindowInfo>();
             foreach (var handle in handles) {
                 var title = WindowTextHelper.GetWindowText(handle);
-                if (!string.IsNullOrEmpty(title)) {
+                
+                // For process-specific queries, include windows even with empty titles
+                // For name-based queries, skip empty titles unless using wildcard "*"
+                bool shouldInclude = processId > 0 || 
+                                    (name == "*" && processName == "*" && className == "*" && regex == null) ||
+                                    !string.IsNullOrEmpty(title);
+                
+                if (shouldInclude) {
 
-                    bool titleMatches = regex != null ? regex.IsMatch(title) : MatchesWildcard(title, name);
-                    if (!titleMatches) {
-                        continue;
+                    // Skip title matching if title is empty and we're doing process-based search
+                    if (!string.IsNullOrEmpty(title) || processId <= 0) {
+                        bool titleMatches = regex != null ? 
+                            (string.IsNullOrEmpty(title) ? false : regex.IsMatch(title)) : 
+                            MatchesWildcard(title ?? "", name);
+                        if (!titleMatches) {
+                            continue;
+                        }
                     }
 
                     uint windowProcessId = 0;
@@ -138,16 +150,77 @@ public partial class WindowManager {
         }
 
         /// <summary>
+        /// Finds windows by process name and title pattern.
+        /// </summary>
+        /// <param name="processName">Name of the process (e.g., "notepad").</param>
+        /// <param name="titlePattern">Optional title pattern to match.</param>
+        /// <param name="includeHidden">Whether to include hidden windows.</param>
+        /// <returns>List of matching windows.</returns>
+        public List<WindowInfo> FindWindowsByProcess(string processName, string titlePattern = "*", bool includeHidden = false) {
+            if (string.IsNullOrEmpty(processName)) {
+                throw new ArgumentNullException(nameof(processName));
+            }
+            
+            // Get all windows matching the title pattern
+            var windows = GetWindows(name: titlePattern, includeHidden: includeHidden);
+            
+            // Filter by process name
+            var result = new List<WindowInfo>();
+            foreach (var window in windows) {
+                try {
+                    using var proc = Process.GetProcessById((int)window.ProcessId);
+                    if (string.Equals(proc.ProcessName, processName, StringComparison.OrdinalIgnoreCase)) {
+                        result.Add(window);
+                    }
+                } catch {
+                    // Process might have exited, skip it
+                }
+            }
+            
+            return result;
+        }
+        
+        /// <summary>
         /// Gets windows belonging to the specified process.
         /// </summary>
         /// <param name="process">Process whose windows to retrieve.</param>
+        /// <param name="includeHidden">Whether to include hidden windows.</param>
         /// <returns>List of windows owned by the process.</returns>
         public List<WindowInfo> GetWindowsForProcess(Process process, bool includeHidden = false) {
             if (process == null) {
                 throw new ArgumentNullException(nameof(process));
             }
 
-            return GetWindows(processId: process.Id, includeHidden: includeHidden);
+            // First try direct process ID match
+            var windows = GetWindows(processId: process.Id, includeHidden: includeHidden);
+            
+            // If no windows found and process has a MainWindowHandle, try to find it
+            if (windows.Count == 0 && process.MainWindowHandle != IntPtr.Zero) {
+                var allWindows = GetWindows(includeHidden: includeHidden);
+                var mainWindow = allWindows.FirstOrDefault(w => w.Handle == process.MainWindowHandle);
+                if (mainWindow != null) {
+                    windows.Add(mainWindow);
+                }
+            }
+            
+            // For modern Windows apps, also check child processes
+            if (windows.Count == 0) {
+                try {
+                    // Get all processes with the same name
+                    var relatedProcesses = Process.GetProcessesByName(process.ProcessName);
+                    foreach (var related in relatedProcesses) {
+                        if (related.Id != process.Id) {
+                            var relatedWindows = GetWindows(processId: related.Id, includeHidden: includeHidden);
+                            windows.AddRange(relatedWindows);
+                        }
+                        related.Dispose();
+                    }
+                } catch {
+                    // Ignore errors when checking related processes
+                }
+            }
+            
+            return windows;
         }
 
         /// <summary>

@@ -81,12 +81,25 @@ public static class WindowTextHelper {
             return false;
         }
 
-        MonitorNativeMethods.GetWindowThreadProcessId(handle, out uint pid);
-        using var target = Process.GetProcessById((int)pid);
-        bool currentWow64 = false;
-        bool targetWow64 = false;
-        MonitorNativeMethods.IsWow64Process(Process.GetCurrentProcess().Handle, out currentWow64);
-        MonitorNativeMethods.IsWow64Process(target.Handle, out targetWow64);
-        return currentWow64 != targetWow64;
+        try {
+            MonitorNativeMethods.GetWindowThreadProcessId(handle, out uint pid);
+            using var target = Process.GetProcessById((int)pid);
+            bool currentWow64 = false;
+            bool targetWow64 = false;
+            MonitorNativeMethods.IsWow64Process(Process.GetCurrentProcess().Handle, out currentWow64);
+            
+            // Try to get target process handle, but handle access denied gracefully
+            try {
+                MonitorNativeMethods.IsWow64Process(target.Handle, out targetWow64);
+            } catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 5) {
+                // Access denied - assume no bitness mismatch to allow fallback to SendMessage
+                return false;
+            }
+            
+            return currentWow64 != targetWow64;
+        } catch {
+            // If we can't determine bitness, assume no mismatch
+            return false;
+        }
     }
 }

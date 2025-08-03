@@ -94,19 +94,39 @@ public static class KeyboardInputService {
             throw new ArgumentException("No keys specified", nameof(keys));
         }
 
+        // First, try to set focus to the control
+        var previousFocus = MonitorNativeMethods.GetFocus();
+        MonitorNativeMethods.SetFocus(control.Handle);
+        
+        // Give focus time to change
+        System.Threading.Thread.Sleep(50);
+
         foreach (VirtualKey key in keys) {
             bool printable =
                 (key >= VirtualKey.VK_SPACE && key <= VirtualKey.VK_Z) ||
                 (key >= VirtualKey.VK_0 && key <= VirtualKey.VK_9);
 
             if (printable) {
+                // For printable characters, try WM_CHAR first
                 uint end = unchecked((uint)0xFFFFFFFF);
                 MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.EM_SETSEL, end, end);
                 MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_CHAR, (uint)key, 0);
+                
+                // Also try PostMessage as a fallback (works better for some controls)
+                MonitorNativeMethods.PostMessage(control.Handle, MonitorNativeMethods.WM_CHAR, (uint)key, 0);
             } else {
+                // For non-printable keys, send key down/up events
                 MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_KEYDOWN, (uint)key, 0);
                 MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_KEYUP, (uint)key, 0);
             }
+            
+            // Small delay between keys
+            System.Threading.Thread.Sleep(10);
+        }
+        
+        // Restore previous focus if it was different
+        if (previousFocus != IntPtr.Zero && previousFocus != control.Handle) {
+            MonitorNativeMethods.SetFocus(previousFocus);
         }
     }
 }

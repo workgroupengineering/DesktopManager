@@ -27,11 +27,29 @@ public class WindowTitleMatchingTests
             Assert.Inconclusive("No windows found to test");
         }
 
-        var window = windows.First();
+        // Find a window with a non-empty title that has mixed case
+        var window = windows.FirstOrDefault(w => 
+            !string.IsNullOrEmpty(w.Title) && 
+            w.Title.Length > 1 &&
+            w.Title.Any(char.IsLetter));
+            
+        if (window == null)
+        {
+            Assert.Inconclusive("No windows with non-empty titles found to test");
+        }
+
         string titleUpper = window.Title.ToUpperInvariant();
         string titleLower = window.Title.ToLowerInvariant();
 
-        Assert.IsTrue(manager.GetWindows(titleUpper).Any(w => w.Handle == window.Handle));
-        Assert.IsTrue(manager.GetWindows(titleLower).Any(w => w.Handle == window.Handle));
+        // Only test if the title actually has different cases
+        if (titleUpper == titleLower)
+        {
+            Assert.Inconclusive("Window title has no case differences to test");
+        }
+
+        Assert.IsTrue(manager.GetWindows(titleUpper).Any(w => w.Handle == window.Handle),
+            $"Failed to find window with uppercase title: '{titleUpper}'");
+        Assert.IsTrue(manager.GetWindows(titleLower).Any(w => w.Handle == window.Handle),
+            $"Failed to find window with lowercase title: '{titleLower}'");
     }
 }

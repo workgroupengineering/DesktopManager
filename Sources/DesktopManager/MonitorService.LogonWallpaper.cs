@@ -18,46 +18,49 @@ public partial class MonitorService {
     /// <param name="imagePath">Path to the image file.</param>
     [SupportedOSPlatform("windows")]
     public void SetLogonWallpaper(string imagePath) {
-        PrivilegeChecker.EnsureElevated();
         bool comInitialized = InitializeCom();
-    
+        
         try {
-            Type lockScreenType = Type.GetType(
-                "Windows.System.UserProfile.LockScreen, Windows, ContentType=WindowsRuntime")
-                    ?? throw new InvalidOperationException("LockScreen type not found");
-            Type storageFileType = Type.GetType(
-                "Windows.Storage.StorageFile, Windows, ContentType=WindowsRuntime")
-                    ?? throw new InvalidOperationException("StorageFile type not found");
+            PrivilegeChecker.EnsureElevated();
+        
+            try {
+                Type lockScreenType = Type.GetType(
+                    "Windows.System.UserProfile.LockScreen, Windows, ContentType=WindowsRuntime")
+                        ?? throw new InvalidOperationException("LockScreen type not found");
+                Type storageFileType = Type.GetType(
+                    "Windows.Storage.StorageFile, Windows, ContentType=WindowsRuntime")
+                        ?? throw new InvalidOperationException("StorageFile type not found");
 
-            var getFileMethod = storageFileType.GetMethod("GetFileFromPathAsync")
-                ?? throw new InvalidOperationException("GetFileFromPathAsync method not found");
-            var fileOp = getFileMethod.Invoke(null, new object[] { imagePath });
-            var asTaskMethod = fileOp.GetType().GetMethod("AsTask")
-                ?? throw new InvalidOperationException("AsTask method not found on file operation");
-            var fileTask = (System.Threading.Tasks.Task)asTaskMethod.Invoke(fileOp, null);
-            fileTask.Wait();
-            var fileProp = fileTask.GetType().GetProperty("Result")
-                ?? throw new InvalidOperationException("Result property missing on task");
-            var file = fileProp.GetValue(fileTask);
-            var setMethod = lockScreenType.GetMethod("SetImageFileAsync")
-                ?? throw new InvalidOperationException("SetImageFileAsync method not found");
-            var setOp = setMethod.Invoke(null, new object[] { file });
-            var opAsTaskMethod = setOp.GetType().GetMethod("AsTask")
-                ?? throw new InvalidOperationException("AsTask method not found on set operation");
-            var opTask = (System.Threading.Tasks.Task)opAsTaskMethod.Invoke(setOp, null);
-            opTask.Wait();
-            return;
-        } catch (InvalidOperationException) {
-            throw;
-        } catch {
-            // ignore and use fallback
+                var getFileMethod = storageFileType.GetMethod("GetFileFromPathAsync")
+                    ?? throw new InvalidOperationException("GetFileFromPathAsync method not found");
+                var fileOp = getFileMethod.Invoke(null, new object[] { imagePath });
+                var asTaskMethod = fileOp.GetType().GetMethod("AsTask")
+                    ?? throw new InvalidOperationException("AsTask method not found on file operation");
+                var fileTask = (System.Threading.Tasks.Task)asTaskMethod.Invoke(fileOp, null);
+                fileTask.Wait();
+                var fileProp = fileTask.GetType().GetProperty("Result")
+                    ?? throw new InvalidOperationException("Result property missing on task");
+                var file = fileProp.GetValue(fileTask);
+                var setMethod = lockScreenType.GetMethod("SetImageFileAsync")
+                    ?? throw new InvalidOperationException("SetImageFileAsync method not found");
+                var setOp = setMethod.Invoke(null, new object[] { file });
+                var opAsTaskMethod = setOp.GetType().GetMethod("AsTask")
+                    ?? throw new InvalidOperationException("AsTask method not found on set operation");
+                var opTask = (System.Threading.Tasks.Task)opAsTaskMethod.Invoke(setOp, null);
+                opTask.Wait();
+                return;
+            } catch (InvalidOperationException) {
+                throw;
+            } catch {
+                // ignore and use fallback
+            }
+
+            SetLogonWallpaperFallback(imagePath);
         } finally {
             if (comInitialized) {
                 UninitializeCom();
             }
         }
-
-        SetLogonWallpaperFallback(imagePath);
     }
 
     private static void SetLogonWallpaperFallback(string imagePath) {

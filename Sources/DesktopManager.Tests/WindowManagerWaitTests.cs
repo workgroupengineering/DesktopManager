@@ -25,7 +25,12 @@ public class WindowManagerWaitTests {
             Assert.Inconclusive("No windows found to test");
         }
 
-        var target = windows.First();
+        // Find a window with a non-empty title
+        var target = windows.FirstOrDefault(w => !string.IsNullOrEmpty(w.Title));
+        if (target == null) {
+            Assert.Inconclusive("No windows with titles found to test");
+        }
+
         var result = manager.WaitWindow(target.Title, 1000);
         Assert.AreEqual(target.Handle, result.Handle);
     }
