@@ -37,3 +37,4 @@ Sources/DesktopManager.Tests/WindowTextHelper32/
 *.suo
 *.cache
 .vscode/
+.claude/
