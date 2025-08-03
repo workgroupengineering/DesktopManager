@@ -58,7 +58,7 @@ public sealed class HotkeyService : IDisposable {
         MonitorNativeMethods.PostMessage(_hwnd, WM_RUN, IntPtr.Zero, IntPtr.Zero);
         done.Wait();
         if (ex != null) {
-            throw ex;
+            throw;
         }
     }
 
@@ -98,10 +98,10 @@ public sealed class HotkeyService : IDisposable {
     /// </summary>
     /// <param name="id">Identifier returned from <see cref="RegisterHotkey"/>.</param>
     public void UnregisterHotkey(int id) {
-        Invoke(() => MonitorNativeMethods.UnregisterHotKey(_hwnd, id));
-        lock (_callbacks) {
+        Invoke(() => {
+            MonitorNativeMethods.UnregisterHotKey(_hwnd, id);
             _callbacks.Remove(id);
-        }
+        });
     }
 
     private void MessageLoop() {
