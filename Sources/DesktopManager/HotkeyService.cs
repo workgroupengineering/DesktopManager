@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading;
@@ -58,7 +59,7 @@ public sealed class HotkeyService : IDisposable {
         MonitorNativeMethods.PostMessage(_hwnd, WM_RUN, IntPtr.Zero, IntPtr.Zero);
         done.Wait();
         if (ex != null) {
-            throw;
+            ExceptionDispatchInfo.Capture(ex).Throw();
         }
     }
 
