@@ -3,8 +3,8 @@ BeforeAll {
 }
 
 describe 'Get-DesktopControlCheck' {
-    it 'returns boolean state' -Skip:(-not $IsWindows) {
+    it 'validates control handle parameter' -Skip:(-not $IsWindows) {
         $info = [DesktopManager.WindowControlInfo]::new()
-        { Get-DesktopControlCheck -Control $info } | Should -Not -Throw
+        { Get-DesktopControlCheck -Control $info } | Should -Throw
     }
 }
