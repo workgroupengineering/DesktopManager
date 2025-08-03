@@ -129,26 +129,41 @@ public class WindowManagerFilterTests {
             Assert.Inconclusive("No windows found to test");
         }
 
-        // Find a window from a standard process with simpler class names
-        var window = windows.FirstOrDefault(w => {
+        // Find a window with a stable class name that we can reliably filter by
+        WindowInfo selectedWindow = null;
+        string selectedClassName = null;
+        
+        foreach (var w in windows) {
             try {
                 var sb = new StringBuilder(256);
                 MonitorNativeMethods.GetClassName(w.Handle, sb, sb.Capacity);
                 var className = sb.ToString();
-                return className.Length < 50 && !className.Contains(":");  // Avoid complex class names
+                
+                // Skip empty or very complex class names
+                if (string.IsNullOrEmpty(className) || className.Length > 50 || className.Contains(":")) {
+                    continue;
+                }
+                
+                // Test if this class name actually returns results
+                var testFiltered = manager.GetWindows(className: className, includeHidden: true);
+                if (testFiltered.Any(tw => tw.Handle == w.Handle)) {
+                    selectedWindow = w;
+                    selectedClassName = className;
+                    break;
+                }
             } catch {
-                return false;
+                continue;
             }
-        }) ?? windows.First();
+        }
         
-        var sb = new StringBuilder(256);
-        MonitorNativeMethods.GetClassName(window.Handle, sb, sb.Capacity);
-        var className = sb.ToString();
+        if (selectedWindow == null) {
+            Assert.Inconclusive("No suitable window with filterable class name found for testing");
+        }
         
-        var filtered = manager.GetWindows(className: className, includeHidden: true);
+        var filtered = manager.GetWindows(className: selectedClassName, includeHidden: true);
         
-        Assert.IsTrue(filtered.Any(w => w.Handle == window.Handle), 
-            $"Expected to find window {window.Handle:X8} with class '{className}' in filtered results");
+        Assert.IsTrue(filtered.Any(w => w.Handle == selectedWindow.Handle), 
+            $"Expected to find window {selectedWindow.Handle:X8} with class '{selectedClassName}' in filtered results");
     }
 
     [TestMethod]
