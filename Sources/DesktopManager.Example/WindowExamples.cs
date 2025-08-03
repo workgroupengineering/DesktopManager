@@ -33,6 +33,14 @@ namespace DesktopManager.Example {
 
             // Reset top-most state
             manager.SetWindowTopMost(window, false);
+
+            // Invert selection of the first two windows
+            var windows = manager.GetWindows();
+            if (windows.Count >= 2) {
+                var handles = windows.Take(2).Select(w => (int)w.Handle).ToArray();
+                var selected = manager.InvertWindowSelection(handles);
+                Console.WriteLine($"Selected {selected.Length} windows after invert.");
+            }
         }
     }
 }

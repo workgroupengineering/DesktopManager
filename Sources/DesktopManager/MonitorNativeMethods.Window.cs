@@ -140,6 +140,12 @@ public static partial class MonitorNativeMethods
     public static extern uint SendMessage(IntPtr hWnd, uint Msg, uint wParam, uint lParam);
 
     /// <summary>
+    /// Sends a string message to a window.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam);
+
+    /// <summary>
     /// Sends a message with a timeout.
     /// </summary>
     /// <param name="hWnd">Window handle.</param>
@@ -392,6 +398,11 @@ public static partial class MonitorNativeMethods
     public const uint WM_SETTINGCHANGE = 0x001A;
 
     /// <summary>
+    /// Sets text of a window.
+    /// </summary>
+    public const uint WM_SETTEXT = 0x000C;
+
+    /// <summary>
     /// Retrieves text from a window.
     /// </summary>
     public const uint WM_GETTEXT = 0x000D;
@@ -407,9 +418,50 @@ public static partial class MonitorNativeMethods
     public const uint WM_KEYDOWN = 0x0100;
 
     /// <summary>
+    /// Message used for key up events.
+    /// </summary>
+    public const uint WM_KEYUP = 0x0101;
+
+    /// <summary>
     /// Message used for character input events.
     /// </summary>
     public const uint WM_CHAR = 0x0102;
+
+    /// <summary>
+    /// Edit control message to set selection.
+    /// </summary>
+    public const uint EM_SETSEL = 0x00B1;
+
+    /// <summary>
+    /// Edit control message to replace selection.
+    /// </summary>
+    public const uint EM_REPLACESEL = 0x00C2;
+    
+    /// <summary>
+    /// Gets the handle to the window that has the keyboard focus.
+    /// </summary>
+    /// <returns>Handle to the window with keyboard focus.</returns>
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetFocus();
+    
+    /// <summary>
+    /// Sets the keyboard focus to the specified window.
+    /// </summary>
+    /// <param name="hWnd">Handle to the window to receive focus.</param>
+    /// <returns>Handle to the window that previously had focus.</returns>
+    [DllImport("user32.dll")]
+    public static extern IntPtr SetFocus(IntPtr hWnd);
+    
+    /// <summary>
+    /// Posts a message to a window's message queue.
+    /// </summary>
+    /// <param name="hWnd">Handle to the window.</param>
+    /// <param name="Msg">Message to post.</param>
+    /// <param name="wParam">First message parameter.</param>
+    /// <param name="lParam">Second message parameter.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll")]
+    public static extern bool PostMessage(IntPtr hWnd, uint Msg, uint wParam, uint lParam);
 
     /// <summary>
     /// Clipboard format for Unicode text.

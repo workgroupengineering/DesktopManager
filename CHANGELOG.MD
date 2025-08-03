@@ -1,3 +1,9 @@
+## 3.1.0 - 2025.07.20
+
+Added;
+
+- InvertWindowSelection method for toggling window selections
+
 ## 3.0.0 - 2025.03.21
 
 Added;
