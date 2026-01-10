@@ -4,10 +4,14 @@ $Private = @( Get-ChildItem -Path $PSScriptRoot\Private\*.ps1 -ErrorAction Silen
 $Classes = @( Get-ChildItem -Path $PSScriptRoot\Classes\*.ps1 -ErrorAction SilentlyContinue -Recurse -File)
 $Enums = @( Get-ChildItem -Path $PSScriptRoot\Enums\*.ps1 -ErrorAction SilentlyContinue -Recurse -File)
 # Get all assemblies
-$AssemblyFolders = Get-ChildItem -Path $PSScriptRoot\Lib -Directory -ErrorAction SilentlyContinue -File
+$AssemblyFolders = Get-ChildItem -Path $PSScriptRoot\Lib -Directory -ErrorAction SilentlyContinue
 
 # to speed up development adding direct path to binaries, instead of the the Lib folder
-$Development = $true
+$Development = $false
+$DevelopmentEnv = $env:DESKTOPMANAGER_DEVELOPMENT
+if ($DevelopmentEnv) {
+    $Development = $DevelopmentEnv.ToString().ToLowerInvariant() -in @('1', 'true', 'yes', 'on')
+}
 $DevelopmentPath = "$PSScriptRoot\Sources\DesktopManager.PowerShell\bin\Debug"
 $DevelopmentFolderCore = "net8.0"
 $DevelopmentFolderDefault = "net472"
@@ -70,17 +74,20 @@ $Assembly = @(
     }
 )
 
-$BinaryDev = @(
-    foreach ($BinaryModule in $BinaryModules) {
-        if ($PSEdition -eq 'Core') {
-            $Variable = Resolve-Path "$DevelopmentPath\$DevelopmentFolderCore\$BinaryModule"
-        } else {
-            $Variable = Resolve-Path "$DevelopmentPath\$DevelopmentFolderDefault\$BinaryModule"
+$BinaryDev = @()
+if ($Development) {
+    $BinaryDev = @(
+        foreach ($BinaryModule in $BinaryModules) {
+            if ($PSEdition -eq 'Core') {
+                $Variable = Resolve-Path "$DevelopmentPath\$DevelopmentFolderCore\$BinaryModule"
+            } else {
+                $Variable = Resolve-Path "$DevelopmentPath\$DevelopmentFolderDefault\$BinaryModule"
+            }
+            $Variable
+            Write-Warning "Development mode: Using binaries from $Variable"
         }
-        $Variable
-        Write-Warning "Development mode: Using binaries from $Variable"
-    }
-)
+    )
+}
 
 $FoundErrors = @(
     if ($Development) {
