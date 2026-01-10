@@ -32,10 +32,38 @@ public partial class WindowManager {
         /// <param name="className">Optional window class name filter. Supports wildcards.</param>
         /// <param name="regex">Optional regular expression to match the window title.</param>
         /// <param name="processId">Optional process ID filter.</param>
+        /// <param name="includeHidden">Whether to include hidden windows.</param>
+        /// <param name="includeCloaked">Whether to include DWM-cloaked windows.</param>
+        /// <param name="includeOwned">Whether to include owned top-level windows.</param>
         /// <returns>A list of WindowInfo objects.</returns>
-        public List<WindowInfo> GetWindows(string name = "*", string processName = "*", string className = "*", Regex regex = null, int processId = 0, bool includeHidden = false) {
+        public List<WindowInfo> GetWindows(string name = "*", string processName = "*", string className = "*", Regex? regex = null, int processId = 0, bool includeHidden = false, bool includeCloaked = true, bool includeOwned = true) {     
+            var options = new WindowQueryOptions {
+                TitlePattern = name,
+                ProcessNamePattern = processName,
+                ClassNamePattern = className,
+                TitleRegex = regex,
+                ProcessId = processId,
+                IncludeHidden = includeHidden,
+                IncludeCloaked = includeCloaked,
+                IncludeOwned = includeOwned
+            };
+
+            return GetWindows(options);
+        }
+
+        /// <summary>
+        /// Gets windows using the specified query options.
+        /// </summary>
+        /// <param name="options">Window query options.</param>
+        /// <returns>A list of WindowInfo objects.</returns>
+        public List<WindowInfo> GetWindows(WindowQueryOptions options) {
+            if (options == null) {
+                throw new ArgumentNullException(nameof(options));
+            }
+
             var handles = new List<IntPtr>();
             var shellWindowhWnd = MonitorNativeMethods.GetShellWindow();
+            bool includeHidden = options.IncludeHidden || options.IsVisible == false;
 
             if (!MonitorNativeMethods.EnumWindows(
                 (handle, lParam) => {
@@ -50,101 +78,133 @@ public partial class WindowManager {
             }
 
             var windows = new List<WindowInfo>();
-            foreach (var handle in handles) {
+            for (int index = 0; index < handles.Count; index++) {
+                var handle = handles[index];
                 var title = WindowTextHelper.GetWindowText(handle);
-                
+                var ownerHandle = MonitorNativeMethods.GetWindow(handle, MonitorNativeMethods.GW_OWNER);
+                if (!options.IncludeOwned && ownerHandle != IntPtr.Zero) {
+                    continue;
+                }
+
+                bool isCloaked = false;
+                MonitorNativeMethods.TryGetWindowCloaked(handle, out isCloaked);
+                if (!options.IncludeCloaked && isCloaked) {
+                    continue;
+                }
+
+                bool isVisible = MonitorNativeMethods.IsWindowVisible(handle);
+                if (options.IsVisible.HasValue && options.IsVisible.Value != isVisible) {
+                    continue;
+                }
+
                 // For process-specific queries, include windows even with empty titles
                 // For name-based queries, skip empty titles unless using wildcard "*"
-                bool shouldInclude = processId > 0 || 
-                                    (name == "*" && processName == "*" && className == "*" && regex == null) ||
+                bool shouldInclude = options.ProcessId > 0 ||
+                                    (options.TitlePattern == "*" && options.ProcessNamePattern == "*" && options.ClassNamePattern == "*" && options.TitleRegex == null) ||
                                     !string.IsNullOrEmpty(title);
-                
-                if (shouldInclude) {
 
-                    // Skip title matching if title is empty and we're doing process-based search
-                    if (!string.IsNullOrEmpty(title) || processId <= 0) {
-                        bool titleMatches = regex != null ? 
-                            (string.IsNullOrEmpty(title) ? false : regex.IsMatch(title)) : 
-                            MatchesWildcard(title ?? "", name);
-                        if (!titleMatches) {
-                            continue;
-                        }
-                    }
+                if (!shouldInclude) {
+                    continue;
+                }
 
-                    uint windowProcessId = 0;
-                    MonitorNativeMethods.GetWindowThreadProcessId(handle, out windowProcessId);
-
-                    if (!string.IsNullOrEmpty(processName) && processName != "*") {
-                        try {
-                            var process = Process.GetProcessById((int)windowProcessId);
-                            if (!MatchesWildcard(process.ProcessName, processName)) {
-                                continue;
-                            }
-                        } catch {
-                            continue;
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(className) && className != "*") {
-                        var classBuilder = new StringBuilder(256);
-                        MonitorNativeMethods.GetClassName(handle, classBuilder, classBuilder.Capacity);
-                        if (!MatchesWildcard(classBuilder.ToString(), className)) {
-                            continue;
-                        }
-                    }
-
-                    if (processId > 0 && windowProcessId != processId) {
+                // Skip title matching if title is empty and we're doing process-based search
+                if (!string.IsNullOrEmpty(title) || options.ProcessId <= 0) {
+                    bool titleMatches = options.TitleRegex != null ?
+                        (string.IsNullOrEmpty(title) ? false : options.TitleRegex.IsMatch(title)) :
+                        MatchesWildcard(title ?? string.Empty, options.TitlePattern);
+                    if (!titleMatches) {
                         continue;
                     }
+                }
 
-                    var windowInfo = new WindowInfo {
-                        Title = title,
-                        Handle = handle,
-                        ProcessId = windowProcessId,
-                        IsVisible = MonitorNativeMethods.IsWindowVisible(handle)
-                    };
+                uint windowProcessId = 0;
+                uint windowThreadId = MonitorNativeMethods.GetWindowThreadProcessId(handle, out windowProcessId);
 
-                        // Get window position and state
-                        RECT rect = new RECT();
-                        if (MonitorNativeMethods.GetWindowRect(handle, out rect)) {
-                            windowInfo.Left = rect.Left;
-                            windowInfo.Top = rect.Top;
-                            windowInfo.Right = rect.Right;
-                            windowInfo.Bottom = rect.Bottom;
-
-                            // Get window state using the IntPtr wrapper to work on x86 and x64
-                            IntPtr stylePtr = MonitorNativeMethods.GetWindowLongPtr(handle, MonitorNativeMethods.GWL_STYLE);
-                            long style = stylePtr.ToInt64();
-                            if ((style & MonitorNativeMethods.WS_MINIMIZE) != 0) {
-                                windowInfo.State = WindowState.Minimize;
-                            } else if ((style & MonitorNativeMethods.WS_MAXIMIZE) != 0) {
-                                windowInfo.State = WindowState.Maximize;
-                            } else {
-                                windowInfo.State = WindowState.Normal;
-                            }
-
-                            // Find which monitor this window is primarily on
-                            var monitors = _monitors.GetMonitors();
-                            foreach (var monitor in monitors) {
-                                var monitorRect = monitor.GetMonitorBounds();
-                                // Check if window center point is within monitor bounds
-                                int windowCenterX = (rect.Left + rect.Right) / 2;
-                                int windowCenterY = (rect.Top + rect.Bottom) / 2;
-
-                                if (windowCenterX >= monitorRect.Left && windowCenterX < monitorRect.Right &&
-                                    windowCenterY >= monitorRect.Top && windowCenterY < monitorRect.Bottom) {
-                                    windowInfo.MonitorIndex = monitor.Index;
-                                    windowInfo.MonitorDeviceId = monitor.DeviceId;
-                                    windowInfo.MonitorDeviceName = monitor.DeviceName;
-                                    windowInfo.IsOnPrimaryMonitor = monitor.IsPrimary;
-                                    break;
-                                }
-                            }
+                if (!string.IsNullOrEmpty(options.ProcessNamePattern) && options.ProcessNamePattern != "*") {
+                    try {
+                        var process = Process.GetProcessById((int)windowProcessId);
+                        if (!MatchesWildcard(process.ProcessName, options.ProcessNamePattern)) {
+                            continue;
                         }
-
-                        windows.Add(windowInfo);
+                    } catch {
+                        continue;
                     }
                 }
+
+                if (!string.IsNullOrEmpty(options.ClassNamePattern) && options.ClassNamePattern != "*") {
+                    var classBuilder = new StringBuilder(256);
+                    MonitorNativeMethods.GetClassName(handle, classBuilder, classBuilder.Capacity);
+                    if (!MatchesWildcard(classBuilder.ToString(), options.ClassNamePattern)) {
+                        continue;
+                    }
+                }
+
+                if (options.ProcessId > 0 && windowProcessId != options.ProcessId) {
+                    continue;
+                }
+
+                var windowInfo = BuildWindowInfo(handle, title, windowProcessId, windowThreadId, ownerHandle, isCloaked, isVisible, index);
+
+                if (options.State.HasValue && windowInfo.State != options.State.Value) {
+                    continue;
+                }
+
+                if (options.IsTopMost.HasValue && windowInfo.IsTopMost != options.IsTopMost.Value) {
+                    continue;
+                }
+
+                if (options.ZOrderMin.HasValue && windowInfo.ZOrder < options.ZOrderMin.Value) {
+                    continue;
+                }
+
+                if (options.ZOrderMax.HasValue && windowInfo.ZOrder > options.ZOrderMax.Value) {
+                    continue;
+                }
+
+                windows.Add(windowInfo);
+            }
+
+            return windows;
+        }
+
+        /// <summary>
+        /// Enumerates child windows of the specified parent window.
+        /// </summary>
+        /// <param name="parent">Parent window information.</param>
+        /// <param name="includeHidden">Whether to include hidden windows.</param>
+        /// <param name="includeCloaked">Whether to include DWM-cloaked windows.</param>
+        /// <returns>A list of child window information.</returns>
+        public List<WindowInfo> GetChildWindows(WindowInfo parent, bool includeHidden = false, bool includeCloaked = true) {
+            ValidateWindowInfo(parent);
+
+            var handles = new List<IntPtr>();
+            if (!MonitorNativeMethods.EnumChildWindows(
+                parent.Handle,
+                (handle, lParam) => {
+                    if (includeHidden || MonitorNativeMethods.IsWindowVisible(handle)) {
+                        handles.Add(handle);
+                    }
+                    return true;
+                }, IntPtr.Zero)) {
+                throw new InvalidOperationException("Failed to enumerate child windows");
+            }
+
+            var windows = new List<WindowInfo>();
+            for (int index = 0; index < handles.Count; index++) {
+                var handle = handles[index];
+                bool isCloaked = false;
+                MonitorNativeMethods.TryGetWindowCloaked(handle, out isCloaked);
+                if (!includeCloaked && isCloaked) {
+                    continue;
+                }
+
+                uint windowProcessId = 0;
+                uint windowThreadId = MonitorNativeMethods.GetWindowThreadProcessId(handle, out windowProcessId);
+                var ownerHandle = MonitorNativeMethods.GetWindow(handle, MonitorNativeMethods.GW_OWNER);
+                var title = WindowTextHelper.GetWindowText(handle);
+                bool isVisible = MonitorNativeMethods.IsWindowVisible(handle);
+                windows.Add(BuildWindowInfo(handle, title, windowProcessId, windowThreadId, ownerHandle, isCloaked, isVisible, index));
+            }
 
             return windows;
         }
@@ -228,7 +288,8 @@ public partial class WindowManager {
         /// </summary>
         /// <param name="windowInfo">The window information.</param>
         /// <returns>The window position.</returns>
-        public WindowPosition GetWindowPosition(WindowInfo windowInfo) {
+        public WindowPosition GetWindowPosition(WindowInfo windowInfo) {        
+            ValidateWindowInfo(windowInfo);
             RECT rect = new RECT();
             if (MonitorNativeMethods.GetWindowRect(windowInfo.Handle, out rect)) {
                 // Re-evaluate the current state directly from the window to avoid stale data
@@ -271,5 +332,62 @@ public partial class WindowManager {
 
             // For plain text patterns without wildcards, check if it occurs anywhere
             return text.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private WindowInfo BuildWindowInfo(IntPtr handle, string? title, uint windowProcessId, uint windowThreadId, IntPtr ownerHandle, bool isCloaked, bool isVisible, int zOrder) {
+            var windowInfo = new WindowInfo {
+                Title = title ?? string.Empty,
+                Handle = handle,
+                ProcessId = windowProcessId,
+                ThreadId = windowThreadId,
+                IsVisible = isVisible,
+                OwnerHandle = ownerHandle,
+                ParentHandle = MonitorNativeMethods.GetParent(handle),
+                IsCloaked = isCloaked,
+                ZOrder = zOrder
+            };
+
+            IntPtr stylePtr = MonitorNativeMethods.GetWindowLongPtr(handle, MonitorNativeMethods.GWL_STYLE);
+            long style = stylePtr.ToInt64();
+            if ((style & MonitorNativeMethods.WS_MINIMIZE) != 0) {
+                windowInfo.State = WindowState.Minimize;
+            } else if ((style & MonitorNativeMethods.WS_MAXIMIZE) != 0) {
+                windowInfo.State = WindowState.Maximize;
+            } else {
+                windowInfo.State = WindowState.Normal;
+            }
+
+            IntPtr exStylePtr = MonitorNativeMethods.GetWindowLongPtr(handle, MonitorNativeMethods.GWL_EXSTYLE);
+            long exStyle = exStylePtr.ToInt64();
+            windowInfo.IsTopMost = (exStyle & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
+
+            // Get window position and state
+            RECT rect = new RECT();
+            if (MonitorNativeMethods.GetWindowRect(handle, out rect)) {
+                windowInfo.Left = rect.Left;
+                windowInfo.Top = rect.Top;
+                windowInfo.Right = rect.Right;
+                windowInfo.Bottom = rect.Bottom;
+
+                // Find which monitor this window is primarily on
+                var monitors = _monitors.GetMonitors();
+                foreach (var monitor in monitors) {
+                    var monitorRect = monitor.GetMonitorBounds();
+                    // Check if window center point is within monitor bounds
+                    int windowCenterX = (rect.Left + rect.Right) / 2;
+                    int windowCenterY = (rect.Top + rect.Bottom) / 2;
+
+                    if (windowCenterX >= monitorRect.Left && windowCenterX < monitorRect.Right &&
+                        windowCenterY >= monitorRect.Top && windowCenterY < monitorRect.Bottom) {
+                        windowInfo.MonitorIndex = monitor.Index;
+                        windowInfo.MonitorDeviceId = monitor.DeviceId;
+                        windowInfo.MonitorDeviceName = monitor.DeviceName;
+                        windowInfo.IsOnPrimaryMonitor = monitor.IsPrimary;
+                        break;
+                    }
+                }
+            }
+
+            return windowInfo;
         }
     }

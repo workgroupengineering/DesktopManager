@@ -19,6 +19,7 @@
       See: https://docs.microsoft.com/en-us/dotnet/standard/assembly/reference-assemblies
     -->
         <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
         <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
         <RepositoryType>git</RepositoryType>
         <SignAssembly>False</SignAssembly>

@@ -75,11 +75,16 @@ public partial class MonitorService {
     /// <param name="monitorId">The monitor ID.</param>
     /// <returns>The bounds of the monitor.</returns>
     public RECT GetMonitorBounds(string monitorId) {
+        if (string.IsNullOrWhiteSpace(monitorId)) {
+            throw new ArgumentNullException(nameof(monitorId));
+        }
         try {
             return Execute(() => _desktopManager.GetMonitorBounds(monitorId), nameof(IDesktopManager.GetMonitorBounds));
         } catch (DesktopManagerException) {
             return GetMonitorBoundsFallback(monitorId);
         } catch (COMException) {
+            return GetMonitorBoundsFallback(monitorId);
+        } catch (ArgumentException) {
             return GetMonitorBoundsFallback(monitorId);
         }
     }
@@ -128,7 +133,7 @@ public partial class MonitorService {
 
     private DesktopWallpaperPosition GetWallpaperPositionFallback() {
         try {
-            using RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\\Desktop", false);
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(@"Control Panel\\Desktop", false);
             if (key != null) {
                 string style = key.GetValue("WallpaperStyle", "0")?.ToString() ?? "0";
                 string tile = key.GetValue("TileWallpaper", "0")?.ToString() ?? "0";
@@ -152,7 +157,7 @@ public partial class MonitorService {
 
     private void SetWallpaperPositionFallback(DesktopWallpaperPosition position) {
         try {
-            using RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\\Desktop", true);
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(@"Control Panel\\Desktop", true);
             if (key != null) {
                 switch (position) {
                     case DesktopWallpaperPosition.Tile:
@@ -189,11 +194,11 @@ public partial class MonitorService {
 
     private uint GetBackgroundColorFallback() {
         try {
-            using RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\\Colors", false);
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(@"Control Panel\\Colors", false);
             if (key != null) {
-                string value = key.GetValue("Background")?.ToString();
+                string? value = key.GetValue("Background")?.ToString();
                 if (!string.IsNullOrEmpty(value)) {
-                    var parts = value.Split(' ');
+                    string[] parts = value!.Split(' ');
                     if (parts.Length == 3 &&
                         byte.TryParse(parts[0], out var r) &&
                         byte.TryParse(parts[1], out var g) &&
@@ -210,7 +215,7 @@ public partial class MonitorService {
 
     private void SetBackgroundColorFallback(uint color) {
         try {
-            using RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\\Colors", true);
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(@"Control Panel\\Colors", true);
             if (key != null) {
                 byte r = (byte)(color & 0xFF);
                 byte g = (byte)((color >> 8) & 0xFF);
@@ -229,6 +234,9 @@ public partial class MonitorService {
     /// <returns>The position of the monitor.</returns>
     /// <exception cref="ArgumentException">Thrown when the monitor is not found.</exception>
     public MonitorPosition GetMonitorPosition(string deviceId) {
+        if (string.IsNullOrWhiteSpace(deviceId)) {
+            throw new ArgumentNullException(nameof(deviceId));
+        }
         var monitors = GetMonitors();
         foreach (var monitor in monitors) {
             if (string.Equals(monitor.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase)) {
@@ -244,6 +252,9 @@ public partial class MonitorService {
     /// <param name="deviceId">The device ID of the monitor.</param>
     /// <param name="position">The new position of the monitor.</param>
     public void SetMonitorPosition(string deviceId, MonitorPosition position) {
+        if (string.IsNullOrWhiteSpace(deviceId)) {
+            throw new ArgumentNullException(nameof(deviceId));
+        }
         SetMonitorPosition(deviceId, position.Left, position.Top, position.Right, position.Bottom);
     }
 
@@ -258,14 +269,20 @@ public partial class MonitorService {
     /// <exception cref="InvalidOperationException">Thrown when unable to set monitor position.</exception>
     /// <exception cref="ArgumentException">Thrown when the corresponding display device is not found.</exception>
     public void SetMonitorPosition(string deviceId, int left, int top, int right, int bottom) {
+        if (string.IsNullOrWhiteSpace(deviceId)) {
+            throw new ArgumentNullException(nameof(deviceId));
+        }
         var monitorRect = GetMonitorBounds(deviceId);
 
         // Enumerate through all display devices and match by RECT
-        DISPLAY_DEVICE d = new DISPLAY_DEVICE();
-        d.cb = Marshal.SizeOf(d);
         int deviceNum = 0;
 
-        while (MonitorNativeMethods.EnumDisplayDevices(null, (uint)deviceNum, ref d, (uint)EnumDisplayDevicesFlags.EDD_GET_DEVICE_INTERFACE_NAME)) {
+        while (true) {
+            DISPLAY_DEVICE d = new DISPLAY_DEVICE();
+            d.cb = Marshal.SizeOf(d);
+            if (!MonitorNativeMethods.EnumDisplayDevices(null, (uint)deviceNum, ref d, (uint)EnumDisplayDevicesFlags.EDD_GET_DEVICE_INTERFACE_NAME)) {
+                break;
+            }
             if ((d.StateFlags & DisplayDeviceStateFlags.AttachedToDesktop) != 0) {
                 DEVMODE devMode = new DEVMODE();
                 devMode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
@@ -283,11 +300,8 @@ public partial class MonitorService {
                         // Apply the changes directly
                         DisplayChangeConfirmation result = MonitorNativeMethods.ChangeDisplaySettingsEx(d.DeviceName, ref devMode, IntPtr.Zero, 0, IntPtr.Zero);
                         if (result != DisplayChangeConfirmation.Successful) {
-                            Console.WriteLine($"ChangeDisplaySettingsEx failed with error code: {result}");
-                            throw new InvalidOperationException("Unable to set monitor position");
+                            throw new InvalidOperationException($"Unable to set monitor position. Error: {result}");
                         }
-
-                        Console.WriteLine($"Monitor position set successfully for {d.DeviceName}");
                         return;
                     }
                 }
@@ -306,7 +320,17 @@ public partial class MonitorService {
     /// <param name="width">The desired width.</param>
     /// <param name="height">The desired height.</param>
     public void SetMonitorResolution(string deviceId, int width, int height) {
-        var deviceName = GetMonitors().First(m => m.DeviceId == deviceId).DeviceName;
+        if (width <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(width));
+        }
+        if (height <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(height));
+        }
+        var monitor = GetMonitors().FirstOrDefault(m => string.Equals(m.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase));
+        if (monitor == null || string.IsNullOrWhiteSpace(monitor.DeviceName)) {
+            throw new ArgumentException($"Monitor with device ID '{deviceId}' not found", nameof(deviceId));
+        }
+        var deviceName = monitor.DeviceName;
 
         DEVMODE devMode = new DEVMODE();
         devMode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
@@ -330,7 +354,11 @@ public partial class MonitorService {
     /// <param name="deviceId">The device ID of the monitor.</param>
     /// <param name="orientation">The orientation to apply.</param>
     public void SetMonitorOrientation(string deviceId, DisplayOrientation orientation) {
-        var deviceName = GetMonitors().First(m => m.DeviceId == deviceId).DeviceName;
+        var monitor = GetMonitors().FirstOrDefault(m => string.Equals(m.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase));
+        if (monitor == null || string.IsNullOrWhiteSpace(monitor.DeviceName)) {
+            throw new ArgumentException($"Monitor with device ID '{deviceId}' not found", nameof(deviceId));
+        }
+        var deviceName = monitor.DeviceName;
 
         DEVMODE devMode = new DEVMODE();
         devMode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
@@ -364,7 +392,14 @@ public partial class MonitorService {
     /// <param name="deviceId">The device ID of the monitor.</param>
     /// <param name="scalingPercent">The DPI scaling percentage.</param>
     public void SetMonitorDpiScaling(string deviceId, int scalingPercent) {
-        var deviceName = GetMonitors().First(m => m.DeviceId == deviceId).DeviceName;
+        if (scalingPercent <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(scalingPercent));
+        }
+        var monitor = GetMonitors().FirstOrDefault(m => string.Equals(m.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase));
+        if (monitor == null || string.IsNullOrWhiteSpace(monitor.DeviceName)) {
+            throw new ArgumentException($"Monitor with device ID '{deviceId}' not found", nameof(deviceId));
+        }
+        var deviceName = monitor.DeviceName;
 
         DEVMODE devMode = new DEVMODE();
         devMode.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
@@ -501,14 +536,19 @@ public partial class MonitorService {
         Execute(() => _desktopManager.AdvanceSlideshow(null, direction), nameof(IDesktopManager.AdvanceSlideshow));
     }
 
-    private static IntPtr CreateShellItemArray(IEnumerable<string> paths) {
+    private static IntPtr CreateShellItemArray(IEnumerable<string> paths) {     
         Guid clsidEnum = new("2d3468c1-36a7-43b6-ac24-d3f02fd9607a");
-        Guid iidShellItem = new("43826D1E-E718-42EE-BC55-A1E261C37BFE");
-        Guid iidShellItemArray = new("b63ea76d-1f85-456f-a19c-48159efa858b");
+        Guid iidShellItem = new("43826D1E-E718-42EE-BC55-A1E261C37BFE");        
+        Guid iidShellItemArray = new("b63ea76d-1f85-456f-a19c-48159efa858b");   
 
-        MonitorNativeMethods.IObjectCollection? collection = null;
+        Type collectionType = Type.GetTypeFromCLSID(clsidEnum)
+            ?? throw new InvalidOperationException("IObjectCollection CLSID not available.");
+        object? instance = Activator.CreateInstance(collectionType);
+        if (instance is not MonitorNativeMethods.IObjectCollection collection) {
+            throw new InvalidOperationException("IObjectCollection instance not available.");
+        }
+
         try {
-            collection = (MonitorNativeMethods.IObjectCollection)Activator.CreateInstance(Type.GetTypeFromCLSID(clsidEnum));
             foreach (var path in paths) {
                 if (string.IsNullOrEmpty(path)) continue;
                 int hr = MonitorNativeMethods.SHCreateItemFromParsingName(path, IntPtr.Zero, ref iidShellItem, out IntPtr item);
@@ -520,8 +560,12 @@ public partial class MonitorService {
                     }
                 }
                 object obj = Marshal.GetObjectForIUnknown(item);
-                collection.AddObject(obj);
-                Marshal.Release(item);
+                try {
+                    collection.AddObject(obj);
+                } finally {
+                    Marshal.ReleaseComObject(obj);
+                    Marshal.Release(item);
+                }
             }
 
             IntPtr unk = Marshal.GetIUnknownForObject(collection);
@@ -529,9 +573,7 @@ public partial class MonitorService {
             Marshal.Release(unk);
             return arrayPtr;
         } finally {
-            if (collection != null) {
-                Marshal.ReleaseComObject(collection);
-            }
+            Marshal.ReleaseComObject(collection);
         }
     }
 
@@ -541,20 +583,15 @@ public partial class MonitorService {
     /// <returns>A list of all <see cref="DISPLAY_DEVICE"/> objects.</returns>
     public List<DISPLAY_DEVICE> DisplayDevicesAll() {
         List<DISPLAY_DEVICE> devices = new List<DISPLAY_DEVICE>();
-
-        DISPLAY_DEVICE d = new DISPLAY_DEVICE();
-        d.cb = Marshal.SizeOf(d);
-
-        int deviceNum = 0;
-        while (MonitorNativeMethods.EnumDisplayDevices(null, (uint)deviceNum, ref d, (uint)EnumDisplayDevicesFlags.EDD_GET_DEVICE_INTERFACE_NAME)) {
-            Console.WriteLine($"Device Name: {d.DeviceName}");
-            Console.WriteLine($"Device String: {d.DeviceString}");
-            Console.WriteLine($"State Flags: {d.StateFlags}");
-            Console.WriteLine($"Device ID: {d.DeviceID}");
-            Console.WriteLine($"Device Key: {d.DeviceKey}");
-            Console.WriteLine();
+        uint deviceNum = 0;
+        while (true) {
+            DISPLAY_DEVICE device = new DISPLAY_DEVICE();
+            device.cb = Marshal.SizeOf(device);
+            if (!MonitorNativeMethods.EnumDisplayDevices(null, deviceNum, ref device, (uint)EnumDisplayDevicesFlags.EDD_GET_DEVICE_INTERFACE_NAME)) {
+                break;
+            }
+            devices.Add(device);
             deviceNum++;
-            devices.Add(d);
         }
         return devices;
     }
@@ -565,11 +602,13 @@ public partial class MonitorService {
     /// <returns>A list of connected <see cref="DISPLAY_DEVICE"/> objects.</returns>
     public List<DISPLAY_DEVICE> DisplayDevicesConnected() {
         List<DISPLAY_DEVICE> devices = new List<DISPLAY_DEVICE>();
-        DISPLAY_DEVICE device = new DISPLAY_DEVICE();
-        device.cb = Marshal.SizeOf(device);
-
         uint deviceNum = 0;
-        while (MonitorNativeMethods.EnumDisplayDevices(null, deviceNum, ref device, (uint)EnumDisplayDevicesFlags.EDD_GET_DEVICE_INTERFACE_NAME)) {
+        while (true) {
+            DISPLAY_DEVICE device = new DISPLAY_DEVICE();
+            device.cb = Marshal.SizeOf(device);
+            if (!MonitorNativeMethods.EnumDisplayDevices(null, deviceNum, ref device, (uint)EnumDisplayDevicesFlags.EDD_GET_DEVICE_INTERFACE_NAME)) {
+                break;
+            }
             if ((device.StateFlags & DisplayDeviceStateFlags.AttachedToDesktop) != 0) {
                 devices.Add(device);
             }

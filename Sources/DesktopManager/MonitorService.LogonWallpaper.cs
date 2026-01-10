@@ -21,6 +21,12 @@ public partial class MonitorService {
         bool comInitialized = InitializeCom();
         
         try {
+            if (string.IsNullOrWhiteSpace(imagePath)) {
+                throw new ArgumentNullException(nameof(imagePath));
+            }
+            if (!File.Exists(imagePath)) {
+                throw new FileNotFoundException("The logon wallpaper file was not found.", imagePath);
+            }
             PrivilegeChecker.EnsureElevated();
         
             try {
@@ -34,19 +40,34 @@ public partial class MonitorService {
                 var getFileMethod = storageFileType.GetMethod("GetFileFromPathAsync")
                     ?? throw new InvalidOperationException("GetFileFromPathAsync method not found");
                 var fileOp = getFileMethod.Invoke(null, new object[] { imagePath });
+                if (fileOp == null) {
+                    throw new InvalidOperationException("GetFileFromPathAsync returned null");
+                }
                 var asTaskMethod = fileOp.GetType().GetMethod("AsTask")
                     ?? throw new InvalidOperationException("AsTask method not found on file operation");
-                var fileTask = (System.Threading.Tasks.Task)asTaskMethod.Invoke(fileOp, null);
+                var fileTaskObject = asTaskMethod.Invoke(fileOp, null);
+                if (fileTaskObject is not System.Threading.Tasks.Task fileTask) {
+                    throw new InvalidOperationException("AsTask did not return a Task for file operation");
+                }
                 fileTask.Wait();
                 var fileProp = fileTask.GetType().GetProperty("Result")
                     ?? throw new InvalidOperationException("Result property missing on task");
                 var file = fileProp.GetValue(fileTask);
+                if (file == null) {
+                    throw new InvalidOperationException("GetFileFromPathAsync returned a null result");
+                }
                 var setMethod = lockScreenType.GetMethod("SetImageFileAsync")
                     ?? throw new InvalidOperationException("SetImageFileAsync method not found");
                 var setOp = setMethod.Invoke(null, new object[] { file });
+                if (setOp == null) {
+                    throw new InvalidOperationException("SetImageFileAsync returned null");
+                }
                 var opAsTaskMethod = setOp.GetType().GetMethod("AsTask")
                     ?? throw new InvalidOperationException("AsTask method not found on set operation");
-                var opTask = (System.Threading.Tasks.Task)opAsTaskMethod.Invoke(setOp, null);
+                var opTaskObject = opAsTaskMethod.Invoke(setOp, null);
+                if (opTaskObject is not System.Threading.Tasks.Task opTask) {
+                    throw new InvalidOperationException("AsTask did not return a Task for set operation");
+                }
                 opTask.Wait();
                 return;
             } catch (InvalidOperationException) {
@@ -88,12 +109,19 @@ public partial class MonitorService {
             var getMethod = lockScreenType.GetMethod("GetImageStream")
                 ?? throw new InvalidOperationException("GetImageStream method not found");
             var streamObj = getMethod.Invoke(null, null);
+            if (streamObj == null) {
+                throw new InvalidOperationException("GetImageStream returned null");
+            }
             var asStreamForRead = streamObj.GetType().GetMethod("AsStreamForRead")
                 ?? throw new InvalidOperationException("AsStreamForRead method not found");
-            using var stream = (Stream)asStreamForRead.Invoke(streamObj, null);
+            var streamObjResult = asStreamForRead.Invoke(streamObj, null);
+            if (streamObjResult is not Stream stream) {
+                throw new InvalidOperationException("AsStreamForRead did not return a Stream");
+            }
+            using var streamReader = stream;
             string temp = Path.GetTempFileName();
             using FileStream fs = new FileStream(temp, FileMode.Create, FileAccess.Write);
-            stream.CopyTo(fs);
+            streamReader.CopyTo(fs);
             return temp;
         } catch (InvalidOperationException) {
             throw;

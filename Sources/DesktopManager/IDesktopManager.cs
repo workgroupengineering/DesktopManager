@@ -101,7 +101,7 @@ public interface IDesktopManager {
     /// </summary>
     /// <param name="monitorId">The monitor ID.</param>
     /// <param name="direction">The direction to advance the slideshow.</param>
-    void AdvanceSlideshow([MarshalAs(UnmanagedType.LPWStr)] string monitorId, [MarshalAs(UnmanagedType.I4)] DesktopSlideshowDirection direction);
+    void AdvanceSlideshow([MarshalAs(UnmanagedType.LPWStr)] string? monitorId, [MarshalAs(UnmanagedType.I4)] DesktopSlideshowDirection direction);
 
     /// <summary>
     /// Gets the status of the slideshow.

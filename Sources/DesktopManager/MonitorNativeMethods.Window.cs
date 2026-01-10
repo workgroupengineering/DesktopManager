@@ -69,6 +69,67 @@ public static partial class MonitorNativeMethods
     public static extern bool IsWindowVisible(IntPtr hWnd);
 
     /// <summary>
+    /// Retrieves a handle to the parent of the specified window.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <returns>Handle to the parent window.</returns>
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetParent(IntPtr hWnd);
+
+    /// <summary>
+    /// Retrieves a handle to a window with a specified relationship.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <param name="uCmd">Relationship command.</param>
+    /// <returns>Handle to the related window.</returns>
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    /// <summary>
+    /// Command for retrieving the owner window.
+    /// </summary>
+    public const uint GW_OWNER = 4;
+
+    /// <summary>
+    /// Retrieves a specified attribute value for a window.
+    /// </summary>
+    /// <param name="hwnd">The window handle.</param>
+    /// <param name="dwAttribute">Attribute identifier.</param>
+    /// <param name="pvAttribute">Receives the attribute value.</param>
+    /// <param name="cbAttribute">Size of the attribute value.</param>
+    /// <returns>HRESULT return code.</returns>
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
+    /// <summary>
+    /// Attribute identifier for cloaked windows.
+    /// </summary>
+    public const int DWMWA_CLOAKED = 14;
+
+    /// <summary>
+    /// Attempts to determine whether a window is cloaked by DWM.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <param name="isCloaked">True if cloaked.</param>
+    /// <returns>True if the attribute was retrieved; otherwise false.</returns>
+    public static bool TryGetWindowCloaked(IntPtr hWnd, out bool isCloaked) {
+        isCloaked = false;
+        try {
+            int cloaked = 0;
+            int hr = DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out cloaked, sizeof(int));
+            if (hr != 0) {
+                return false;
+            }
+            isCloaked = cloaked != 0;
+            return true;
+        } catch (DllNotFoundException) {
+            return false;
+        } catch (EntryPointNotFoundException) {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Gets the window rectangle.
     /// </summary>
     /// <param name="hWnd">The window handle.</param>
@@ -76,6 +137,15 @@ public static partial class MonitorNativeMethods
     /// <returns>True if successful.</returns>
     [DllImport("user32.dll")]
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    /// <summary>
+    /// Gets the client rectangle of a window.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <param name="lpRect">Receives the client rectangle.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll")]
+    public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
 
     /// <summary>
     /// Sets the window position.
@@ -360,6 +430,11 @@ public static partial class MonitorNativeMethods
     public const int SWP_NOSIZE = 0x0001;
 
     /// <summary>
+    /// Window position flag that prevents activation.
+    /// </summary>
+    public const int SWP_NOACTIVATE = 0x0010;
+
+    /// <summary>
     /// Retrieves the specified system metric or system configuration setting.
     /// </summary>
     /// <param name="nIndex">The system metric to be retrieved.</param>
@@ -426,6 +501,26 @@ public static partial class MonitorNativeMethods
     /// Message used for character input events.
     /// </summary>
     public const uint WM_CHAR = 0x0102;
+
+    /// <summary>
+    /// Message sent when the left mouse button is pressed.
+    /// </summary>
+    public const uint WM_LBUTTONDOWN = 0x0201;
+
+    /// <summary>
+    /// Message sent when the left mouse button is released.
+    /// </summary>
+    public const uint WM_LBUTTONUP = 0x0202;
+
+    /// <summary>
+    /// Message sent when the right mouse button is pressed.
+    /// </summary>
+    public const uint WM_RBUTTONDOWN = 0x0204;
+
+    /// <summary>
+    /// Message sent when the right mouse button is released.
+    /// </summary>
+    public const uint WM_RBUTTONUP = 0x0205;
 
     /// <summary>
     /// Edit control message to set selection.
@@ -547,6 +642,16 @@ public static partial class MonitorNativeMethods
     /// Key event flag indicating Unicode scan code.
     /// </summary>
     public const uint KEYEVENTF_UNICODE = 0x0004;
+
+    /// <summary>
+    /// Key state flag indicating the left mouse button is pressed.
+    /// </summary>
+    public const uint MK_LBUTTON = 0x0001;
+
+    /// <summary>
+    /// Key state flag indicating the right mouse button is pressed.
+    /// </summary>
+    public const uint MK_RBUTTON = 0x0002;
 
     /// <summary>
     /// Represents an INPUT structure used with <see cref="SendInput"/>.

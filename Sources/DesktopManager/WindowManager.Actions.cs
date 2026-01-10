@@ -1,10 +1,154 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace DesktopManager;
 
 public partial class WindowManager
 {
+        private static void ValidateWindowInfo(WindowInfo windowInfo) {
+            if (windowInfo == null) {
+                throw new ArgumentNullException(nameof(windowInfo));
+            }
+            if (windowInfo.Handle == IntPtr.Zero) {
+                throw new InvalidOperationException("Invalid window handle.");
+            }
+        }
+
+        /// <summary>
+        /// Minimizes the specified windows.
+        /// </summary>
+        /// <param name="windows">Windows to minimize.</param>
+        /// <param name="ignoreErrors">Whether to ignore failures per window.</param>
+        /// <returns>Number of windows minimized.</returns>
+        public int MinimizeWindows(IEnumerable<WindowInfo> windows, bool ignoreErrors = true) {
+            if (windows == null) {
+                throw new ArgumentNullException(nameof(windows));
+            }
+
+            int count = 0;
+            foreach (var window in windows) {
+                if (window == null) {
+                    continue;
+                }
+
+                try {
+                    ValidateWindowInfo(window);
+                    if (IsWindowMinimized(window.Handle)) {
+                        continue;
+                    }
+                    MinimizeWindow(window);
+                    count++;
+                } catch when (ignoreErrors) {
+                    // Ignore per-window failures
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Restores the specified windows.
+        /// </summary>
+        /// <param name="windows">Windows to restore.</param>
+        /// <param name="ignoreErrors">Whether to ignore failures per window.</param>
+        /// <returns>Number of windows restored.</returns>
+        public int RestoreWindows(IEnumerable<WindowInfo> windows, bool ignoreErrors = true) {
+            if (windows == null) {
+                throw new ArgumentNullException(nameof(windows));
+            }
+
+            int count = 0;
+            foreach (var window in windows) {
+                if (window == null) {
+                    continue;
+                }
+
+                try {
+                    ValidateWindowInfo(window);
+                    if (!IsWindowMinimized(window.Handle)) {
+                        continue;
+                    }
+                    RestoreWindow(window);
+                    count++;
+                } catch when (ignoreErrors) {
+                    // Ignore per-window failures
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Minimizes all windows that match the specified filters.
+        /// </summary>
+        /// <param name="includeHidden">Whether to include hidden windows.</param>
+        /// <param name="includeOwned">Whether to include owned windows.</param>
+        /// <param name="includeCloaked">Whether to include DWM-cloaked windows.</param>
+        /// <param name="ignoreErrors">Whether to ignore failures per window.</param>
+        /// <returns>Number of windows minimized.</returns>
+        public int MinimizeAll(bool includeHidden = false, bool includeOwned = true, bool includeCloaked = true, bool ignoreErrors = true) {
+            var windows = GetWindows(includeHidden: includeHidden, includeOwned: includeOwned, includeCloaked: includeCloaked);
+            return MinimizeWindows(windows, ignoreErrors);
+        }
+
+        /// <summary>
+        /// Restores all windows that match the specified filters.
+        /// </summary>
+        /// <param name="includeHidden">Whether to include hidden windows.</param>
+        /// <param name="includeOwned">Whether to include owned windows.</param>
+        /// <param name="includeCloaked">Whether to include DWM-cloaked windows.</param>
+        /// <param name="ignoreErrors">Whether to ignore failures per window.</param>
+        /// <returns>Number of windows restored.</returns>
+        public int RestoreAll(bool includeHidden = false, bool includeOwned = true, bool includeCloaked = true, bool ignoreErrors = true) {
+            var windows = GetWindows(includeHidden: includeHidden, includeOwned: includeOwned, includeCloaked: includeCloaked);
+            return RestoreWindows(windows, ignoreErrors);
+        }
+
+        /// <summary>
+        /// Ensures the specified window is positioned on a visible monitor.
+        /// </summary>
+        /// <param name="windowInfo">The window information.</param>
+        /// <param name="padding">Padding in pixels from the monitor edges.</param>
+        /// <returns>True if the window was moved; otherwise false.</returns>
+        public bool EnsureWindowOnScreen(WindowInfo windowInfo, int padding = 10) {
+            ValidateWindowInfo(windowInfo);
+            if (!MonitorNativeMethods.GetWindowRect(windowInfo.Handle, out RECT rect)) {
+                throw new InvalidOperationException("Failed to get window position");
+            }
+
+            var monitors = _monitors.GetMonitors();
+            if (monitors.Count == 0) {
+                throw new InvalidOperationException("No monitors found for window positioning");
+            }
+
+            if (IsRectOnAnyMonitor(rect, monitors)) {
+                return false;
+            }
+
+            var target = monitors.FirstOrDefault(m => m.IsPrimary) ?? monitors[0];
+            var bounds = target.GetMonitorBounds();
+
+            int width = rect.Right - rect.Left;
+            int height = rect.Bottom - rect.Top;
+            if (width <= 0) {
+                width = 200;
+            }
+            if (height <= 0) {
+                height = 200;
+            }
+
+            int left = bounds.Left + padding;
+            int top = bounds.Top + padding;
+
+            if (!MonitorNativeMethods.SetWindowPos(windowInfo.Handle, IntPtr.Zero, left, top, width, height,
+                MonitorNativeMethods.SWP_NOZORDER | MonitorNativeMethods.SWP_NOACTIVATE)) {
+                throw new InvalidOperationException("Failed to move window on screen");
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// Sets the position of a window.
         /// </summary>
@@ -25,6 +169,8 @@ public partial class WindowManager
         /// <param name="height">The height of the window. Use -1 to keep current height.</param>
         public void SetWindowPosition(WindowInfo windowInfo, int left, int top, int width = -1, int height = -1) {
             const int SWP_NOMOVE = 0x0002;
+
+            ValidateWindowInfo(windowInfo);
 
             int flags = MonitorNativeMethods.SWP_NOZORDER;
 
@@ -55,10 +201,8 @@ public partial class WindowManager
         /// </summary>
         /// <param name="window">The window to snap.</param>
         /// <param name="position">The snap position.</param>
-        public void SnapWindow(WindowInfo window, SnapPosition position) {
-            if (window == null) {
-                throw new ArgumentNullException(nameof(window));
-            }
+        public void SnapWindow(WindowInfo window, SnapPosition position) {      
+            ValidateWindowInfo(window);
 
             var monitor = _monitors.GetMonitors(index: window.MonitorIndex).FirstOrDefault();
             if (monitor == null) {
@@ -120,6 +264,7 @@ public partial class WindowManager
         /// at the same coordinates.
         /// </returns>
         public bool MoveWindowToMonitor(WindowInfo windowInfo, Monitor targetMonitor) {
+            ValidateWindowInfo(windowInfo);
             if (targetMonitor == null) {
                 throw new ArgumentNullException(nameof(targetMonitor));
             }
@@ -161,6 +306,7 @@ public partial class WindowManager
         /// </summary>
         /// <param name="windowInfo">The window information.</param>
         public void CloseWindow(WindowInfo windowInfo) {
+            ValidateWindowInfo(windowInfo);
             MonitorNativeMethods.SendMessage(
                 windowInfo.Handle,
                 (uint)WindowMessage.WM_SYSCOMMAND,
@@ -173,6 +319,7 @@ public partial class WindowManager
         /// </summary>
         /// <param name="windowInfo">The window information.</param>
         public void MinimizeWindow(WindowInfo windowInfo) {
+            ValidateWindowInfo(windowInfo);
             MonitorNativeMethods.SendMessage(
                 windowInfo.Handle,
                 (uint)WindowMessage.WM_SYSCOMMAND,
@@ -185,6 +332,7 @@ public partial class WindowManager
         /// </summary>
         /// <param name="windowInfo">The window information.</param>
         public void MaximizeWindow(WindowInfo windowInfo) {
+            ValidateWindowInfo(windowInfo);
             MonitorNativeMethods.SendMessage(
                 windowInfo.Handle,
                 (uint)WindowMessage.WM_SYSCOMMAND,
@@ -197,6 +345,7 @@ public partial class WindowManager
         /// </summary>
         /// <param name="windowInfo">The window information.</param>
         public void RestoreWindow(WindowInfo windowInfo) {
+            ValidateWindowInfo(windowInfo);
             MonitorNativeMethods.SendMessage(
                 windowInfo.Handle,
                 (uint)WindowMessage.WM_SYSCOMMAND,
@@ -209,9 +358,11 @@ public partial class WindowManager
         /// </summary>
         /// <param name="windowInfo">The window information.</param>
         /// <param name="topMost">True to make the window topmost; false to reset.</param>
-        public void SetWindowTopMost(WindowInfo windowInfo, bool topMost) {
+        public void SetWindowTopMost(WindowInfo windowInfo, bool topMost) {     
             const int SWP_NOMOVE = 0x0002;
             const int SWP_NOSIZE = 0x0001;
+
+            ValidateWindowInfo(windowInfo);
 
             var insertAfter = topMost ? MonitorNativeMethods.HWND_TOPMOST : MonitorNativeMethods.HWND_NOTOPMOST;
             if (!MonitorNativeMethods.SetWindowPos(windowInfo.Handle, insertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE)) {
@@ -224,6 +375,7 @@ public partial class WindowManager
         /// </summary>
         /// <param name="windowInfo">The window information.</param>
         public void ActivateWindow(WindowInfo windowInfo) {
+            ValidateWindowInfo(windowInfo);
             if (!MonitorNativeMethods.SetForegroundWindow(windowInfo.Handle)) {
                 throw new InvalidOperationException("Failed to activate window");
             }
@@ -235,6 +387,7 @@ public partial class WindowManager
         /// <param name="windowInfo">The window information.</param>
         /// <param name="alpha">Transparency alpha from 0 (transparent) to 255 (opaque).</param>
         public void SetWindowTransparency(WindowInfo windowInfo, byte alpha) {
+            ValidateWindowInfo(windowInfo);
             IntPtr stylePtr = MonitorNativeMethods.GetWindowLongPtr(windowInfo.Handle, MonitorNativeMethods.GWL_EXSTYLE);
             int style = stylePtr.ToInt32();
             if ((style & MonitorNativeMethods.WS_EX_LAYERED) == 0) {
@@ -244,5 +397,23 @@ public partial class WindowManager
             if (!MonitorNativeMethods.SetLayeredWindowAttributes(windowInfo.Handle, 0, alpha, MonitorNativeMethods.LWA_ALPHA)) {
                 throw new InvalidOperationException("Failed to set window transparency");
             }
+        }
+
+        private static bool IsWindowMinimized(IntPtr handle) {
+            IntPtr stylePtr = MonitorNativeMethods.GetWindowLongPtr(handle, MonitorNativeMethods.GWL_STYLE);
+            long style = stylePtr.ToInt64();
+            return (style & MonitorNativeMethods.WS_MINIMIZE) != 0;
+        }
+
+        private static bool IsRectOnAnyMonitor(RECT rect, IEnumerable<Monitor> monitors) {
+            foreach (var monitor in monitors) {
+                var bounds = monitor.GetMonitorBounds();
+                if (rect.Right <= bounds.Left || rect.Left >= bounds.Right ||
+                    rect.Bottom <= bounds.Top || rect.Top >= bounds.Bottom) {
+                    continue;
+                }
+                return true;
+            }
+            return false;
         }
 }

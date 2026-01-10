@@ -27,7 +27,7 @@ public class Monitor {
     /// <summary>
     /// Gets or sets the device string of the monitor.
     /// </summary>
-    public string DeviceString { get; internal set; }
+    public string DeviceString { get; internal set; } = string.Empty;
 
     /// <summary>
     /// Gets the left position of the monitor.
@@ -52,12 +52,12 @@ public class Monitor {
     /// <summary>
     /// Gets or sets the device ID of the monitor.
     /// </summary>
-    public string DeviceId { get; internal set; }
+    public string DeviceId { get; internal set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the wallpaper of the monitor.
     /// </summary>
-    public string Wallpaper { get; internal set; }
+    public string Wallpaper { get; internal set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the wallpaper position of the monitor.
@@ -72,7 +72,7 @@ public class Monitor {
     /// <summary>
     /// Gets or sets the device name of the monitor.
     /// </summary>
-    public string DeviceName { get; internal set; }
+    public string DeviceName { get; internal set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the state flags of the monitor.
@@ -82,7 +82,7 @@ public class Monitor {
     /// <summary>
     /// Gets or sets the device key of the monitor.
     /// </summary>
-    public string DeviceKey { get; internal set; }
+    public string DeviceKey { get; internal set; } = string.Empty;
 
     /// <summary>
     /// Gets the manufacturer ID parsed from EDID if available.

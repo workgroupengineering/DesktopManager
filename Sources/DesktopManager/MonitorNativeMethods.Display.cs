@@ -15,7 +15,7 @@ public static partial class MonitorNativeMethods {
     /// <param name="lpDevMode">A pointer to a <see cref="DEVMODE"/> structure that receives the information.</param>
     /// <returns>True if the function succeeds; otherwise, false.</returns>
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    public static extern bool EnumDisplaySettings(string lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode);
+    public static extern bool EnumDisplaySettings(string? lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode);
 
     /// <summary>
     /// Enumerates the display devices that are currently available.
@@ -26,7 +26,7 @@ public static partial class MonitorNativeMethods {
     /// <param name="dwFlags">Combination of <see cref="EnumDisplayDevicesFlags"/> values.</param>
     /// <returns>True if the function succeeds; otherwise, false.</returns>
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    public static extern bool EnumDisplayDevices(string lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
+    public static extern bool EnumDisplayDevices(string? lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
 
     /// <summary>
     /// Sets the process DPI awareness.

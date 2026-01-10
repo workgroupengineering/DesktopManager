@@ -13,7 +13,7 @@ public static partial class MonitorNativeMethods {
     /// <param name="lpWindowName">Window title.</param>
     /// <returns>Window handle or IntPtr.Zero.</returns>
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-    public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+    public static extern IntPtr FindWindow(string lpClassName, string? lpWindowName);
 
     /// <summary>Retrieves the class name of a window.</summary>
     /// <param name="hWnd">Window handle.</param>
