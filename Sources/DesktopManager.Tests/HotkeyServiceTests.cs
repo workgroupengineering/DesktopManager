@@ -1,12 +1,16 @@
 using System;
 using System.Runtime.InteropServices;
+#if NET5_0_OR_GREATER
 using System.Runtime.Versioning;
+#endif
 using System.Threading;
 
 namespace DesktopManager.Tests;
 
 [TestClass]
+#if NET5_0_OR_GREATER
 [SupportedOSPlatform("windows")]
+#endif
 /// <summary>Tests for <see cref="HotkeyService"/>.</summary>
 public class HotkeyServiceTests {
     [TestMethod]

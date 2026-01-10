@@ -71,7 +71,7 @@ public class MonitorServiceCleanupTests {
         /// <summary>
         /// Test for AdvanceSlideshow.
         /// </summary>
-        public void AdvanceSlideshow(string monitorId, DesktopSlideshowDirection direction) { }
+        public void AdvanceSlideshow(string? monitorId, DesktopSlideshowDirection direction) { }
         /// <summary>
         /// Test for GetStatus.
         /// </summary>

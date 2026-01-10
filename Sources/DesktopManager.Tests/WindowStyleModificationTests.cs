@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -38,56 +39,32 @@ public class WindowStyleModificationTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireInteractive();
 
-        var manager = new WindowManager();
-        var windows = manager.GetWindows();
-        if (windows.Count == 0) {
-            Assert.Inconclusive("No windows found to test");
-        }
-
-        // Find a regular application window that we can modify (not system windows)
-        var window = windows.FirstOrDefault(w => {
-            try {
-                // Skip shell window and other system windows
-                if (w.Handle == MonitorNativeMethods.GetShellWindow()) return false;
-                
-                // Try to get process - skip if we can't access it
-                var proc = System.Diagnostics.Process.GetProcessById((int)w.ProcessId);
-                var name = proc.ProcessName.ToLower();
-                
-                // Skip system processes that we shouldn't modify
-                return !name.Contains("dwm") && !name.Contains("winlogon") && 
-                       !name.Contains("csrss") && !name.Contains("smss");
-            } catch {
-                return false;
-            }
-        }) ?? windows.First();
-
-        long original = manager.GetWindowStyle(window, true);
-        bool isTop = (original & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
+        Process? process = null;
+        WindowInfo? window = null;
 
         try {
+            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
+                Assert.Inconclusive("Failed to start Notepad for testing");
+                return;
+            }
+
+            var manager = new WindowManager();
+            long original = manager.GetWindowStyle(window, true);
+            bool isTop = (original & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
+
             manager.SetWindowStyle(window, MonitorNativeMethods.WS_EX_TOPMOST, !isTop, true);
-            
+
             // Give the system time to process the change
             System.Threading.Thread.Sleep(100);
-            
+
             long toggled = manager.GetWindowStyle(window, true);
             bool newIsTop = (toggled & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
-            
-            // Some system windows cannot have their topmost state changed
-            if (newIsTop == isTop) {
-                Assert.Inconclusive("Window does not support topmost state changes");
-            }
-            
+
             Assert.AreEqual(!isTop, newIsTop);
         } finally {
-            // Always restore original state
-            try {
-                manager.SetWindowStyle(window, MonitorNativeMethods.WS_EX_TOPMOST, isTop, true);
-            } catch {
-                // Ignore errors during cleanup
-            }
+            TestHelper.SafeKillProcess(process);
         }
     }
 }

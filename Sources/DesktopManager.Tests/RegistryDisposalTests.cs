@@ -24,7 +24,7 @@ public class RegistryDisposalTests {
         public IntPtr GetSlideshow() => throw new COMException();
         public void SetSlideshowOptions(DesktopSlideshowDirection options, uint slideshowTick) => throw new COMException();
         public uint GetSlideshowOptions(out DesktopSlideshowDirection options, out uint slideshowTick) { throw new COMException(); }
-        public void AdvanceSlideshow(string monitorId, DesktopSlideshowDirection direction) => throw new COMException();
+        public void AdvanceSlideshow(string? monitorId, DesktopSlideshowDirection direction) => throw new COMException();
         public DesktopSlideshowDirection GetStatus() => throw new COMException();
         public bool Enable() => throw new COMException();
     }

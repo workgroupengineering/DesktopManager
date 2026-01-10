@@ -60,6 +60,8 @@ public class ScreenshotServiceTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
+        TestHelper.RequireInteractive();
+
         using var bmp = ScreenshotService.CaptureScreen();
         Assert.IsNotNull(bmp);
         Assert.IsTrue(bmp.Width > 0);
@@ -86,6 +88,8 @@ public class ScreenshotServiceTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+
+        TestHelper.RequireInteractive();
 
         using var bmp = ScreenshotService.CaptureMonitor(index: 0);
         Assert.IsNotNull(bmp);

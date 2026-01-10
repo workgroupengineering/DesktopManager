@@ -130,8 +130,8 @@ public class WindowManagerFilterTests {
         }
 
         // Find a window with a stable class name that we can reliably filter by
-        WindowInfo selectedWindow = null;
-        string selectedClassName = null;
+        WindowInfo? selectedWindow = null;
+        string? selectedClassName = null;
         
         foreach (var w in windows) {
             try {
@@ -156,14 +156,16 @@ public class WindowManagerFilterTests {
             }
         }
         
-        if (selectedWindow == null) {
+        if (selectedWindow == null || string.IsNullOrEmpty(selectedClassName)) {
             Assert.Inconclusive("No suitable window with filterable class name found for testing");
+            return;
         }
-        
-        var filtered = manager.GetWindows(className: selectedClassName, includeHidden: true);
-        
-        Assert.IsTrue(filtered.Any(w => w.Handle == selectedWindow.Handle), 
-            $"Expected to find window {selectedWindow.Handle:X8} with class '{selectedClassName}' in filtered results");
+
+        string classNameFilter = selectedClassName!;
+        var filtered = manager.GetWindows(className: classNameFilter, includeHidden: true);
+
+        Assert.IsTrue(filtered.Any(w => w.Handle == selectedWindow.Handle),
+            $"Expected to find window {selectedWindow.Handle:X8} with class '{classNameFilter}' in filtered results");
     }
 
     [TestMethod]
@@ -189,8 +191,108 @@ public class WindowManagerFilterTests {
 
         var regex = new Regex(Regex.Escape(window.Title), RegexOptions.IgnoreCase);
         var filtered = manager.GetWindows(regex: regex, includeHidden: true);
-        Assert.IsTrue(filtered.Any(w => w.Handle == window.Handle), 
+        Assert.IsTrue(filtered.Any(w => w.Handle == window.Handle),
             $"Expected to find window {window.Handle:X8} with title '{window.Title}' in regex filtered results");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures combined filters via options return the expected window.
+    /// </summary>
+    public void GetWindows_OptionsCombinedFilters_ReturnsWindow() {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+            Assert.Inconclusive("Test requires Windows");
+        }
+
+        var manager = new WindowManager();
+        var windows = manager.GetWindows(includeHidden: true);
+        if (windows.Count == 0) {
+            Assert.Inconclusive("No windows found to test");
+        }
+
+        WindowInfo? selectedWindow = null;
+        string? selectedClassName = null;
+        string? selectedProcessName = null;
+
+        foreach (var w in windows) {
+            if (string.IsNullOrEmpty(w.Title)) {
+                continue;
+            }
+
+            if (w.ProcessId == 0 || w.ProcessId > int.MaxValue) {
+                continue;
+            }
+
+            try {
+                var sb = new StringBuilder(256);
+                MonitorNativeMethods.GetClassName(w.Handle, sb, sb.Capacity);
+                var className = sb.ToString();
+                if (string.IsNullOrEmpty(className) || className.Length > 50 || className.Contains(":")) {
+                    continue;
+                }
+
+                using var proc = Process.GetProcessById((int)w.ProcessId);
+                if (string.IsNullOrWhiteSpace(proc.ProcessName)) {
+                    continue;
+                }
+
+                selectedWindow = w;
+                selectedClassName = className;
+                selectedProcessName = proc.ProcessName;
+                break;
+            } catch {
+                continue;
+            }
+        }
+
+        if (selectedWindow == null || selectedClassName == null || selectedProcessName == null) {
+            Assert.Inconclusive("No suitable window found for combined filter test");
+        }
+
+        var options = new WindowQueryOptions {
+            TitlePattern = selectedWindow.Title,
+            ProcessNamePattern = selectedProcessName,
+            ClassNamePattern = selectedClassName,
+            ProcessId = (int)selectedWindow.ProcessId,
+            IncludeHidden = true,
+            IncludeCloaked = true,
+            IncludeOwned = true,
+            IsVisible = selectedWindow.IsVisible,
+            State = selectedWindow.State,
+            IsTopMost = selectedWindow.IsTopMost
+        };
+
+        var filtered = manager.GetWindows(options);
+        Assert.IsTrue(filtered.Any(w => w.Handle == selectedWindow.Handle),
+            $"Expected to find window {selectedWindow.Handle:X8} using combined filters");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures Z-order filtering returns a subset within the specified range.
+    /// </summary>
+    public void GetWindows_OptionsZOrderFilter_ReturnsSubset() {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+            Assert.Inconclusive("Test requires Windows");
+        }
+
+        var manager = new WindowManager();
+        var windows = manager.GetWindows(new WindowQueryOptions { IncludeHidden = true });
+        if (windows.Count < 3) {
+            Assert.Inconclusive("Not enough windows for Z-order filter test");
+        }
+
+        int min = 1;
+        int max = windows.Count - 2;
+
+        var filtered = manager.GetWindows(new WindowQueryOptions {
+            IncludeHidden = true,
+            ZOrderMin = min,
+            ZOrderMax = max
+        });
+
+        Assert.IsTrue(filtered.All(w => w.ZOrder >= min && w.ZOrder <= max),
+            "Expected all windows to be within the specified Z-order range");
     }
 }
 

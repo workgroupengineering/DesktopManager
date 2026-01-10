@@ -1,12 +1,16 @@
 using System;
 using System.Runtime.InteropServices;
+#if NET5_0_OR_GREATER
 using System.Runtime.Versioning;
+#endif
 using System.Reflection;
 
 namespace DesktopManager.Tests;
 
 [TestClass]
+#if NET5_0_OR_GREATER
 [SupportedOSPlatform("windows")]
+#endif
 public class MonitorWatcherStateFailureTests {
     [TestMethod]
     public void OnDisplaySettingsChanged_DoesNotUpdateState_WhenProviderFails() {

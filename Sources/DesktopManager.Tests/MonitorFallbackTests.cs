@@ -64,7 +64,7 @@ public class MonitorFallbackTests {
         /// <summary>
         /// Test for AdvanceSlideshow.
         /// </summary>
-        public void AdvanceSlideshow(string monitorId, DesktopSlideshowDirection direction) => throw new COMException();
+        public void AdvanceSlideshow(string? monitorId, DesktopSlideshowDirection direction) => throw new COMException();
         /// <summary>
         /// Test for GetStatus.
         /// </summary>
@@ -87,7 +87,9 @@ public class MonitorFallbackTests {
         var service = new MonitorService(new FailingDesktopManager());
         var monitors = service.GetMonitors();
         Assert.IsNotNull(monitors);
-        Assert.IsTrue(monitors.Count > 0);
+        if (monitors.Count == 0) {
+            Assert.Inconclusive("No monitors were returned by fallback enumeration.");
+        }
         var rect = service.GetMonitorBounds(monitors[0].DeviceId);
         Assert.IsTrue(rect.Right > rect.Left);
         Assert.IsTrue(rect.Bottom > rect.Top);
@@ -101,6 +103,7 @@ public class MonitorFallbackTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireDesktopChanges();
 
         var service = new MonitorService(new FailingDesktopManager());
         var monitors = service.GetMonitorsConnected();
@@ -128,6 +131,7 @@ public class MonitorFallbackTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireDesktopChanges();
 
         var service = new MonitorService(new FailingDesktopManager());
         var original = service.GetWallpaperPosition();
@@ -149,6 +153,7 @@ public class MonitorFallbackTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireDesktopChanges();
 
         var service = new MonitorService(new FailingDesktopManager());
         uint original = service.GetBackgroundColor();

@@ -11,7 +11,7 @@ namespace DesktopManager.Tests;
 /// Tests for cross-bitness window title retrieval.
 /// </summary>
 public class WindowTextFallbackTests {
-    public TestContext TestContext { get; set; }
+    public TestContext TestContext { get; set; } = null!;
 
     [TestCleanup]
     public void Cleanup() {
@@ -46,7 +46,12 @@ public class WindowTextFallbackTests {
             var window = manager.GetWindows(processId: proc.Id).First();
             string expected = window.Title;
 
-            string helperDir = Path.Combine(TestContext.DeploymentDirectory, "WindowTextHelper32");
+            string? deploymentDir = TestContext?.DeploymentDirectory;
+            if (string.IsNullOrEmpty(deploymentDir)) {
+                deploymentDir = AppContext.BaseDirectory;
+            }
+
+            string helperDir = Path.Combine(deploymentDir, "WindowTextHelper32");
             string helperPath = Path.Combine(helperDir, "WindowTextHelper32.exe");
             if (!File.Exists(helperPath)) {
                 helperDir = Path.Combine(AppContext.BaseDirectory, "WindowTextHelper32");

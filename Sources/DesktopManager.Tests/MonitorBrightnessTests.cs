@@ -16,6 +16,7 @@ public class MonitorBrightnessTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireDesktopChanges();
 
         var monitors = new Monitors().GetMonitorsConnected();
         if (monitors.Count == 0) {

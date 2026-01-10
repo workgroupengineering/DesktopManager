@@ -1,11 +1,15 @@
 using System;
 using System.Runtime.InteropServices;
+#if NET5_0_OR_GREATER
 using System.Runtime.Versioning;
+#endif
 
 namespace DesktopManager.Tests;
 
 [TestClass]
+#if NET5_0_OR_GREATER
 [SupportedOSPlatform("windows")]
+#endif
 /// <summary>Tests for monitor connection events.</summary>
 public class MonitorWatcherDeviceChangeTests {
     [TestMethod]

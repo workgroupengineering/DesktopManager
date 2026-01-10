@@ -1,10 +1,14 @@
-using System.Runtime.Versioning;
 using System.Runtime.InteropServices;
+#if NET5_0_OR_GREATER
+using System.Runtime.Versioning;
+#endif
 
 namespace DesktopManager.Tests;
 
 [TestClass]
+#if NET5_0_OR_GREATER
 [SupportedOSPlatform("windows")]
+#endif
 /// <summary>
 /// Test class for MonitorWatcherTests.
 /// </summary>
@@ -39,7 +43,7 @@ public class MonitorWatcherTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
-        var watcher = new MonitorWatcher();
+        MonitorWatcher? watcher = new MonitorWatcher();
         watcher.Dispose();
         watcher = null;
         GC.Collect();

@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Runtime.Serialization;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DesktopManager.Tests;
@@ -10,9 +9,12 @@ namespace DesktopManager.Tests;
 /// </summary>
 public class WindowManagerWildcardTests {
     private static bool InvokeMatches(string text, string pattern) {
-        var manager = (WindowManager)FormatterServices.GetUninitializedObject(typeof(WindowManager));
+        var manager = new WindowManager();
         var method = typeof(WindowManager).GetMethod("MatchesWildcard", BindingFlags.NonPublic | BindingFlags.Instance);
-        return (bool)method.Invoke(manager, new object[] { text, pattern });
+        Assert.IsNotNull(method);
+        var result = method.Invoke(manager, new object[] { text, pattern });
+        Assert.IsNotNull(result);
+        return (bool)result;
     }
 
     [TestMethod]

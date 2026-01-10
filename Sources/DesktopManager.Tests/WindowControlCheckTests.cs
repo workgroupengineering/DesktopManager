@@ -13,6 +13,8 @@ public class WindowControlCheckTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+
+        TestHelper.RequireInteractive();
 #if NETFRAMEWORK
         using Form form = new();
         using CheckBox box = new() { Text = "Sample" };

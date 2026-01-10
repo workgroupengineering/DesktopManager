@@ -106,7 +106,7 @@ internal class FakeDesktopManager : IDesktopManager {
     /// <summary>
     /// Test for AdvanceSlideshow.
     /// </summary>
-    public void AdvanceSlideshow(string monitorId, DesktopSlideshowDirection direction) => LastAdvanceDirection = direction;
+    public void AdvanceSlideshow(string? monitorId, DesktopSlideshowDirection direction) => LastAdvanceDirection = direction;
 
     /// <summary>
     /// Test for GetStatus.
