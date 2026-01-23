@@ -6,6 +6,10 @@ if (-not $PrimaryModule) {
 if ($PrimaryModule.Count -ne 1) {
     throw 'More than one PSD1 files detected. Failing tests.'
 }
+$LibPath = Join-Path -Path $PSScriptRoot -ChildPath 'Lib'
+if (-not (Test-Path -Path $LibPath)) {
+    $env:DESKTOPMANAGER_DEVELOPMENT = 'true'
+}
 $PSDInformation = Import-PowerShellDataFile -Path $PrimaryModule.FullName
 $RequiredModules = @(
     'Pester'
