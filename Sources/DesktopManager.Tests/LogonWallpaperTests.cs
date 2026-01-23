@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DesktopManager.Tests;
@@ -9,6 +10,7 @@ namespace DesktopManager.Tests;
 /// <summary>
 /// Test class for logon wallpaper functionality.
 /// </summary>
+[SupportedOSPlatform("windows10.0.10240.0")]
 public class LogonWallpaperTests {
     [TestMethod]
     /// <summary>
@@ -18,6 +20,7 @@ public class LogonWallpaperTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireDesktopChanges();
 
         if (Type.GetType("Windows.System.UserProfile.LockScreen, Windows, ContentType=WindowsRuntime") == null ||
             Type.GetType("Windows.Storage.StorageFile, Windows, ContentType=WindowsRuntime") == null) {
@@ -43,6 +46,7 @@ public class LogonWallpaperTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireDesktopChanges();
 
         if (PrivilegeChecker.IsElevated) {
             Assert.Inconclusive("Test requires non-elevated context");

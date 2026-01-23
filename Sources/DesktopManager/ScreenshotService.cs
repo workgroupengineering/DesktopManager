@@ -37,7 +37,7 @@ public static class ScreenshotService {
     /// <param name="deviceId">Monitor device identifier.</param>
     /// <param name="deviceName">Monitor device name.</param>
     /// <returns>Bitmap with the screenshot.</returns>
-    public static Bitmap CaptureMonitor(int? index = null, string deviceId = null, string deviceName = null) {
+    public static Bitmap CaptureMonitor(int? index = null, string? deviceId = null, string? deviceName = null) {
         Monitors monitors = new();
         var monitor = monitors.GetMonitors(index: index, deviceId: deviceId, deviceName: deviceName).FirstOrDefault();
         if (monitor == null) {

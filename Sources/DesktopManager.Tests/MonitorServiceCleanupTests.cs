@@ -71,7 +71,7 @@ public class MonitorServiceCleanupTests {
         /// <summary>
         /// Test for AdvanceSlideshow.
         /// </summary>
-        public void AdvanceSlideshow(string monitorId, DesktopSlideshowDirection direction) { }
+        public void AdvanceSlideshow(string? monitorId, DesktopSlideshowDirection direction) { }
         /// <summary>
         /// Test for GetStatus.
         /// </summary>
@@ -79,7 +79,7 @@ public class MonitorServiceCleanupTests {
         /// <summary>
         /// Test for Enable.
         /// </summary>
-        public bool Enable() => true;
+        public void Enable(bool enable) { }
     }
 
     private class ThrowingStream : Stream {

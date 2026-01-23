@@ -16,16 +16,50 @@ public static class WindowInputService {
     /// <param name="window">Target window.</param>
     /// <param name="text">Text to paste.</param>
     public static void PasteText(WindowInfo window, string text) {
-        if (window == null) {
-            throw new ArgumentNullException(nameof(window));
-        }
+        PasteText(window, text, null);
+    }
+
+    /// <summary>
+    /// Pastes the specified text into the window using the clipboard and options.
+    /// </summary>
+    /// <param name="window">Target window.</param>
+    /// <param name="text">Text to paste.</param>
+    /// <param name="options">Input options.</param>
+    public static void PasteText(WindowInfo window, string text, WindowInputOptions? options) {
+        ValidateWindow(window);
         if (text == null) {
             throw new ArgumentNullException(nameof(text));
         }
 
-        ClipboardHelper.SetText(text);
-        MonitorNativeMethods.SetForegroundWindow(window.Handle);
-        MonitorNativeMethods.SendMessage(window.Handle, MonitorNativeMethods.WM_PASTE, 0, 0);
+        WindowInputOptions settings = options ?? new WindowInputOptions();
+        NormalizeOptions(settings);
+
+        IntPtr previousForeground = IntPtr.Zero;
+        if (settings.ActivateWindow || settings.RestoreFocus) {
+            previousForeground = MonitorNativeMethods.GetForegroundWindow();
+        }
+
+        string? clipboardBackup = null;
+        bool restoreClipboard = false;
+        if (settings.PreserveClipboard) {
+            restoreClipboard = ClipboardHelper.TryGetText(out clipboardBackup, settings.ClipboardRetryCount, settings.ClipboardRetryDelayMilliseconds);
+        }
+
+        ClipboardHelper.SetText(text, settings.ClipboardRetryCount, settings.ClipboardRetryDelayMilliseconds);
+
+        if (settings.ActivateWindow) {
+            TryActivateWindow(window.Handle, settings.ActivationRetryCount, settings.ActivationRetryDelayMilliseconds);
+        }
+
+        SendPaste(window.Handle, settings.InputRetryCount, settings.ActivationRetryDelayMilliseconds);
+
+        if (settings.RestoreFocus && previousForeground != IntPtr.Zero && previousForeground != window.Handle) {
+            MonitorNativeMethods.SetForegroundWindow(previousForeground);
+        }
+
+        if (settings.PreserveClipboard && restoreClipboard) {
+            ClipboardHelper.SetText(clipboardBackup ?? string.Empty, settings.ClipboardRetryCount, settings.ClipboardRetryDelayMilliseconds);
+        }
     }
 
     /// <summary>
@@ -35,15 +69,109 @@ public static class WindowInputService {
     /// <param name="text">Text to type.</param>
     /// <param name="delay">Optional delay in milliseconds between characters.</param>
     public static void TypeText(WindowInfo window, string text, int delay = 0) {
-        if (window == null) {
-            throw new ArgumentNullException(nameof(window));
-        }
+        var options = new WindowInputOptions {
+            KeyDelayMilliseconds = delay
+        };
+
+        TypeText(window, text, options);
+    }
+
+    /// <summary>
+    /// Types the specified text into the window using options.
+    /// </summary>
+    /// <param name="window">Target window.</param>
+    /// <param name="text">Text to type.</param>
+    /// <param name="options">Input options.</param>
+    public static void TypeText(WindowInfo window, string text, WindowInputOptions? options) {
+        ValidateWindow(window);
         if (text == null) {
             throw new ArgumentNullException(nameof(text));
         }
 
-        MonitorNativeMethods.SetForegroundWindow(window.Handle);
+        WindowInputOptions settings = options ?? new WindowInputOptions();
+        NormalizeOptions(settings);
 
+        IntPtr previousForeground = IntPtr.Zero;
+        if (settings.ActivateWindow || settings.RestoreFocus) {
+            previousForeground = MonitorNativeMethods.GetForegroundWindow();
+        }
+
+        if (settings.ActivateWindow) {
+            TryActivateWindow(window.Handle, settings.ActivationRetryCount, settings.ActivationRetryDelayMilliseconds);
+        }
+
+        if (settings.UseSendInput) {
+            SendInputText(text, settings);
+        } else {
+            SendMessageText(window.Handle, text, settings.KeyDelayMilliseconds);
+        }
+
+        if (settings.RestoreFocus && previousForeground != IntPtr.Zero && previousForeground != window.Handle) {
+            MonitorNativeMethods.SetForegroundWindow(previousForeground);
+        }
+    }
+
+    private static void ValidateWindow(WindowInfo window) {
+        if (window == null) {
+            throw new ArgumentNullException(nameof(window));
+        }
+        if (window.Handle == IntPtr.Zero) {
+            throw new ArgumentException("Invalid window handle", nameof(window));
+        }
+    }
+
+    private static void NormalizeOptions(WindowInputOptions options) {
+        if (options.ClipboardRetryCount < 1) {
+            options.ClipboardRetryCount = 1;
+        }
+        if (options.ClipboardRetryDelayMilliseconds < 0) {
+            options.ClipboardRetryDelayMilliseconds = 0;
+        }
+        if (options.ActivationRetryCount < 1) {
+            options.ActivationRetryCount = 1;
+        }
+        if (options.ActivationRetryDelayMilliseconds < 0) {
+            options.ActivationRetryDelayMilliseconds = 0;
+        }
+        if (options.InputRetryCount < 1) {
+            options.InputRetryCount = 1;
+        }
+        if (options.KeyDelayMilliseconds < 0) {
+            options.KeyDelayMilliseconds = 0;
+        }
+    }
+
+    private static void TryActivateWindow(IntPtr handle, int retryCount, int retryDelayMilliseconds) {
+        for (int attempt = 0; attempt < retryCount; attempt++) {
+            if (MonitorNativeMethods.SetForegroundWindow(handle)) {
+                return;
+            }
+
+            if (attempt < retryCount - 1 && retryDelayMilliseconds > 0) {
+                Thread.Sleep(retryDelayMilliseconds);
+            }
+        }
+    }
+
+    private static void SendPaste(IntPtr handle, int retryCount, int retryDelayMilliseconds) {
+        for (int attempt = 0; attempt < retryCount; attempt++) {
+            MonitorNativeMethods.SendMessage(handle, MonitorNativeMethods.WM_PASTE, 0, 0);
+            if (attempt < retryCount - 1 && retryDelayMilliseconds > 0) {
+                Thread.Sleep(retryDelayMilliseconds);
+            }
+        }
+    }
+
+    private static void SendMessageText(IntPtr handle, string text, int delayMilliseconds) {
+        foreach (char c in text) {
+            MonitorNativeMethods.SendMessage(handle, MonitorNativeMethods.WM_CHAR, (uint)c, 0);
+            if (delayMilliseconds > 0) {
+                Thread.Sleep(delayMilliseconds);
+            }
+        }
+    }
+
+    private static void SendInputText(string text, WindowInputOptions options) {
         foreach (char c in text) {
             MonitorNativeMethods.INPUT[] inputs = new MonitorNativeMethods.INPUT[2];
 
@@ -65,10 +193,18 @@ public static class WindowInputService {
                 ExtraInfo = IntPtr.Zero
             };
 
-            MonitorNativeMethods.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<MonitorNativeMethods.INPUT>());
+            for (int attempt = 0; attempt < options.InputRetryCount; attempt++) {
+                uint sent = MonitorNativeMethods.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<MonitorNativeMethods.INPUT>());
+                if (sent == inputs.Length) {
+                    break;
+                }
+                if (attempt < options.InputRetryCount - 1 && options.ActivationRetryDelayMilliseconds > 0) {
+                    Thread.Sleep(options.ActivationRetryDelayMilliseconds);
+                }
+            }
 
-            if (delay > 0) {
-                Thread.Sleep(delay);
+            if (options.KeyDelayMilliseconds > 0) {
+                Thread.Sleep(options.KeyDelayMilliseconds);
             }
         }
     }

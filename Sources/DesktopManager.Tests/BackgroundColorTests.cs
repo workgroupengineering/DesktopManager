@@ -15,6 +15,7 @@ public class BackgroundColorTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireDesktopChanges();
 
         var monitors = new Monitors();
         uint original = monitors.GetBackgroundColor();

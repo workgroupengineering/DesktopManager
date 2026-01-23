@@ -16,6 +16,16 @@ public partial class WindowManager
         }
 
         /// <summary>
+        /// Pastes text into the specified window using the clipboard and options.
+        /// </summary>
+        /// <param name="windowInfo">The target window.</param>
+        /// <param name="text">Text to paste.</param>
+        /// <param name="options">Input options.</param>
+        public void PasteText(WindowInfo windowInfo, string text, WindowInputOptions options) {
+            WindowInputService.PasteText(windowInfo, text, options);
+        }
+
+        /// <summary>
         /// Types text into the specified window by simulating keyboard input.
         /// </summary>
         /// <param name="windowInfo">The target window.</param>
@@ -23,6 +33,16 @@ public partial class WindowManager
         /// <param name="delay">Delay in milliseconds between characters.</param>
         public void TypeText(WindowInfo windowInfo, string text, int delay = 0) {
             WindowInputService.TypeText(windowInfo, text, delay);
+        }
+
+        /// <summary>
+        /// Types text into the specified window using input options.
+        /// </summary>
+        /// <param name="windowInfo">The target window.</param>
+        /// <param name="text">Text to type.</param>
+        /// <param name="options">Input options.</param>
+        public void TypeText(WindowInfo windowInfo, string text, WindowInputOptions options) {
+            WindowInputService.TypeText(windowInfo, text, options);
         }
 
         /// <summary>

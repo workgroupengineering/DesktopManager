@@ -24,11 +24,13 @@ public static class WindowControlService {
         // Try to use BM_CLICK first
         MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.BM_CLICK, 0, 0);
 
-        if (MonitorNativeMethods.GetWindowRect(control.Handle, out RECT rect)) {
-            int x = (rect.Left + rect.Right) / 2;
-            int y = (rect.Top + rect.Bottom) / 2;
-            MouseInputService.MoveCursor(x, y);
-            MouseInputService.Click(button);
+        RECT rect;
+        if (MonitorNativeMethods.GetClientRect(control.Handle, out rect)) {
+            int x = Math.Max(1, (rect.Right - rect.Left) / 2);
+            int y = Math.Max(1, (rect.Bottom - rect.Top) / 2);
+            SendMouseClick(control.Handle, button, x, y);
+        } else {
+            SendMouseClick(control.Handle, button, 0, 0);
         }
     }
 
@@ -54,7 +56,7 @@ public static class WindowControlService {
     /// </summary>
     /// <param name="control">Control to modify.</param>
     /// <param name="check">Desired check state.</param>
-    public static void SetCheckState(WindowControlInfo control, bool check) {
+    public static void SetCheckState(WindowControlInfo control, bool check) {   
         if (control == null) {
             throw new ArgumentNullException(nameof(control));
         }
@@ -63,5 +65,19 @@ public static class WindowControlService {
         }
 
         MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.BM_SETCHECK, check ? 1u : 0u, 0u);
+    }
+
+    private static void SendMouseClick(IntPtr handle, MouseButton button, int x, int y) {
+        uint messageDown = button == MouseButton.Left ? MonitorNativeMethods.WM_LBUTTONDOWN : MonitorNativeMethods.WM_RBUTTONDOWN;
+        uint messageUp = button == MouseButton.Left ? MonitorNativeMethods.WM_LBUTTONUP : MonitorNativeMethods.WM_RBUTTONUP;
+        uint wParamDown = button == MouseButton.Left ? MonitorNativeMethods.MK_LBUTTON : MonitorNativeMethods.MK_RBUTTON;
+        uint lParam = CreateLParam(x, y);
+
+        MonitorNativeMethods.SendMessage(handle, messageDown, wParamDown, lParam);
+        MonitorNativeMethods.SendMessage(handle, messageUp, 0, lParam);
+    }
+
+    private static uint CreateLParam(int x, int y) {
+        return unchecked((uint)((y << 16) | (x & 0xFFFF)));
     }
 }

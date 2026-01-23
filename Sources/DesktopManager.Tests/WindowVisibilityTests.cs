@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -17,23 +18,30 @@ public class WindowVisibilityTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireInteractive();
 
-        var manager = new WindowManager();
-        var windows = manager.GetWindows();
-        if (windows.Count == 0) {
-            Assert.Inconclusive("No windows found to test");
+        Process? process = null;
+        WindowInfo? window = null;
+
+        try {
+            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
+                Assert.Inconclusive("Failed to start Notepad for testing");
+                return;
+            }
+
+            var manager = new WindowManager();
+            bool wasVisible = MonitorNativeMethods.IsWindowVisible(window.Handle);
+
+            manager.ShowWindow(window, !wasVisible);
+            bool toggled = MonitorNativeMethods.IsWindowVisible(window.Handle);
+            Assert.AreEqual(!wasVisible, toggled);
+
+            manager.ShowWindow(window, wasVisible);
+            bool reverted = MonitorNativeMethods.IsWindowVisible(window.Handle);
+            Assert.AreEqual(wasVisible, reverted);
+        } finally {
+            TestHelper.SafeKillProcess(process);
         }
-
-        var window = windows.First();
-        bool wasVisible = MonitorNativeMethods.IsWindowVisible(window.Handle);
-
-        manager.ShowWindow(window, !wasVisible);
-        bool toggled = MonitorNativeMethods.IsWindowVisible(window.Handle);
-        Assert.AreEqual(!wasVisible, toggled);
-
-        manager.ShowWindow(window, wasVisible);
-        bool reverted = MonitorNativeMethods.IsWindowVisible(window.Handle);
-        Assert.AreEqual(wasVisible, reverted);
     }
 
     [TestMethod]

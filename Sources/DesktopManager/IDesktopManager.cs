@@ -101,7 +101,7 @@ public interface IDesktopManager {
     /// </summary>
     /// <param name="monitorId">The monitor ID.</param>
     /// <param name="direction">The direction to advance the slideshow.</param>
-    void AdvanceSlideshow([MarshalAs(UnmanagedType.LPWStr)] string monitorId, [MarshalAs(UnmanagedType.I4)] DesktopSlideshowDirection direction);
+    void AdvanceSlideshow([MarshalAs(UnmanagedType.LPWStr)] string? monitorId, [MarshalAs(UnmanagedType.I4)] DesktopSlideshowDirection direction);
 
     /// <summary>
     /// Gets the status of the slideshow.
@@ -110,8 +110,8 @@ public interface IDesktopManager {
     DesktopSlideshowDirection GetStatus();
 
     /// <summary>
-    /// Enables the desktop manager.
+    /// Enables or disables the desktop wallpaper.
     /// </summary>
-    /// <returns>True if enabled, otherwise false.</returns>
-    bool Enable();
+    /// <param name="enable">Whether to enable the desktop wallpaper.</param>
+    void Enable([MarshalAs(UnmanagedType.Bool)] bool enable);
 }

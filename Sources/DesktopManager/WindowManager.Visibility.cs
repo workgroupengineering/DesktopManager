@@ -7,9 +7,7 @@ public partial class WindowManager {
     /// <param name="window">Window to modify.</param>
     /// <param name="show">True to show the window; false to hide it.</param>
     public void ShowWindow(WindowInfo window, bool show) {
-        if (window.Handle == IntPtr.Zero) {
-            throw new InvalidOperationException("Invalid window handle");
-        }
+        ValidateWindowInfo(window);
 
         int command = show ? MonitorNativeMethods.SW_SHOW : MonitorNativeMethods.SW_HIDE;
         // The native ShowWindow API returns the previous visibility state, not

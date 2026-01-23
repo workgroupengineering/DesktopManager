@@ -16,6 +16,7 @@ public partial class MonitorService {
     private const int ENUM_CURRENT_SETTINGS = -1;
     private const int DM_LOGPIXELS = 0x00020000;
     private readonly IDesktopManager _desktopManager;
+    private bool _desktopWallpaperEnableAttempted;
 
     /// <summary>
     /// Executes an action and translates COM exceptions to <see cref="DesktopManagerException"/>.
@@ -51,11 +52,18 @@ public partial class MonitorService {
     /// <param name="desktopManager">The desktop manager interface.</param>
     public MonitorService(IDesktopManager desktopManager) {
         _desktopManager = desktopManager;
+    }
 
+    private void EnsureDesktopWallpaperEnabled() {
+        if (_desktopWallpaperEnableAttempted) {
+            return;
+        }
+
+        _desktopWallpaperEnableAttempted = true;
         try {
-            Execute(() => _desktopManager.Enable(), nameof(IDesktopManager.Enable));
+            Execute(() => _desktopManager.Enable(true), nameof(IDesktopManager.Enable));
         } catch (DesktopManagerException ex) {
-            Console.WriteLine($"DesktopManager initialization failed: {ex.Message}");
+            Console.WriteLine($"DesktopManager enable failed: {ex.Message}");
         }
     }
 
@@ -77,6 +85,9 @@ public partial class MonitorService {
                     monitor.WallpaperPosition = Execute(() => _desktopManager.GetPosition(), nameof(IDesktopManager.GetPosition));
                     monitor.Wallpaper = Execute(() => _desktopManager.GetWallpaper(monitor.DeviceId), nameof(IDesktopManager.GetWallpaper));
                     monitor.Rect = Execute(() => _desktopManager.GetMonitorBounds(monitor.DeviceId), nameof(IDesktopManager.GetMonitorBounds));
+                    if (!string.IsNullOrWhiteSpace(monitor.Wallpaper)) {
+                        UpdateWallpaperCache(monitor.DeviceId, monitor.Wallpaper);
+                    }
 
                     // Populate new properties
                     DISPLAY_DEVICE d = new DISPLAY_DEVICE();

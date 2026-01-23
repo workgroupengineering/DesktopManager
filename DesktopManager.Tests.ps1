@@ -6,6 +6,10 @@ if (-not $PrimaryModule) {
 if ($PrimaryModule.Count -ne 1) {
     throw 'More than one PSD1 files detected. Failing tests.'
 }
+$LibPath = Join-Path -Path $PSScriptRoot -ChildPath 'Lib'
+if (-not (Test-Path -Path $LibPath)) {
+    $env:DESKTOPMANAGER_DEVELOPMENT = 'true'
+}
 $PSDInformation = Import-PowerShellDataFile -Path $PrimaryModule.FullName
 $RequiredModules = @(
     'Pester'
@@ -59,6 +63,13 @@ $Configuration.Run.Exit = $true
 $Configuration.Should.ErrorAction = 'Continue'
 $Configuration.CodeCoverage.Enabled = $false
 $Configuration.Output.Verbosity = 'Detailed'
+$RunInteractive = $false
+if ($env:RUN_UI_TESTS -eq 'true' -or $env:DESKTOPMANAGER_RUN_UI_TESTS -eq 'true') {
+    $RunInteractive = $true
+}
+if (-not $RunInteractive) {
+    $Configuration.Filter.ExcludeTag = @('Interactive')
+}
 $Result = Invoke-Pester -Configuration $Configuration
 #$result = Invoke-Pester -Script $PSScriptRoot\Tests -Verbose -Output Detailed #-EnableExit
 

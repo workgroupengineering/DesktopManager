@@ -1,6 +1,11 @@
-describe 'Invoke-DesktopWindowScreenshot' {
-    it 'captures screenshot of window' -Skip:(-not $IsWindows) {
-        $proc = Start-Process notepad -PassThru
+$RunInteractive = $false
+if ($env:RUN_UI_TESTS -eq 'true' -or $env:DESKTOPMANAGER_RUN_UI_TESTS -eq 'true') {
+    $RunInteractive = $true
+}
+
+describe 'Invoke-DesktopWindowScreenshot' -Tag 'Interactive' {
+    it 'captures screenshot of window' -Skip:(-not $IsWindows -or -not $RunInteractive) {
+        $proc = Start-Process notepad -PassThru -WindowStyle Minimized
         try {
             $window = Wait-DesktopWindow -Name '*Notepad*' -TimeoutMs 10000
             $bmp = Invoke-DesktopWindowScreenshot -Window $window
@@ -10,14 +15,25 @@ describe 'Invoke-DesktopWindowScreenshot' {
             $bmp.Height | Should -Be ($rect.Bottom - $rect.Top)
             $bmp.Dispose()
         } finally {
-            $proc | Stop-Process -ErrorAction SilentlyContinue
+            if ($null -ne $proc) {
+                try {
+                    $null = $proc.CloseMainWindow()
+                } catch {
+                    # Ignore close errors
+                }
+                $proc | Wait-Process -Timeout 3 -ErrorAction SilentlyContinue
+                if (-not $proc.HasExited) {
+                    $proc | Stop-Process -Force -ErrorAction SilentlyContinue
+                }
+            }
         }
     }
-    it 'captures screenshot of control' -Skip:(-not $IsWindows) {
-        $proc = Start-Process notepad -PassThru
+    it 'captures screenshot of control' -Skip:(-not $IsWindows -or -not $RunInteractive) {
+        $proc = Start-Process notepad -PassThru -WindowStyle Minimized
         try {
             $window = Wait-DesktopWindow -Name '*Notepad*' -TimeoutMs 10000
-            $control = Get-DesktopWindowControl -Name '*Notepad*' | Where-Object ClassName -eq 'Edit' | Select-Object -First 1
+            $editableClasses = @('Edit', 'RichEditD2DPT', 'NotepadTextBox')
+            $control = Get-DesktopWindowControl -Name '*Notepad*' | Where-Object { $editableClasses -contains $_.ClassName } | Select-Object -First 1
             $bmp = Invoke-DesktopWindowScreenshot -Control $control
             $rect = New-Object DesktopManager.RECT
             [DesktopManager.MonitorNativeMethods]::GetWindowRect($control.Handle, [ref]$rect) | Out-Null
@@ -25,7 +41,17 @@ describe 'Invoke-DesktopWindowScreenshot' {
             $bmp.Height | Should -Be ($rect.Bottom - $rect.Top)
             $bmp.Dispose()
         } finally {
-            $proc | Stop-Process -ErrorAction SilentlyContinue
+            if ($null -ne $proc) {
+                try {
+                    $null = $proc.CloseMainWindow()
+                } catch {
+                    # Ignore close errors
+                }
+                $proc | Wait-Process -Timeout 3 -ErrorAction SilentlyContinue
+                if (-not $proc.HasExited) {
+                    $proc | Stop-Process -Force -ErrorAction SilentlyContinue
+                }
+            }
         }
     }
 }

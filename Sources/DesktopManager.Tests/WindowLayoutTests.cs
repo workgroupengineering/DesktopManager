@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using DesktopManager;
 
@@ -17,78 +18,79 @@ public class WindowLayoutTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireInteractive();
 
-        var manager = new WindowManager();
-        var windows = manager.GetWindows();
-        if (windows.Count == 0) {
-            Assert.Inconclusive("No windows found to test");
-        }
-
-        // Find a window that's likely to be stable (prefer explorer, system windows, or large applications)
-        var window = windows.FirstOrDefault(w => {
-            try {
-                var proc = System.Diagnostics.Process.GetProcessById((int)w.ProcessId);
-                var name = proc.ProcessName.ToLower();
-                return name.Contains("explorer") || name.Contains("dwm") || name.Contains("winlogon") || 
-                       name.Contains("chrome") || name.Contains("firefox") || name.Contains("code") ||
-                       w.IsVisible;
-            } catch {
-                return false;
-            }
-        }) ?? windows.First();
-
-        var original = manager.GetWindowPosition(window);
-        var originalState = original.State;
-        var path = System.IO.Path.GetTempFileName();
+        Process? process = null;
+        WindowInfo? window = null;
+        var fullLayoutPath = System.IO.Path.GetTempFileName();
+        var filteredLayoutPath = System.IO.Path.GetTempFileName();
 
         try {
-            manager.SaveLayout(path);
-            
-            // Only modify position slightly to avoid extreme coordinates in multi-monitor setups
-            var newLeft = original.Left + 50;
-            var newTop = original.Top + 50;
-            
-            manager.SetWindowPosition(window, newLeft, newTop);
-            
-            // Toggle state only if not maximized (some windows can't be moved when maximized)
-            if (originalState != WindowState.Maximize) {
-                manager.MaximizeWindow(window);
+            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
+                Assert.Inconclusive("Failed to start Notepad for testing");
+                return;
             }
-            
-            // Allow time for window changes to take effect
-            System.Threading.Thread.Sleep(200);
-            
-            manager.LoadLayout(path);
-            
-            // Allow time for layout restoration
-            System.Threading.Thread.Sleep(200);
-            
-            var restored = manager.GetWindowPosition(window);
-            
-            // In multi-monitor setups, allow some tolerance for coordinate system differences
-            var leftTolerance = Math.Abs(original.Left - restored.Left);
-            var topTolerance = Math.Abs(original.Top - restored.Top);
-            
-            if (leftTolerance > 100 || topTolerance > 100) {
-                // If restoration failed significantly, check if we're dealing with a different window
-                var currentWindows = manager.GetWindows();
-                var sameWindow = currentWindows.FirstOrDefault(w => w.Handle == window.Handle);
-                
-                if (sameWindow == null) {
-                    Assert.Inconclusive($"Original window (Handle={window.Handle:X8}) no longer exists - test cannot verify restoration");
+
+            var manager = new WindowManager();
+            var original = manager.GetWindowPosition(window);
+
+            manager.SaveLayout(fullLayoutPath);
+
+            var json = System.IO.File.ReadAllText(fullLayoutPath);
+            var layout = System.Text.Json.JsonSerializer.Deserialize<WindowLayout>(json);
+            if (layout?.Windows == null || layout.Windows.Count == 0) {
+                Assert.Inconclusive("Saved layout did not contain any windows");
+                return;
+            }
+
+            bool included = layout.Windows.Any(w => w.ProcessId == original.ProcessId && w.Title == original.Title);
+            if (!included) {
+                Assert.Inconclusive("Saved layout did not include the test window");
+                return;
+            }
+
+            var newLeft = original.Left + 20;
+            var newTop = original.Top + 20;
+
+            var filteredLayout = new WindowLayout {
+                Windows = new System.Collections.Generic.List<WindowPosition> {
+                    new WindowPosition {
+                        Title = original.Title,
+                        ProcessId = original.ProcessId,
+                        Left = newLeft,
+                        Top = newTop,
+                        Right = newLeft + original.Width,
+                        Bottom = newTop + original.Height,
+                        State = WindowState.Normal
+                    }
                 }
-                
-                Assert.Fail($"Window position restoration failed significantly. Expected: ({original.Left}, {original.Top}), Got: ({restored.Left}, {restored.Top}), Tolerance exceeded: Left={leftTolerance}, Top={topTolerance}");
-            }
-            
-            // For state, be more lenient as some windows may not support all state changes
-            if (originalState != WindowState.Maximize) {
-                Assert.AreEqual(originalState, restored.State, $"State mismatch: expected {originalState}, got {restored.State}");
-            }
+            };
+
+            var filteredJson = System.Text.Json.JsonSerializer.Serialize(filteredLayout,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            System.IO.File.WriteAllText(filteredLayoutPath, filteredJson);
+
+            manager.LoadLayout(filteredLayoutPath);
+
+            System.Threading.Thread.Sleep(200);
+
+            var restored = manager.GetWindowPosition(window);
+            manager.ShowWindow(window, false);
+            var leftTolerance = Math.Abs(newLeft - restored.Left);
+            var topTolerance = Math.Abs(newTop - restored.Top);
+
+            Assert.IsTrue(leftTolerance <= 50,
+                $"Window position restoration failed. Expected Left {newLeft}, got {restored.Left}");
+            Assert.IsTrue(topTolerance <= 50,
+                $"Window position restoration failed. Expected Top {newTop}, got {restored.Top}");
         } finally {
-            if (System.IO.File.Exists(path)) {
-                System.IO.File.Delete(path);
+            if (System.IO.File.Exists(fullLayoutPath)) {
+                System.IO.File.Delete(fullLayoutPath);
             }
+            if (System.IO.File.Exists(filteredLayoutPath)) {
+                System.IO.File.Delete(filteredLayoutPath);
+            }
+            TestHelper.SafeKillProcess(process);
         }
     }
 

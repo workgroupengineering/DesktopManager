@@ -16,37 +16,37 @@ public sealed class MonitorWatcher : IDisposable {
     /// <summary>
     /// Raised when display settings change.
     /// </summary>
-    public event EventHandler DisplaySettingsChanged;
+    public event EventHandler? DisplaySettingsChanged;
 
     /// <summary>
     /// Raised when monitor orientation changes.
     /// </summary>
-    public event EventHandler OrientationChanged;
+    public event EventHandler? OrientationChanged;
 
     /// <summary>
     /// Raised when monitor resolution changes.
     /// </summary>
-    public event EventHandler ResolutionChanged;
+    public event EventHandler? ResolutionChanged;
 
     /// <summary>
     /// Raised when monitor power is turned off.
     /// </summary>
-    public event EventHandler MonitorPoweredOff;
+    public event EventHandler? MonitorPoweredOff;
 
     /// <summary>
     /// Raised when monitor power is turned on.
     /// </summary>
-    public event EventHandler MonitorPoweredOn;
+    public event EventHandler? MonitorPoweredOn;
 
     /// <summary>
     /// Raised when a monitor is connected.
     /// </summary>
-    public event EventHandler MonitorConnected;
+    public event EventHandler? MonitorConnected;
 
     /// <summary>
     /// Raised when a monitor is disconnected.
     /// </summary>
-    public event EventHandler MonitorDisconnected;
+    public event EventHandler? MonitorDisconnected;
 
     private const int ENUM_CURRENT_SETTINGS = -1;
 
@@ -85,7 +85,7 @@ public sealed class MonitorWatcher : IDisposable {
         _deviceWindow = new DeviceChangeWindow(this);
     }
 
-    private void OnDisplaySettingsChanged(object sender, EventArgs e) {
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e) {
         Dictionary<string, MonitorState> current;
         try {
             current = StateProvider();
@@ -130,6 +130,9 @@ public sealed class MonitorWatcher : IDisposable {
     }
 
     internal void ProcessDeviceChange(IntPtr lParam, bool connected) {
+        if (lParam == IntPtr.Zero) {
+            return;
+        }
         var hdr = Marshal.PtrToStructure<MonitorNativeMethods.DEV_BROADCAST_HDR>(lParam);
         if (hdr.dbch_devicetype == MonitorNativeMethods.DBT_DEVTYP_DEVICEINTERFACE) {
             var info = Marshal.PtrToStructure<MonitorNativeMethods.DEV_BROADCAST_DEVICEINTERFACE>(lParam);
@@ -145,10 +148,13 @@ public sealed class MonitorWatcher : IDisposable {
 
     private Dictionary<string, MonitorState> GetCurrentStates() {
         Dictionary<string, MonitorState> states = new();
-        DISPLAY_DEVICE device = new();
-        device.cb = Marshal.SizeOf(device);
         uint index = 0;
-        while (MonitorNativeMethods.EnumDisplayDevices(null, index, ref device, (uint)EnumDisplayDevicesFlags.EDD_GET_DEVICE_INTERFACE_NAME)) {
+        while (true) {
+            DISPLAY_DEVICE device = new();
+            device.cb = Marshal.SizeOf(device);
+            if (!MonitorNativeMethods.EnumDisplayDevices(null, index, ref device, (uint)EnumDisplayDevicesFlags.EDD_GET_DEVICE_INTERFACE_NAME)) {
+                break;
+            }
             if ((device.StateFlags & DisplayDeviceStateFlags.AttachedToDesktop) != 0) {
                 DEVMODE mode = new();
                 mode.dmSize = (short)Marshal.SizeOf<DEVMODE>();

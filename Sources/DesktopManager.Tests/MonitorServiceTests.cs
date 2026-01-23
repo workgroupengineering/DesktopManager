@@ -11,12 +11,12 @@ namespace DesktopManager.Tests;
 public class MonitorServiceTests {
     [TestMethod]
     /// <summary>
-    /// Test for Constructor_CallsEnable.
+    /// Test for Constructor_DoesNotCallEnable.
     /// </summary>
-    public void Constructor_CallsEnable() {
+    public void Constructor_DoesNotCallEnable() {
         var fake = new FakeDesktopManager();
         _ = new MonitorService(fake);
-        Assert.IsTrue(fake.EnableCalled);
+        Assert.IsFalse(fake.EnableCalled);
     }
 
     [TestMethod]
@@ -28,6 +28,7 @@ public class MonitorServiceTests {
         var service = new MonitorService(fake);
         service.SetWallpaper("mon", "wall");
         Assert.AreEqual(("mon", "wall"), fake.SetWallpaperCalls[0]);
+        Assert.IsTrue(fake.EnableCalled);
     }
 
     [TestMethod]
@@ -61,7 +62,7 @@ public class MonitorServiceTests {
         var fake = new FakeDesktopManager();
         var service = new MonitorService(fake);
         service.SetWallpaper(1, "img");
-        Assert.AreEqual(("", "img"), fake.SetWallpaperCalls[0]);
+        Assert.AreEqual(0, fake.SetWallpaperCalls.Count);
     }
 
 
@@ -85,7 +86,7 @@ public class MonitorServiceTests {
     public void SetWallpaper_StreamNull_Throws() {
         var fake = new FakeDesktopManager();
         var service = new MonitorService(fake);
-        Assert.ThrowsException<NullReferenceException>(() => service.SetWallpaper("id", (Stream)null));
+        Assert.ThrowsException<ArgumentNullException>(() => service.SetWallpaper("id", (Stream)null!));
     }
 
     [TestMethod]
@@ -189,7 +190,7 @@ public class MonitorServiceTests {
     public void StartWallpaperSlideshow_ThrowsOnNull() {
         var fake = new FakeDesktopManager();
         var service = new MonitorService(fake);
-        Assert.ThrowsException<ArgumentNullException>(() => service.StartWallpaperSlideshow(null));
+        Assert.ThrowsException<ArgumentNullException>(() => service.StartWallpaperSlideshow(null!));
     }
 
     [TestMethod]

@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 namespace DesktopManager.PowerShell {
     /// <summary>Gets information about desktop windows.</summary>
     /// <para type="synopsis">Gets information about desktop windows.</para>
-    /// <para type="description">Retrieves information about visible windows on the desktop. You can filter windows by name using wildcards.</para>
+    /// <para type="description">Retrieves information about desktop windows. Supports filters for title, process, class, visibility, state, topmost, and Z-order.</para>
     /// <example>
     ///   <para>Get all visible windows</para>
     ///   <code>Get-DesktopWindow</code>
@@ -52,11 +52,68 @@ namespace DesktopManager.PowerShell {
         public SwitchParameter IncludeHidden { get; set; }
 
         /// <summary>
+        /// <para type="description">Include DWM-cloaked windows in the results.</para>
+        /// </summary>
+        [Parameter]
+        public bool IncludeCloaked { get; set; } = true;
+
+        /// <summary>
+        /// <para type="description">Include owned windows in the results.</para>
+        /// </summary>
+        [Parameter]
+        public bool IncludeOwned { get; set; } = true;
+
+        /// <summary>
+        /// <para type="description">Filter windows by visibility. Use $true for visible or $false for hidden.</para>
+        /// </summary>
+        [Parameter]
+        public bool? IsVisible { get; set; }
+
+        /// <summary>
+        /// <para type="description">Filter windows by state (Normal, Minimize, Maximize).</para>
+        /// </summary>
+        [Parameter]
+        public WindowState? State { get; set; }
+
+        /// <summary>
+        /// <para type="description">Filter windows by topmost state.</para>
+        /// </summary>
+        [Parameter]
+        public bool? IsTopMost { get; set; }
+
+        /// <summary>
+        /// <para type="description">Minimum Z-order index (0 is top-most).</para>
+        /// </summary>
+        [Parameter]
+        public int? ZOrderMin { get; set; }
+
+        /// <summary>
+        /// <para type="description">Maximum Z-order index (0 is top-most).</para>
+        /// </summary>
+        [Parameter]
+        public int? ZOrderMax { get; set; }
+
+        /// <summary>
         /// Retrieves and outputs matching windows.
         /// </summary>
         protected override void BeginProcessing() {
             var manager = new WindowManager();
-            var windows = manager.GetWindows(Name, ProcessName, ClassName, Regex, ProcessId, IncludeHidden);
+            var options = new WindowQueryOptions {
+                TitlePattern = Name,
+                ProcessNamePattern = ProcessName,
+                ClassNamePattern = ClassName,
+                TitleRegex = Regex,
+                ProcessId = ProcessId,
+                IncludeHidden = IncludeHidden,
+                IncludeCloaked = IncludeCloaked,
+                IncludeOwned = IncludeOwned,
+                IsVisible = IsVisible,
+                State = State,
+                IsTopMost = IsTopMost,
+                ZOrderMin = ZOrderMin,
+                ZOrderMax = ZOrderMax
+            };
+            var windows = manager.GetWindows(options);
             WriteObject(windows, true);
         }
     }

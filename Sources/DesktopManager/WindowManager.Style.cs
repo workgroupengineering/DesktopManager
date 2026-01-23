@@ -10,9 +10,7 @@ public partial class WindowManager {
     /// <param name="extended">True to get extended style.</param>
     /// <returns>Style flags as a long.</returns>
     public long GetWindowStyle(WindowInfo windowInfo, bool extended = false) {
-        if (windowInfo.Handle == IntPtr.Zero) {
-            throw new InvalidOperationException("Invalid window handle");
-        }
+        ValidateWindowInfo(windowInfo);
 
         int index = extended ? MonitorNativeMethods.GWL_EXSTYLE : MonitorNativeMethods.GWL_STYLE;
         return MonitorNativeMethods.GetWindowLongPtr(windowInfo.Handle, index).ToInt64();
@@ -26,9 +24,7 @@ public partial class WindowManager {
     /// <param name="enable">True to set bits; false to clear them.</param>
     /// <param name="extended">True to modify extended style.</param>
     public void SetWindowStyle(WindowInfo windowInfo, long flags, bool enable, bool extended = false) {
-        if (windowInfo.Handle == IntPtr.Zero) {
-            throw new InvalidOperationException("Invalid window handle");
-        }
+        ValidateWindowInfo(windowInfo);
 
         int index = extended ? MonitorNativeMethods.GWL_EXSTYLE : MonitorNativeMethods.GWL_STYLE;
         long style = GetWindowStyle(windowInfo, extended);

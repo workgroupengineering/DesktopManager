@@ -1,5 +1,6 @@
 using System.IO;
 using System.Management.Automation;
+using System.Runtime.Versioning;
 using DesktopManager;
 
 namespace DesktopManager.PowerShell;
@@ -8,6 +9,7 @@ namespace DesktopManager.PowerShell;
 /// <para type="synopsis">Sets the logon wallpaper using native API when possible and falls back to registry.</para>
 [Cmdlet(VerbsCommon.Set, "LogonWallpaper", SupportsShouldProcess = true)]
 [Alias("Set-LockScreenWallpaper")]
+[SupportedOSPlatform("windows10.0.10240.0")]
 public sealed class CmdletSetLogonWallpaper : PSCmdlet {
     /// <summary>
     /// <para type="description">Path to the image file.</para>

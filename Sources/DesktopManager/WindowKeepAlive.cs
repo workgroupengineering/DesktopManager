@@ -44,6 +44,9 @@ public sealed class WindowKeepAlive : IDisposable {
     /// <param name="handle">Handle of the window.</param>
     /// <param name="interval">Interval between messages.</param>
     public void Start(IntPtr handle, TimeSpan interval) {
+        if (handle == IntPtr.Zero) {
+            throw new ArgumentException("Invalid window handle", nameof(handle));
+        }
         if (interval <= TimeSpan.Zero) {
             throw new ArgumentOutOfRangeException(nameof(interval));
         }
