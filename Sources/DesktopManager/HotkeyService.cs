@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading;
@@ -58,7 +59,7 @@ public sealed class HotkeyService : IDisposable {
         MonitorNativeMethods.PostMessage(_hwnd, WM_RUN, IntPtr.Zero, IntPtr.Zero);
         done.Wait();
         if (ex != null) {
-            throw ex;
+            ExceptionDispatchInfo.Capture(ex).Throw();
         }
     }
 
@@ -98,10 +99,10 @@ public sealed class HotkeyService : IDisposable {
     /// </summary>
     /// <param name="id">Identifier returned from <see cref="RegisterHotkey"/>.</param>
     public void UnregisterHotkey(int id) {
-        Invoke(() => MonitorNativeMethods.UnregisterHotKey(_hwnd, id));
-        lock (_callbacks) {
+        Invoke(() => {
+            MonitorNativeMethods.UnregisterHotKey(_hwnd, id);
             _callbacks.Remove(id);
-        }
+        });
     }
 
     private void MessageLoop() {
