@@ -96,64 +96,73 @@ if ($Development) {
     )
 }
 
-$FoundErrors = @(
-    if ($Development) {
-        foreach ($BinaryModule in $BinaryDev) {
-            try {
-                Import-Module -Name $BinaryModule -Force -ErrorAction Stop
-            } catch {
-                Write-Warning "Failed to import module $($BinaryModule): $($_.Exception.Message)"
-                $true
-            }
-        }
-    } else {
-        foreach ($BinaryModule in $BinaryModules) {
-            try {
-                if ($Framework -and $PSEdition -eq 'Core') {
-                    Import-Module -Name "$PSScriptRoot\Lib\$Framework\$BinaryModule" -Force -ErrorAction Stop
-                }
-                if ($FrameworkNet -and $PSEdition -ne 'Core') {
-                    Import-Module -Name "$PSScriptRoot\Lib\$FrameworkNet\$BinaryModule" -Force -ErrorAction Stop
-                }
-            } catch {
-                Write-Warning "Failed to import module $($BinaryModule): $($_.Exception.Message)"
-                $true
-            }
-        }
-    }
-    foreach ($Import in @($Assembly)) {
+$ImportedBinaryModules = New-Object 'System.Collections.Generic.List[object]'
+$FoundErrors = New-Object 'System.Collections.Generic.List[bool]'
+if ($Development) {
+    foreach ($BinaryModule in $BinaryDev) {
         try {
-            Write-Verbose -Message $Import.FullName
-            Add-Type -Path $Import.Fullname -ErrorAction Stop
-            #  }
-        } catch [System.Reflection.ReflectionTypeLoadException] {
-            Write-Warning "Processing $($Import.Name) Exception: $($_.Exception.Message)"
-            $LoaderExceptions = $($_.Exception.LoaderExceptions) | Sort-Object -Unique
-            foreach ($E in $LoaderExceptions) {
-                Write-Warning "Processing $($Import.Name) LoaderExceptions: $($E.Message)"
+            $ImportedModule = Import-Module -Name $BinaryModule -Force -ErrorAction Stop -PassThru -Global
+            if ($ImportedModule) {
+                [void] $ImportedBinaryModules.Add($ImportedModule)
             }
-            $true
-            #Write-Error -Message "StackTrace: $($_.Exception.StackTrace)"
         } catch {
-            Write-Warning "Processing $($Import.Name) Exception: $($_.Exception.Message)"
-            $LoaderExceptions = $($_.Exception.LoaderExceptions) | Sort-Object -Unique
-            foreach ($E in $LoaderExceptions) {
-                Write-Warning "Processing $($Import.Name) LoaderExceptions: $($E.Message)"
-            }
-            $true
-            #Write-Error -Message "StackTrace: $($_.Exception.StackTrace)"
+            Write-Warning "Failed to import module $($BinaryModule): $($_.Exception.Message)"
+            [void] $FoundErrors.Add($true)
         }
     }
-    #Dot source the files
-    foreach ($Import in @($Classes + $Enums + $Private + $Public)) {
+} else {
+    foreach ($BinaryModule in $BinaryModules) {
         try {
-            . $Import.Fullname
+            if ($Framework -and $PSEdition -eq 'Core') {
+                $ImportedModule = Import-Module -Name "$PSScriptRoot\Lib\$Framework\$BinaryModule" -Force -ErrorAction Stop -PassThru -Global
+                if ($ImportedModule) {
+                    [void] $ImportedBinaryModules.Add($ImportedModule)
+                }
+            }
+            if ($FrameworkNet -and $PSEdition -ne 'Core') {
+                $ImportedModule = Import-Module -Name "$PSScriptRoot\Lib\$FrameworkNet\$BinaryModule" -Force -ErrorAction Stop -PassThru -Global
+                if ($ImportedModule) {
+                    [void] $ImportedBinaryModules.Add($ImportedModule)
+                }
+            }
         } catch {
-            Write-Error -Message "Failed to import functions from $($import.Fullname): $_"
-            $true
+            Write-Warning "Failed to import module $($BinaryModule): $($_.Exception.Message)"
+            [void] $FoundErrors.Add($true)
         }
     }
-)
+}
+foreach ($Import in @($Assembly)) {
+    try {
+        Write-Verbose -Message $Import.FullName
+        Add-Type -Path $Import.Fullname -ErrorAction Stop
+        #  }
+    } catch [System.Reflection.ReflectionTypeLoadException] {
+        Write-Warning "Processing $($Import.Name) Exception: $($_.Exception.Message)"
+        $LoaderExceptions = $($_.Exception.LoaderExceptions) | Sort-Object -Unique
+        foreach ($E in $LoaderExceptions) {
+            Write-Warning "Processing $($Import.Name) LoaderExceptions: $($E.Message)"
+        }
+        [void] $FoundErrors.Add($true)
+        #Write-Error -Message "StackTrace: $($_.Exception.StackTrace)"
+    } catch {
+        Write-Warning "Processing $($Import.Name) Exception: $($_.Exception.Message)"
+        $LoaderExceptions = $($_.Exception.LoaderExceptions) | Sort-Object -Unique
+        foreach ($E in $LoaderExceptions) {
+            Write-Warning "Processing $($Import.Name) LoaderExceptions: $($E.Message)"
+        }
+        [void] $FoundErrors.Add($true)
+        #Write-Error -Message "StackTrace: $($_.Exception.StackTrace)"
+    }
+}
+#Dot source the files
+foreach ($Import in @($Classes + $Enums + $Private + $Public)) {
+    try {
+        . $Import.Fullname
+    } catch {
+        Write-Error -Message "Failed to import functions from $($import.Fullname): $_"
+        [void] $FoundErrors.Add($true)
+    }
+}
 
 if ($FoundErrors.Count -gt 0) {
     $ModuleName = (Get-ChildItem $PSScriptRoot\*.psd1).BaseName
@@ -161,4 +170,23 @@ if ($FoundErrors.Count -gt 0) {
     break
 }
 
-Export-ModuleMember -Function '*' -Alias '*' -Cmdlet '*'
+$CmdletsToExport = New-Object 'System.Collections.Generic.List[string]'
+foreach ($Module in $ImportedBinaryModules) {
+    if ($Module -and $Module.ExportedCmdlets) {
+        foreach ($Key in $Module.ExportedCmdlets.Keys) {
+            [void] $CmdletsToExport.Add($Key)
+        }
+    }
+}
+if ($CmdletsToExport.Count -eq 0) {
+    foreach ($BinaryModule in $BinaryModules) {
+        $ModuleName = [System.IO.Path]::GetFileNameWithoutExtension($BinaryModule)
+        $ModuleCmdlets = Get-Command -Module $ModuleName -CommandType Cmdlet -ErrorAction SilentlyContinue
+        foreach ($Cmdlet in $ModuleCmdlets) {
+            [void] $CmdletsToExport.Add($Cmdlet.Name)
+        }
+    }
+}
+$CmdletsToExport = $CmdletsToExport.ToArray() | Sort-Object -Unique
+
+Export-ModuleMember -Function '*' -Alias '*' -Cmdlet $CmdletsToExport

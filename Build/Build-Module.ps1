@@ -27,6 +27,9 @@ Build-Module -ModuleName 'DesktopManager' {
         IconUri                = 'https://evotec.xyz/wp-content/uploads/2022/12/DesktopManager.png'
 
         DotNetFrameworkVersion = '4.7.2'
+        AliasesToExport        = '*'
+        CmdletsToExport        = '*'
+        FunctionsToExport      = '*'
 
         #PreReleaseTag          = 'Preview3'
     }
