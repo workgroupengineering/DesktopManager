@@ -131,6 +131,11 @@ public sealed class CmdletSetDesktopWindowText : PSCmdlet {
                     options.PreserveClipboard = true;
                 }
 
+                if (ParameterSetName == "Type" && !options.ActivateWindow && options.UseSendInput) {
+                    options.UseSendInput = false;
+                    WriteVerbose("NoActivate is set; using WM_CHAR to avoid typing into the foreground window.");
+                }
+
                 if (ParameterSetName == "Type") {
                     manager.TypeText(window, Text, options);
                 } else {

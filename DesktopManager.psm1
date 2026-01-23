@@ -13,8 +13,15 @@ if ($DevelopmentEnv) {
     $Development = $DevelopmentEnv.ToString().ToLowerInvariant() -in @('1', 'true', 'yes', 'on')
 }
 $DevelopmentPath = "$PSScriptRoot\Sources\DesktopManager.PowerShell\bin\Debug"
-$DevelopmentFolderCore = "net8.0"
+$DevelopmentFolderCore = "net8.0-windows10.0.19041.0"
 $DevelopmentFolderDefault = "net472"
+$DevelopmentCoreFolder = Get-ChildItem -Path $DevelopmentPath -Directory -Filter 'net8.0-windows*' -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $DevelopmentCoreFolder) {
+    $DevelopmentCoreFolder = Get-ChildItem -Path $DevelopmentPath -Directory -Filter 'net8.*' -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+if ($DevelopmentCoreFolder) {
+    $DevelopmentFolderCore = $DevelopmentCoreFolder.Name
+}
 $BinaryModules = @(
     "DesktopManager.PowerShell.dll"
 )
