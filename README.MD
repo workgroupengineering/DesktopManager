@@ -146,6 +146,25 @@ For using in PowerShell you can install it from PowerShell Gallery
 Install-Module DesktopManager -Force -Verbose
 ```
 
+### Testing notes
+
+UI-impacting tests are opt-in to avoid opening windows or changing the desktop during local development. Use the environment variables below to control behavior:
+
+- `RUN_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_UI_TESTS=true`) enables UI tests.
+- `RUN_DESTRUCTIVE_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_DESTRUCTIVE_UI_TESTS=true`) enables tests that change wallpapers, brightness, or resolution.
+- `SKIP_UI_TESTS=true` (or `DESKTOPMANAGER_SKIP_UI_TESTS=true`) forces UI tests to skip, even if enabled elsewhere.
+
+```powershell
+# Run UI tests
+$env:RUN_UI_TESTS = "true"
+
+# Run tests that change desktop settings
+$env:RUN_DESTRUCTIVE_UI_TESTS = "true"
+
+# Force skip
+$env:SKIP_UI_TESTS = "true"
+```
+
 ### Usage
 
 #### Example in C#

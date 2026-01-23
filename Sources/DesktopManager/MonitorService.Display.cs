@@ -510,6 +510,8 @@ public partial class MonitorService {
             throw new ArgumentNullException(nameof(wallpaperPaths));
         }
 
+        EnsureDesktopWallpaperEnabled();
+
         IntPtr arrayPtr = IntPtr.Zero;
         try {
             arrayPtr = CreateShellItemArray(wallpaperPaths);

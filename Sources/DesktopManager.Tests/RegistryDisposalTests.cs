@@ -26,7 +26,7 @@ public class RegistryDisposalTests {
         public uint GetSlideshowOptions(out DesktopSlideshowDirection options, out uint slideshowTick) { throw new COMException(); }
         public void AdvanceSlideshow(string? monitorId, DesktopSlideshowDirection direction) => throw new COMException();
         public DesktopSlideshowDirection GetStatus() => throw new COMException();
-        public bool Enable() => throw new COMException();
+        public void Enable(bool enable) => throw new COMException();
     }
 
     [TestMethod]

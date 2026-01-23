@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.Versioning;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DesktopManager.Tests;
@@ -7,6 +8,7 @@ namespace DesktopManager.Tests;
 /// <summary>
 /// Tests for COM initialization during logon wallpaper operations.
 /// </summary>
+[SupportedOSPlatform("windows10.0.10240.0")]
 public class ComInitializationTests {
     private class ComTrackingService : MonitorService {
         public bool InitCalled;

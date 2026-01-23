@@ -2,6 +2,11 @@ using System;
 using System.IO;
 using System.Runtime.Versioning;
 using Microsoft.Win32;
+#if NET8_0_OR_GREATER && WINDOWS
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Storage;
+using Windows.System.UserProfile;
+#endif
 
 namespace DesktopManager;
 
@@ -16,7 +21,7 @@ public partial class MonitorService {
     /// Sets the logon wallpaper image path.
     /// </summary>
     /// <param name="imagePath">Path to the image file.</param>
-    [SupportedOSPlatform("windows")]
+    [SupportedOSPlatform("windows10.0.10240.0")]
     public void SetLogonWallpaper(string imagePath) {
         bool comInitialized = InitializeCom();
         
@@ -30,6 +35,17 @@ public partial class MonitorService {
             PrivilegeChecker.EnsureElevated();
         
             try {
+#if NET8_0_OR_GREATER && WINDOWS
+                try {
+                    var file = StorageFile.GetFileFromPathAsync(imagePath).AsTask().GetAwaiter().GetResult();
+                    LockScreen.SetImageFileAsync(file).AsTask().GetAwaiter().GetResult();
+                    return;
+                } catch (InvalidOperationException) {
+                    throw;
+                } catch {
+                    // ignore and use fallback
+                }
+#else
                 Type lockScreenType = Type.GetType(
                     "Windows.System.UserProfile.LockScreen, Windows, ContentType=WindowsRuntime")
                         ?? throw new InvalidOperationException("LockScreen type not found");
@@ -70,6 +86,7 @@ public partial class MonitorService {
                 }
                 opTask.Wait();
                 return;
+#endif
             } catch (InvalidOperationException) {
                 throw;
             } catch {
@@ -98,10 +115,24 @@ public partial class MonitorService {
     /// Gets the current logon wallpaper path if available.
     /// </summary>
     /// <returns>Path to the logon wallpaper or empty string.</returns>
-    [SupportedOSPlatform("windows")]
+    [SupportedOSPlatform("windows10.0.10240.0")]
     public string GetLogonWallpaper() {
         bool comInitialized = InitializeCom();
         try {
+#if NET8_0_OR_GREATER && WINDOWS
+            try {
+                using var inputStream = LockScreen.GetImageStream();
+                using var stream = inputStream.AsStreamForRead();
+                string temp = Path.GetTempFileName();
+                using FileStream fs = new FileStream(temp, FileMode.Create, FileAccess.Write);
+                stream.CopyTo(fs);
+                return temp;
+            } catch (InvalidOperationException) {
+                throw;
+            } catch {
+                // ignore and use fallback
+            }
+#else
             Type lockScreenType = Type.GetType(
                 "Windows.System.UserProfile.LockScreen, Windows, ContentType=WindowsRuntime")
                     ?? throw new InvalidOperationException("LockScreen type not found");
@@ -123,6 +154,7 @@ public partial class MonitorService {
             using FileStream fs = new FileStream(temp, FileMode.Create, FileAccess.Write);
             streamReader.CopyTo(fs);
             return temp;
+#endif
         } catch (InvalidOperationException) {
             throw;
         } catch {

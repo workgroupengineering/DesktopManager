@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -12,6 +13,7 @@ namespace DesktopManager.Tests;
 internal static class TestHelper {
     private const int SW_HIDE = 0;
     private const int SW_MINIMIZE = 6;
+    private static readonly ConcurrentDictionary<int, byte> StartedProcessIds = new();
 
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
@@ -35,6 +37,10 @@ internal static class TestHelper {
         window = null;
 
         try {
+            if (ShouldSkipUITests()) {
+                return false;
+            }
+
             var startInfo = new ProcessStartInfo("notepad.exe") {
                 UseShellExecute = true,
                 WindowStyle = ProcessWindowStyle.Minimized
@@ -44,6 +50,7 @@ internal static class TestHelper {
             if (process == null) {
                 return false;
             }
+            TrackProcess(process);
 
             process.WaitForInputIdle(3000);
 
@@ -97,18 +104,13 @@ internal static class TestHelper {
             return true;
         }
 
-        // Run UI tests in CI environment
-        if (Environment.GetEnvironmentVariable("CI") == "true") {
-            return false;
-        }
-
-        // Skip UI tests by default in local development unless explicitly enabled
+        // Run UI tests only when explicitly enabled
         if (Environment.GetEnvironmentVariable("RUN_UI_TESTS") == "true" ||
             Environment.GetEnvironmentVariable("DESKTOPMANAGER_RUN_UI_TESTS") == "true") {
             return false;
         }
 
-        // Skip by default in local development
+        // Skip by default
         return true;
     }
 
@@ -133,7 +135,7 @@ internal static class TestHelper {
     /// </summary>
     public static void RequireInteractive() {
         if (ShouldSkipUITests()) {
-            Assert.Inconclusive("UI tests skipped in local development. Set RUN_UI_TESTS=true to run.");
+            Assert.Inconclusive("UI tests skipped by default. Set RUN_UI_TESTS=true (or DESKTOPMANAGER_RUN_UI_TESTS=true) to run.");
         }
     }
 
@@ -143,7 +145,7 @@ internal static class TestHelper {
     public static void RequireDesktopChanges() {
         RequireInteractive();
         if (ShouldSkipDesktopChangeTests()) {
-            Assert.Inconclusive("Desktop-changing UI tests skipped. Set RUN_DESTRUCTIVE_UI_TESTS=true to run.");
+            Assert.Inconclusive("Desktop-changing UI tests skipped. Set RUN_DESTRUCTIVE_UI_TESTS=true (or DESKTOPMANAGER_RUN_DESTRUCTIVE_UI_TESTS=true) to run.");
         }
     }
 
@@ -151,7 +153,9 @@ internal static class TestHelper {
     /// Safely kills a process.
     /// </summary>
     public static void SafeKillProcess(Process? process) {
-        if (process == null) return;
+        if (process == null) {
+            return;
+        }
 
         try {
             if (!process.HasExited) {
@@ -169,6 +173,7 @@ internal static class TestHelper {
         } catch {
             // Ignore errors during cleanup
         } finally {
+            UntrackProcess(process);
             process.Dispose();
         }
     }
@@ -178,12 +183,32 @@ internal static class TestHelper {
     /// </summary>
     public static void KillAllNotepads() {
         try {
-            var processes = Process.GetProcessesByName("notepad");
-            foreach (var process in processes) {
-                SafeKillProcess(process);
+            foreach (var processId in StartedProcessIds.Keys) {
+                try {
+                    using var process = Process.GetProcessById(processId);
+                    SafeKillProcess(process);
+                } catch {
+                    // Ignore missing or already exited processes
+                }
             }
         } catch {
             // Ignore errors during cleanup
+        }
+    }
+
+    private static void TrackProcess(Process process) {
+        try {
+            StartedProcessIds.TryAdd(process.Id, 0);
+        } catch {
+            // Ignore tracking failures
+        }
+    }
+
+    private static void UntrackProcess(Process process) {
+        try {
+            StartedProcessIds.TryRemove(process.Id, out _);
+        } catch {
+            // Ignore tracking failures
         }
     }
 }

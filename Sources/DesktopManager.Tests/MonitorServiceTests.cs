@@ -11,12 +11,12 @@ namespace DesktopManager.Tests;
 public class MonitorServiceTests {
     [TestMethod]
     /// <summary>
-    /// Test for Constructor_CallsEnable.
+    /// Test for Constructor_DoesNotCallEnable.
     /// </summary>
-    public void Constructor_CallsEnable() {
+    public void Constructor_DoesNotCallEnable() {
         var fake = new FakeDesktopManager();
         _ = new MonitorService(fake);
-        Assert.IsTrue(fake.EnableCalled);
+        Assert.IsFalse(fake.EnableCalled);
     }
 
     [TestMethod]
@@ -28,6 +28,7 @@ public class MonitorServiceTests {
         var service = new MonitorService(fake);
         service.SetWallpaper("mon", "wall");
         Assert.AreEqual(("mon", "wall"), fake.SetWallpaperCalls[0]);
+        Assert.IsTrue(fake.EnableCalled);
     }
 
     [TestMethod]

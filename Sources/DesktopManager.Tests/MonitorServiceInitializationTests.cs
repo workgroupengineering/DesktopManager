@@ -73,14 +73,14 @@ public class MonitorServiceInitializationTests {
         /// <summary>
         /// Test for Enable.
         /// </summary>
-        public bool Enable() => throw new COMException();
+        public void Enable(bool enable) => throw new COMException();
     }
 
     [TestMethod]
     /// <summary>
-    /// Test for Constructor_LogsMessage_WhenEnableThrows.
+    /// Test for Constructor_DoesNotInvokeEnable.
     /// </summary>
-    public void Constructor_LogsMessage_WhenEnableThrows() {
+    public void Constructor_DoesNotInvokeEnable() {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
@@ -91,7 +91,7 @@ public class MonitorServiceInitializationTests {
         new MonitorService(new FailingEnableDesktopManager());
         Console.SetOut(original);
 
-        StringAssert.Contains(sw.ToString(), "DesktopManager initialization failed");
+        Assert.IsFalse(sw.ToString().Contains("DesktopManager initialization failed", StringComparison.Ordinal));
     }
 }
 

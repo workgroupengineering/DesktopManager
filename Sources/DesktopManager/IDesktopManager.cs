@@ -110,8 +110,8 @@ public interface IDesktopManager {
     DesktopSlideshowDirection GetStatus();
 
     /// <summary>
-    /// Enables the desktop manager.
+    /// Enables or disables the desktop wallpaper.
     /// </summary>
-    /// <returns>True if enabled, otherwise false.</returns>
-    bool Enable();
+    /// <param name="enable">Whether to enable the desktop wallpaper.</param>
+    void Enable([MarshalAs(UnmanagedType.Bool)] bool enable);
 }

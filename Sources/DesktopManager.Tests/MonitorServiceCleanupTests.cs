@@ -79,7 +79,7 @@ public class MonitorServiceCleanupTests {
         /// <summary>
         /// Test for Enable.
         /// </summary>
-        public bool Enable() => true;
+        public void Enable(bool enable) { }
     }
 
     private class ThrowingStream : Stream {

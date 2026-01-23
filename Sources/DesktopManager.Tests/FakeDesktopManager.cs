@@ -116,5 +116,5 @@ internal class FakeDesktopManager : IDesktopManager {
     /// <summary>
     /// Test for Enable.
     /// </summary>
-    public bool Enable() { EnableCalled = true; return true; }
+    public void Enable(bool enable) { EnableCalled = true; }
 }

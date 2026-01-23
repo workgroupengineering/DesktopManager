@@ -58,6 +58,16 @@ public sealed class CmdletSetDesktopWallpaper : PSCmdlet {
     /// </summary>
     [Parameter(Mandatory = false, Position = 5, ParameterSetName = "All")]
     public SwitchParameter All;
+    /// <summary>
+    /// <para type="description">Apply the wallpaper for all user profiles.</para>
+    /// </summary>
+    [Parameter(Mandatory = false)]
+    public SwitchParameter AllUsers;
+    /// <summary>
+    /// <para type="description">Exclude the default user profile when applying to all users.</para>
+    /// </summary>
+    [Parameter(Mandatory = false)]
+    public SwitchParameter ExcludeDefaultUserProfile;
 
     /// <summary>
     /// <para type="description">The position of the wallpaper on the monitor.</para>
@@ -107,6 +117,11 @@ public sealed class CmdletSetDesktopWallpaper : PSCmdlet {
             }
             WriteWarning(ex.Message);
             return;
+        }
+
+        if (AllUsers && !hasPath) {
+            var ex = new ArgumentException("AllUsers requires WallpaperPath to be provided.");
+            ThrowTerminatingError(new ErrorRecord(ex, "AllUsersRequiresPath", ErrorCategory.InvalidArgument, null));
         }
 
         if ((hasPath ? 1 : 0) + (hasUrl ? 1 : 0) + (hasImage ? 1 : 0) > 1) {
@@ -169,6 +184,13 @@ public sealed class CmdletSetDesktopWallpaper : PSCmdlet {
         if (WallpaperPosition != null) {
             if (ShouldProcess("All monitors", $"Set wallpaper position to {WallpaperPosition.Value}")) {
                 monitors.SetWallpaperPosition(WallpaperPosition.Value);
+            }
+        }
+
+        if (AllUsers && hasPath) {
+            var position = WallpaperPosition ?? monitors.GetWallpaperPosition();
+            if (ShouldProcess("All user profiles", $"Set wallpaper to {WallpaperPath}")) {
+                monitors.SetWallpaperForAllUsers(WallpaperPath, position, !ExcludeDefaultUserProfile.IsPresent);
             }
         }
     }

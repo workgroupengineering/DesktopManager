@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DesktopManager.Tests;
@@ -9,6 +10,7 @@ namespace DesktopManager.Tests;
 /// <summary>
 /// Test class for logon wallpaper functionality.
 /// </summary>
+[SupportedOSPlatform("windows10.0.10240.0")]
 public class LogonWallpaperTests {
     [TestMethod]
     /// <summary>

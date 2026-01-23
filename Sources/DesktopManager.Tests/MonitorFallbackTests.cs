@@ -72,7 +72,7 @@ public class MonitorFallbackTests {
         /// <summary>
         /// Test for Enable.
         /// </summary>
-        public bool Enable() => throw new COMException();
+        public void Enable(bool enable) => throw new COMException();
     }
 
     [TestMethod]

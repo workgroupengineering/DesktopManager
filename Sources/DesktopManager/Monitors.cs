@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.Versioning;
 using System.Threading.Tasks;
 
 namespace DesktopManager;
@@ -238,14 +239,26 @@ public class Monitors {
     /// Sets the logon (lock screen) wallpaper.
     /// </summary>
     /// <param name="imagePath">Path to the image file.</param>
+    [SupportedOSPlatform("windows10.0.10240.0")]
     public void SetLogonWallpaper(string imagePath) {
         _monitorService.SetLogonWallpaper(imagePath);
     }
 
     /// <summary>
-    /// Gets the current logon (lock screen) wallpaper path if available.
+    /// Sets the wallpaper for all user profiles.
+    /// </summary>
+    /// <param name="wallpaperPath">Path to the wallpaper image.</param>
+    /// <param name="position">Wallpaper position to store for users.</param>
+    /// <param name="includeDefaultProfile">Whether to update the default user profile.</param>
+    public void SetWallpaperForAllUsers(string wallpaperPath, DesktopWallpaperPosition position, bool includeDefaultProfile = true) {
+        _monitorService.SetWallpaperForAllUsers(wallpaperPath, position, includeDefaultProfile);
+    }
+
+    /// <summary>
+    /// Gets the current logon (lock screen) wallpaper path if available.       
     /// </summary>
     /// <returns>Path to the wallpaper or empty string.</returns>
+    [SupportedOSPlatform("windows10.0.10240.0")]
     public string GetLogonWallpaper() {
         return _monitorService.GetLogonWallpaper();
     }

@@ -37,6 +37,8 @@ public partial class MonitorService {
             throw new ArgumentNullException(nameof(wallpaperPath));
         }
 
+        EnsureDesktopWallpaperEnabled();
+
         try {
             Execute(() => _desktopManager.SetWallpaper(monitorId, wallpaperPath), nameof(IDesktopManager.SetWallpaper));
         } catch (DesktopManagerException) {
@@ -56,6 +58,8 @@ public partial class MonitorService {
         if (string.IsNullOrWhiteSpace(wallpaperPath)) {
             throw new ArgumentNullException(nameof(wallpaperPath));
         }
+
+        EnsureDesktopWallpaperEnabled();
 
         var monitors = new List<Monitor>();
         try {
