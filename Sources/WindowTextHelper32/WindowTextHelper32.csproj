@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net472;net8.0-windows10.0.19041.0</TargetFrameworks>
+    <TargetFrameworks>net472;net8.0-windows</TargetFrameworks>
     <PlatformTarget>x86</PlatformTarget>
     <LangVersion>latest</LangVersion>
-    <RuntimeIdentifier Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">win-x86</RuntimeIdentifier>
-    <SelfContained Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">true</SelfContained>
-    <PublishSingleFile Condition="'$(TargetFramework)' == 'net8.0-windows10.0.19041.0'">true</PublishSingleFile>
+    <RuntimeIdentifier Condition="'$(TargetFramework)' == 'net8.0-windows'">win-x86</RuntimeIdentifier>
+    <SelfContained Condition="'$(TargetFramework)' == 'net8.0-windows'">true</SelfContained>
+    <PublishSingleFile Condition="'$(TargetFramework)' == 'net8.0-windows'">true</PublishSingleFile>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\DesktopManager\DesktopManager.csproj" />

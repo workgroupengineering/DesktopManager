@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.Versioning;
 using Microsoft.Win32;
-#if NET8_0_OR_GREATER && WINDOWS
+#if NET8_0_OR_GREATER && WINDOWS && WINDOWS10_0_19041_0
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Storage;
 using Windows.System.UserProfile;
@@ -35,7 +35,7 @@ public partial class MonitorService {
             PrivilegeChecker.EnsureElevated();
         
             try {
-#if NET8_0_OR_GREATER && WINDOWS
+#if NET8_0_OR_GREATER && WINDOWS && WINDOWS10_0_19041_0
                 try {
                     var file = StorageFile.GetFileFromPathAsync(imagePath).AsTask().GetAwaiter().GetResult();
                     LockScreen.SetImageFileAsync(file).AsTask().GetAwaiter().GetResult();
@@ -119,7 +119,7 @@ public partial class MonitorService {
     public string GetLogonWallpaper() {
         bool comInitialized = InitializeCom();
         try {
-#if NET8_0_OR_GREATER && WINDOWS
+#if NET8_0_OR_GREATER && WINDOWS && WINDOWS10_0_19041_0
             try {
                 using var inputStream = LockScreen.GetImageStream();
                 using var stream = inputStream.AsStreamForRead();

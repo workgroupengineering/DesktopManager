@@ -1,4 +1,4 @@
-Import-Module PSPublishModule -Force
+Import-Module PSPublishModule -Force -RequiredVersion 2.0.27
 
 Build-Module -ModuleName 'DesktopManager' {
     # Usual defaults as per standard module
@@ -27,9 +27,9 @@ Build-Module -ModuleName 'DesktopManager' {
         IconUri                = 'https://evotec.xyz/wp-content/uploads/2022/12/DesktopManager.png'
 
         DotNetFrameworkVersion = '4.7.2'
-        AliasesToExport        = '*'
-        CmdletsToExport        = '*'
-        FunctionsToExport      = '*'
+        #AliasesToExport        = '*'
+        #CmdletsToExport        = '*'
+        #FunctionsToExport      = '*'
 
         #PreReleaseTag          = 'Preview3'
     }
@@ -88,7 +88,7 @@ Build-Module -ModuleName 'DesktopManager' {
         ResolveBinaryConflictsName        = 'DesktopManager.PowerShell'
         NETProjectName                    = 'DesktopManager.PowerShell'
         NETConfiguration                  = 'Release'
-        NETFramework                      = 'net8.0', 'net472'
+        NETFramework                      = 'net8.0-windows', 'net472'
         NETSearchClass                    = "DesktopManager.PowerShell.CmdletSetDesktopWallpaper"
         NETHandleAssemblyWithSameName     = $true
         NETBinaryModuleDocumenation       = $true
