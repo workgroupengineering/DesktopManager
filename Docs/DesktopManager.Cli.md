@@ -51,6 +51,7 @@ desktopmanager mcp serve
 - `layout` stores named JSON files under `%AppData%\DesktopManager\layouts`.
 - `snapshot` stores named JSON files under `%AppData%\DesktopManager\snapshots`.
 - `screenshot` stores generated PNG files under `%AppData%\DesktopManager\captures` when `--output` is not provided.
+- `monitor list` reports the desktop-coordinate bounds used by monitor screenshots.
 - snapshots currently reuse the window layout format and are therefore windows-only for now.
 - `process start` launches a desktop application and can optionally wait for input idle.
 - `window wait` polls for a matching window and returns when one appears.

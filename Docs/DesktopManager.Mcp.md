@@ -131,3 +131,4 @@ desktopmanager mcp serve
 - The shared control selector model also supports an opt-in foreground hint for UIA discovery when a target window needs focus.
 - Prefer minimizing distractions instead of closing applications.
 - When targeting multiple windows, verify selectors carefully before using `all`.
+- Monitor metadata is intended to align with the desktop-coordinate bounds used by monitor screenshots.

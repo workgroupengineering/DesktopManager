@@ -49,8 +49,11 @@ public static class ScreenshotService {
             throw new ArgumentException($"Monitor not found for {requested}");
         }
 
-        var rect = monitor.GetMonitorBounds();
-        return CaptureRegion(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
+        return CaptureRegion(
+            monitor.PositionLeft,
+            monitor.PositionTop,
+            monitor.PositionRight - monitor.PositionLeft,
+            monitor.PositionBottom - monitor.PositionTop);
     }
 
     /// <summary>
