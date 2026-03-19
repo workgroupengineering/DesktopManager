@@ -189,6 +189,17 @@ public sealed class DesktopAutomationService {
     }
 
     /// <summary>
+    /// Determines whether at least one control matches the supplied query.
+    /// </summary>
+    public bool ControlExists(WindowQueryOptions windowOptions, WindowControlQueryOptions? controlOptions = null, bool allWindows = false) {
+        if (windowOptions == null) {
+            throw new ArgumentNullException(nameof(windowOptions));
+        }
+
+        return GetControls(windowOptions, controlOptions, allWindows, allControls: true).Count > 0;
+    }
+
+    /// <summary>
     /// Clicks matching controls.
     /// </summary>
     public IReadOnlyList<WindowControlTargetInfo> ClickControls(WindowQueryOptions windowOptions, WindowControlQueryOptions? controlOptions, MouseButton button, bool allWindows = false, bool allControls = false) {
@@ -273,6 +284,39 @@ public sealed class DesktopAutomationService {
         }
 
         throw new TimeoutException($"Timed out after {timeoutMilliseconds}ms waiting for a matching window.");
+    }
+
+    /// <summary>
+    /// Waits for matching controls to appear.
+    /// </summary>
+    public DesktopControlWaitResult WaitForControls(WindowQueryOptions windowOptions, WindowControlQueryOptions? controlOptions, int timeoutMilliseconds, int intervalMilliseconds, bool allWindows = false, bool allControls = false) {
+        if (windowOptions == null) {
+            throw new ArgumentNullException(nameof(windowOptions));
+        }
+
+        if (timeoutMilliseconds < 0) {
+            throw new ArgumentOutOfRangeException(nameof(timeoutMilliseconds), "timeoutMilliseconds must be zero or greater.");
+        }
+
+        if (intervalMilliseconds <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(intervalMilliseconds), "intervalMilliseconds must be greater than zero.");
+        }
+
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        while (timeoutMilliseconds == 0 || stopwatch.ElapsedMilliseconds < timeoutMilliseconds) {
+            IReadOnlyList<WindowControlTargetInfo> controls = GetControls(windowOptions, controlOptions, allWindows, allControls: true);
+            if (controls.Count > 0) {
+                IReadOnlyList<WindowControlTargetInfo> selected = allControls ? controls : new[] { controls[0] };
+                return new DesktopControlWaitResult {
+                    ElapsedMilliseconds = (int)stopwatch.ElapsedMilliseconds,
+                    Controls = selected
+                };
+            }
+
+            Thread.Sleep(intervalMilliseconds);
+        }
+
+        throw new TimeoutException($"Timed out after {timeoutMilliseconds}ms waiting for a matching control.");
     }
 
     /// <summary>

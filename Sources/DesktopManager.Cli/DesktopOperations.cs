@@ -88,6 +88,21 @@ internal static class DesktopOperations {
             .ToArray());
     }
 
+    public static ControlAssertionResult ControlExists(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
+        return ExecuteCore(() => {
+            IReadOnlyList<ControlResult> controls = new DesktopAutomationService()
+                .GetControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), allWindows, allControls: true)
+                .Select(MapControl)
+                .ToArray();
+            return new ControlAssertionResult {
+                Assertion = "control-exists",
+                Matched = controls.Count > 0,
+                Count = controls.Count,
+                Controls = controls
+            };
+        });
+    }
+
     public static ControlActionResult ClickControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string button, bool allWindows) {
         MouseButton mouseButton = ParseMouseButton(button);
         return ExecuteCore(() => BuildControlActionResult(
@@ -110,6 +125,17 @@ internal static class DesktopOperations {
         return ExecuteCore(() => BuildControlActionResult(
             "send-control-keys",
             new DesktopAutomationService().SendControlKeys(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), virtualKeys, allWindows, controlCriteria.All)));
+    }
+
+    public static WaitForControlResult WaitForControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, int timeoutMilliseconds, int intervalMilliseconds, bool allWindows) {
+        return ExecuteCore(() => {
+            DesktopControlWaitResult result = new DesktopAutomationService().WaitForControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), timeoutMilliseconds, intervalMilliseconds, allWindows, controlCriteria.All);
+            return new WaitForControlResult {
+                ElapsedMilliseconds = result.ElapsedMilliseconds,
+                Count = result.Controls.Count,
+                Controls = result.Controls.Select(MapControl).ToArray()
+            };
+        });
     }
 
     public static NamedStateResult SaveLayout(string name) {

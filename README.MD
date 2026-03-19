@@ -55,6 +55,11 @@ It has following features:
 - Keep inactive windows awake using periodic input
 - Manage keep-alive sessions for windows
 
+Additional operator-focused docs for the newer CLI and MCP surfaces:
+
+- [Docs/DesktopManager.Cli.md](Docs/DesktopManager.Cli.md)
+- [Docs/DesktopManager.Mcp.md](Docs/DesktopManager.Mcp.md)
+
 
 ### Available PowerShell Cmdlets
 
@@ -84,9 +89,14 @@ It has following features:
 | Invoke-DesktopMouseScroll | Scroll the mouse wheel |
 | Invoke-DesktopScreenshot | Capture monitor or region screenshots |
 | Get-DesktopWindow | Enumerate visible windows |
+| Get-DesktopWindowControl | Enumerate Win32 or UIA window controls |
 | Set-DesktopWindow | Move, resize or control windows |
 | Set-DesktopWindowSnap | Snap window to common positions |
 | Set-DesktopWindowText | Paste or type text into a window |
+| Wait-DesktopWindow | Wait for a window to appear |
+| Wait-DesktopWindowControl | Wait for a control to appear |
+| Test-DesktopWindow | Verify that a window exists or matches the active window |
+| Test-DesktopWindowControl | Verify that a control exists |
 | Start-DesktopWindowKeepAlive | Send periodic input to keep a window awake |
 | Stop-DesktopWindowKeepAlive | Stop sending keep-alive input |
 | Get-DesktopWindowKeepAlive | List windows with active keep-alive |
@@ -126,9 +136,14 @@ The table below shows the most relevant API methods behind each PowerShell cmdle
 | Invoke-DesktopMouseScroll | `WindowManager.ScrollMouse` |
 | Invoke-DesktopScreenshot | `ScreenshotService.CaptureScreen`, `ScreenshotService.CaptureRegion` |
 | Get-DesktopWindow | `WindowManager.GetWindows` / `GetWindowsForProcess` |
+| Get-DesktopWindowControl | `DesktopAutomationService.GetControls` |
 | Set-DesktopWindow | `WindowManager.SetWindowPosition`, `MoveWindowToMonitor`, etc. |
 | Set-DesktopWindowSnap | `WindowManager.SnapWindow` |
 | Set-DesktopWindowText | `WindowInputService` |
+| Wait-DesktopWindow | `DesktopAutomationService.WaitForWindows` |
+| Wait-DesktopWindowControl | `DesktopAutomationService.WaitForControls` |
+| Test-DesktopWindow | `DesktopAutomationService.WindowExists` / `ActiveWindowMatches` |
+| Test-DesktopWindowControl | `DesktopAutomationService.ControlExists` |
 | Start-DesktopWindowKeepAlive | `WindowKeepAlive.Start` |
 | Stop-DesktopWindowKeepAlive | `WindowKeepAlive.Stop` or `StopAll` |
 | Get-DesktopWindowKeepAlive | `WindowKeepAlive.ActiveHandles` |

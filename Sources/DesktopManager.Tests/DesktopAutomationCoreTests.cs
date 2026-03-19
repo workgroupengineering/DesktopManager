@@ -57,4 +57,44 @@ public class DesktopAutomationCoreTests {
             }
         }
     }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures control queries reject a missing window selector.
+    /// </summary>
+    public void DesktopAutomationService_ControlExists_NullWindowOptions_ThrowsArgumentNullException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentNullException>(() => automation.ControlExists(null!));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures waiting for controls rejects a missing window selector.
+    /// </summary>
+    public void DesktopAutomationService_WaitForControls_NullWindowOptions_ThrowsArgumentNullException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentNullException>(() => automation.WaitForControls(null!, null, 1000, 100));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures waiting for controls rejects negative timeouts.
+    /// </summary>
+    public void DesktopAutomationService_WaitForControls_NegativeTimeout_ThrowsArgumentOutOfRangeException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.WaitForControls(new WindowQueryOptions { TitlePattern = "*" }, null, -1, 100));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures waiting for controls rejects non-positive polling intervals.
+    /// </summary>
+    public void DesktopAutomationService_WaitForControls_ZeroInterval_ThrowsArgumentOutOfRangeException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.WaitForControls(new WindowQueryOptions { TitlePattern = "*" }, null, 1000, 0));
+    }
 }

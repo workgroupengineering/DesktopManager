@@ -46,6 +46,47 @@ internal static class McpCatalog {
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
                 }), readOnly: true),
+            CreateTool("control_exists", "Control Exists", "Check whether a matching control currently exists.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["windowClassName"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Window process identifier."),
+                    ["windowHandle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["controlClassName"] = CreateStringSchema("Control class filter."),
+                    ["controlText"] = CreateStringSchema("Control text filter."),
+                    ["controlId"] = CreateIntegerSchema("Control identifier."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["controlAutomationId"] = CreateStringSchema("UI Automation automation identifier filter."),
+                    ["controlType"] = CreateStringSchema("UI Automation control type filter."),
+                    ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
+                    ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
+                    ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
+                }), readOnly: true),
+            CreateTool("wait_for_control", "Wait For Control", "Wait for a matching control to appear.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["windowClassName"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Window process identifier."),
+                    ["windowHandle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["controlClassName"] = CreateStringSchema("Control class filter."),
+                    ["controlText"] = CreateStringSchema("Control text filter."),
+                    ["controlId"] = CreateIntegerSchema("Control identifier."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["controlAutomationId"] = CreateStringSchema("UI Automation automation identifier filter."),
+                    ["controlType"] = CreateStringSchema("UI Automation control type filter."),
+                    ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
+                    ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
+                    ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["all"] = CreateBooleanSchema("Return all matching controls instead of the first match."),
+                    ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows."),
+                    ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
+                    ["intervalMs"] = CreateIntegerSchema("Polling interval in milliseconds.")
+                }), readOnly: true),
             CreateTool("click_control", "Click Control", "Click a matching child control.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -328,6 +369,16 @@ internal static class McpCatalog {
                 "list_window_controls" => DesktopOperations.ListControls(
                     ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
                     ReadControlCriteria(arguments),
+                    ReadBool(arguments, "allWindows")),
+                "control_exists" => DesktopOperations.ControlExists(
+                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                    ReadControlCriteria(arguments),
+                    ReadBool(arguments, "allWindows")),
+                "wait_for_control" => DesktopOperations.WaitForControl(
+                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                    ReadControlCriteria(arguments),
+                    ReadInt(arguments, "timeoutMs") ?? 10000,
+                    ReadInt(arguments, "intervalMs") ?? 200,
                     ReadBool(arguments, "allWindows")),
                 "click_control" => DesktopOperations.ClickControl(
                     ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),

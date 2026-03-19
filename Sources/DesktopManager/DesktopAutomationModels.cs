@@ -81,6 +81,21 @@ public sealed class DesktopWindowWaitResult {
 }
 
 /// <summary>
+/// Represents a wait operation for one or more controls.
+/// </summary>
+public sealed class DesktopControlWaitResult {
+    /// <summary>
+    /// Gets or sets the elapsed wait time in milliseconds.
+    /// </summary>
+    public int ElapsedMilliseconds { get; set; }
+
+    /// <summary>
+    /// Gets or sets the matching controls.
+    /// </summary>
+    public IReadOnlyList<WindowControlTargetInfo> Controls { get; set; } = Array.Empty<WindowControlTargetInfo>();
+}
+
+/// <summary>
 /// Represents a screenshot capture produced by DesktopManager.
 /// </summary>
 public sealed class DesktopCapture : IDisposable {

@@ -22,6 +22,8 @@ desktopmanager window minimize
 desktopmanager window snap
 
 desktopmanager control list
+desktopmanager control exists
+desktopmanager control wait
 desktopmanager control click
 desktopmanager control set-text
 desktopmanager control send-keys
@@ -53,6 +55,7 @@ desktopmanager mcp serve
 - `process start` launches a desktop application and can optionally wait for input idle.
 - `window wait` polls for a matching window and returns when one appears.
 - `window exists` and `window active-matches` provide non-mutating verification commands.
+- `control exists` and `control wait` provide the same inspect-first verification model for controls.
 - `control` works with child window controls and can also use UI Automation-oriented selectors.
 - `window type` sends text to the target window, either by simulated typing or clipboard paste.
 - `window` commands support exact handle targeting and active-window targeting for safer selection when multiple windows match.
@@ -70,5 +73,5 @@ desktopmanager mcp serve
 
 ## Current Limits
 
-- Child-window targeting is still the most proven path for classic Win32 controls.
-- UIA selectors now exist, but host-specific verification is still sensible before depending on them in unattended flows.
+- Child-window targeting is still the simplest path for classic Win32 controls.
+- UIA discovery and action fallback now work through the shared library, but selector validation is still wise before unattended runs.

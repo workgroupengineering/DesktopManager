@@ -71,6 +71,13 @@ internal sealed class ControlActionResult {
     public IReadOnlyList<ControlResult> Controls { get; set; } = new List<ControlResult>();
 }
 
+internal sealed class ControlAssertionResult {
+    public bool Matched { get; set; }
+    public string Assertion { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public IReadOnlyList<ControlResult> Controls { get; set; } = new List<ControlResult>();
+}
+
 internal sealed class MonitorResult {
     public int Index { get; set; }
     public string DeviceName { get; set; } = string.Empty;
@@ -116,6 +123,12 @@ internal sealed class WaitForWindowResult {
     public int ElapsedMilliseconds { get; set; }
     public int Count { get; set; }
     public IReadOnlyList<WindowResult> Windows { get; set; } = new List<WindowResult>();
+}
+
+internal sealed class WaitForControlResult {
+    public int ElapsedMilliseconds { get; set; }
+    public int Count { get; set; }
+    public IReadOnlyList<ControlResult> Controls { get; set; } = new List<ControlResult>();
 }
 
 internal sealed class WindowAssertionResult {

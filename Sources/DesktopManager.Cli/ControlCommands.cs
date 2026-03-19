@@ -8,6 +8,8 @@ internal static class ControlCommands {
     public static int Run(string action, CommandLineArguments arguments) {
         return action switch {
             "list" => List(arguments),
+            "exists" => Exists(arguments),
+            "wait" => Wait(arguments),
             "click" => Click(arguments),
             "set-text" => SetText(arguments),
             "send-keys" => SendKeys(arguments),
@@ -45,6 +47,34 @@ internal static class ControlCommands {
             })
             .ToArray();
         OutputFormatter.WriteTable(new[] { "PID", "Id", "Handle", "Source", "Type", "AutomationId", "Class", "Text", "Window" }, rows);
+        return 0;
+    }
+
+    private static int Exists(CommandLineArguments arguments) {
+        ControlAssertionResult result = DesktopOperations.ControlExists(
+            CreateWindowCriteria(arguments),
+            CreateControlCriteria(arguments),
+            arguments.GetBoolFlag("all-windows"));
+        return WriteAssertion(arguments, result, "Matching control found.", "No matching controls found.");
+    }
+
+    private static int Wait(CommandLineArguments arguments) {
+        WaitForControlResult result = DesktopOperations.WaitForControl(
+            CreateWindowCriteria(arguments),
+            CreateControlCriteria(arguments),
+            arguments.GetIntOption("timeout-ms") ?? 10000,
+            arguments.GetIntOption("interval-ms") ?? 200,
+            arguments.GetBoolFlag("all-windows"));
+
+        if (arguments.GetBoolFlag("json")) {
+            OutputFormatter.WriteJson(result);
+            return 0;
+        }
+
+        Console.WriteLine($"wait: {result.Count} control(s) after {result.ElapsedMilliseconds}ms");
+        foreach (ControlResult control in result.Controls) {
+            Console.WriteLine($"- {control.ControlType} {control.Text} in {control.ParentWindow.Title}");
+        }
         return 0;
     }
 
@@ -92,6 +122,19 @@ internal static class ControlCommands {
             Console.WriteLine($"- {control.ClassName} [{control.Id}] in {control.ParentWindow.Title}");
         }
         return 0;
+    }
+
+    private static int WriteAssertion(CommandLineArguments arguments, ControlAssertionResult result, string successText, string failureText) {
+        if (arguments.GetBoolFlag("json")) {
+            OutputFormatter.WriteJson(result);
+        } else {
+            Console.WriteLine(result.Matched ? successText : failureText);
+            foreach (ControlResult control in result.Controls) {
+                Console.WriteLine($"- {control.ControlType} {control.Text} in {control.ParentWindow.Title}");
+            }
+        }
+
+        return result.Matched ? 0 : 2;
     }
 
     private static WindowSelectionCriteria CreateWindowCriteria(CommandLineArguments arguments) {

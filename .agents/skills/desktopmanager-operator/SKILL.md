@@ -26,6 +26,7 @@ Use this skill to operate the Windows desktop through DesktopManager.
 4. Inspect controls before interacting.
    - Use `list_window_controls` to discover control handles, classes, text, automation ids, and control types.
    - Use UIA-oriented selectors when modern apps do not expose useful child-window controls.
+   - Use `control_exists` or `wait_for_control` when the control can appear asynchronously or when you want an explicit precondition before clicking.
    - Use `type_window_text` for whole-window entry.
    - Use `click_control`, `set_control_text`, or `send_control_keys` for control-level work.
 5. Prefer named state over one-off moves.
@@ -49,6 +50,8 @@ Tools:
 - `active_window_matches`
 - `wait_for_window`
 - `list_window_controls`
+- `control_exists`
+- `wait_for_control`
 - `move_window`
 - `type_window_text`
 - `focus_window`
@@ -91,6 +94,8 @@ desktopmanager window active-matches --title "Codex"
 desktopmanager window wait --process notepad --timeout-ms 5000
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
+desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar"
+desktopmanager control wait --window-active --uia --control-type Button --text-pattern "Show sidebar" --timeout-ms 5000
 desktopmanager control list --window-active --uia --control-type Button
 desktopmanager control click --window-process notepad --class RichEditD2DPT
 desktopmanager control set-text --window-process notepad --class RichEditD2DPT --text "Hello world"
@@ -124,7 +129,7 @@ desktopmanager snapshot restore before-meeting
 - Remember that `activeWindow` means the current foreground window and may resolve to Codex or the terminal if they have focus.
 - Be careful with `all`; verify the target set first.
 - Remember that snapshots are windows-only for now.
-- Remember that UIA selectors now exist, but verifying them in the current host is still smart before relying on them unattended.
+- Remember that UIA selectors and actions now run through the shared library, but verifying selectors in the current host is still smart before relying on them unattended.
 
 ## Reference Files
 
