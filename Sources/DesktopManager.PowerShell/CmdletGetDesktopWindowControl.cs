@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Management.Automation;
 
 namespace DesktopManager.PowerShell;
@@ -41,7 +42,7 @@ public sealed class CmdletGetDesktopWindowControl : PSCmdlet {
 
     /// <inheritdoc />
     protected override void BeginProcessing() {
-        var manager = new WindowManager();
+        var automation = new DesktopAutomationService();
         var windowOptions = new WindowQueryOptions {
             TitlePattern = Name,
             ActiveWindow = ActiveWindow,
@@ -55,10 +56,7 @@ public sealed class CmdletGetDesktopWindowControl : PSCmdlet {
             TextPattern = TextPattern,
             Id = Id
         };
-        var windows = manager.GetWindows(windowOptions);
-        foreach (var window in windows) {
-            var controls = manager.GetControls(window, controlOptions);
-            WriteObject(controls, true);
-        }
+        var controls = automation.GetControls(windowOptions, controlOptions, allWindows: true, allControls: true);
+        WriteObject(controls.Select(target => target.Control), true);
     }
 }

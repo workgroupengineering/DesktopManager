@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -11,71 +10,36 @@ namespace DesktopManager.Cli;
 
 internal static class DesktopOperations {
     public static IReadOnlyList<WindowResult> ListWindows(WindowSelectionCriteria criteria) {
-        return SelectWindows(criteria).Select(MapWindow).ToArray();
+        return ExecuteCore(() => new DesktopAutomationService().GetWindows(CreateWindowQuery(criteria)).Select(MapWindow).ToArray());
     }
 
     public static WindowResult GetActiveWindow() {
-        var manager = new WindowManager();
-        WindowInfo? window = manager.GetActiveWindow(includeHidden: true, includeCloaked: true, includeOwned: true, includeEmptyTitles: true);
-        if (window == null) {
-            throw new CommandLineException("The active window could not be resolved.");
-        }
+        return ExecuteCore(() => {
+            WindowInfo? window = new DesktopAutomationService().GetActiveWindow(includeHidden: true, includeCloaked: true, includeOwned: true, includeEmptyTitles: true);
+            if (window == null) {
+                throw new InvalidOperationException("The active window could not be resolved.");
+            }
 
-        return MapWindow(window);
+            return MapWindow(window);
+        });
     }
 
     public static WindowChangeResult MoveWindow(WindowSelectionCriteria criteria, int? monitorIndex, int? x, int? y, int? width, int? height, bool activate) {
-        var manager = new WindowManager();
-        IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
-
-        Monitor? monitor = null;
-        if (monitorIndex.HasValue) {
-            monitor = new Monitors().GetMonitors(index: monitorIndex.Value).FirstOrDefault();
-            if (monitor == null) {
-                throw new CommandLineException($"Monitor with index {monitorIndex.Value} was not found.");
-            }
-        }
-
-        foreach (WindowInfo window in windows) {
-            if (monitor != null) {
-                manager.MoveWindowToMonitor(window, monitor);
-            }
-
-            if (x.HasValue || y.HasValue || width.HasValue || height.HasValue) {
-                manager.SetWindowPosition(
-                    window,
-                    x ?? -1,
-                    y ?? -1,
-                    width ?? -1,
-                    height ?? -1);
-            }
-
-            if (activate) {
-                manager.ActivateWindow(window);
-            }
-        }
-
-        return BuildWindowChangeResult(manager, "move", windows);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "move",
+            new DesktopAutomationService().MoveWindows(CreateWindowQuery(criteria), monitorIndex, x, y, width, height, activate, criteria.All)));
     }
 
     public static WindowChangeResult FocusWindow(WindowSelectionCriteria criteria) {
-        var manager = new WindowManager();
-        IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
-        foreach (WindowInfo window in windows) {
-            manager.ActivateWindow(window);
-        }
-
-        return BuildWindowChangeResult(manager, "focus", windows);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "focus",
+            new DesktopAutomationService().FocusWindows(CreateWindowQuery(criteria), criteria.All)));
     }
 
     public static WindowChangeResult MinimizeWindows(WindowSelectionCriteria criteria) {
-        var manager = new WindowManager();
-        IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
-        foreach (WindowInfo window in windows) {
-            manager.MinimizeWindow(window);
-        }
-
-        return BuildWindowChangeResult(manager, "minimize", windows);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "minimize",
+            new DesktopAutomationService().MinimizeWindows(CreateWindowQuery(criteria), criteria.All)));
     }
 
     public static WindowChangeResult SnapWindow(WindowSelectionCriteria criteria, string position) {
@@ -83,13 +47,9 @@ internal static class DesktopOperations {
             throw new CommandLineException($"Unsupported snap position '{position}'.");
         }
 
-        var manager = new WindowManager();
-        IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
-        foreach (WindowInfo window in windows) {
-            manager.SnapWindow(window, snapPosition);
-        }
-
-        return BuildWindowChangeResult(manager, "snap", windows);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "snap",
+            new DesktopAutomationService().SnapWindows(CreateWindowQuery(criteria), snapPosition, criteria.All)));
     }
 
     public static WindowChangeResult TypeWindowText(WindowSelectionCriteria criteria, string text, bool paste, int delayMilliseconds) {
@@ -97,21 +57,13 @@ internal static class DesktopOperations {
             throw new CommandLineException("Text is required.");
         }
 
-        var manager = new WindowManager();
-        IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
-        foreach (WindowInfo window in windows) {
-            if (paste) {
-                manager.PasteText(window, text);
-            } else {
-                manager.TypeText(window, text, delayMilliseconds);
-            }
-        }
-
-        return BuildWindowChangeResult(manager, paste ? "paste-text" : "type-text", windows);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            paste ? "paste-text" : "type-text",
+            new DesktopAutomationService().TypeWindowText(CreateWindowQuery(criteria), text, paste, delayMilliseconds, criteria.All)));
     }
 
     public static IReadOnlyList<MonitorResult> ListMonitors(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null) {
-        return new Monitors().GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index)
+        return ExecuteCore(() => new DesktopAutomationService().GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index)
             .Select(monitor => new MonitorResult {
                 Index = monitor.Index,
                 DeviceName = monitor.DeviceName,
@@ -126,24 +78,21 @@ internal static class DesktopOperations {
                 Manufacturer = monitor.Manufacturer,
                 SerialNumber = monitor.SerialNumber
             })
-            .ToArray();
+            .ToArray());
     }
 
     public static IReadOnlyList<ControlResult> ListControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
-        return GetControlTargets(windowCriteria, controlCriteria, allWindows)
+        return ExecuteCore(() => new DesktopAutomationService()
+            .GetControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), allWindows, allControls: true)
             .Select(MapControl)
-            .ToArray();
+            .ToArray());
     }
 
     public static ControlActionResult ClickControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string button, bool allWindows) {
         MouseButton mouseButton = ParseMouseButton(button);
-        var manager = new WindowManager();
-        IReadOnlyList<WindowControlTargetInfo> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
-        foreach (WindowControlTargetInfo control in controls) {
-            manager.ClickControl(control.Control, mouseButton);
-        }
-
-        return BuildControlActionResult("click-control", controls);
+        return ExecuteCore(() => BuildControlActionResult(
+            "click-control",
+            new DesktopAutomationService().ClickControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), mouseButton, allWindows, controlCriteria.All)));
     }
 
     public static ControlActionResult SetControlText(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string text, bool allWindows) {
@@ -151,80 +100,82 @@ internal static class DesktopOperations {
             throw new CommandLineException("Text is required.");
         }
 
-        IReadOnlyList<WindowControlTargetInfo> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
-        foreach (WindowControlTargetInfo control in controls) {
-            MonitorNativeMethods.SendMessage(control.Control.Handle, MonitorNativeMethods.WM_SETTEXT, IntPtr.Zero, text);
-        }
-
-        return BuildControlActionResult("set-control-text", controls);
+        return ExecuteCore(() => BuildControlActionResult(
+            "set-control-text",
+            new DesktopAutomationService().SetControlText(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), text, allWindows, controlCriteria.All)));
     }
 
     public static ControlActionResult SendControlKeys(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, IReadOnlyList<string> keys, bool allWindows) {
         VirtualKey[] virtualKeys = ParseVirtualKeys(keys);
-        IReadOnlyList<WindowControlTargetInfo> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
-        foreach (WindowControlTargetInfo control in controls) {
-            KeyboardInputService.SendToControl(control.Control, virtualKeys);
-        }
-
-        return BuildControlActionResult("send-control-keys", controls);
+        return ExecuteCore(() => BuildControlActionResult(
+            "send-control-keys",
+            new DesktopAutomationService().SendControlKeys(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), virtualKeys, allWindows, controlCriteria.All)));
     }
 
     public static NamedStateResult SaveLayout(string name) {
-        string path = NamedStorage.GetLayoutPath(name);
-        new WindowManager().SaveLayout(path);
-        return new NamedStateResult {
-            Action = "save",
-            Name = name,
-            Path = path
-        };
+        return ExecuteCore(() => {
+            string path = DesktopStateStore.GetLayoutPath(name);
+            new DesktopAutomationService().SaveLayout(path);
+            return new NamedStateResult {
+                Action = "save",
+                Name = name,
+                Path = path
+            };
+        });
     }
 
     public static NamedStateResult ApplyLayout(string name, bool validate) {
-        string path = NamedStorage.GetLayoutPath(name);
-        if (!File.Exists(path)) {
-            throw new CommandLineException($"Named layout '{name}' was not found.");
-        }
+        return ExecuteCore(() => {
+            string path = DesktopStateStore.GetLayoutPath(name);
+            if (!File.Exists(path)) {
+                throw new InvalidOperationException($"Named layout '{name}' was not found.");
+            }
 
-        new WindowManager().LoadLayout(path, validate);
-        return new NamedStateResult {
-            Action = "apply",
-            Name = name,
-            Path = path
-        };
+            new DesktopAutomationService().LoadLayout(path, validate);
+            return new NamedStateResult {
+                Action = "apply",
+                Name = name,
+                Path = path
+            };
+        });
     }
 
     public static IReadOnlyList<string> ListLayouts() {
-        return NamedStorage.ListNames("layouts");
+        return ExecuteCore(() => DesktopStateStore.ListNames("layouts"));
     }
 
     public static NamedStateResult SaveSnapshot(string name) {
-        string path = NamedStorage.GetSnapshotPath(name);
-        new WindowManager().SaveLayout(path);
-        return new NamedStateResult {
-            Action = "save",
-            Name = name,
-            Path = path,
-            Scope = "windows-only"
-        };
+        return ExecuteCore(() => {
+            string path = DesktopStateStore.GetSnapshotPath(name);
+            new DesktopAutomationService().SaveLayout(path);
+            return new NamedStateResult {
+                Action = "save",
+                Name = name,
+                Path = path,
+                Scope = "windows-only"
+            };
+        });
     }
 
     public static NamedStateResult RestoreSnapshot(string name, bool validate) {
-        string path = NamedStorage.GetSnapshotPath(name);
-        if (!File.Exists(path)) {
-            throw new CommandLineException($"Named snapshot '{name}' was not found.");
-        }
+        return ExecuteCore(() => {
+            string path = DesktopStateStore.GetSnapshotPath(name);
+            if (!File.Exists(path)) {
+                throw new InvalidOperationException($"Named snapshot '{name}' was not found.");
+            }
 
-        new WindowManager().LoadLayout(path, validate);
-        return new NamedStateResult {
-            Action = "restore",
-            Name = name,
-            Path = path,
-            Scope = "windows-only"
-        };
+            new DesktopAutomationService().LoadLayout(path, validate);
+            return new NamedStateResult {
+                Action = "restore",
+                Name = name,
+                Path = path,
+                Scope = "windows-only"
+            };
+        });
     }
 
     public static IReadOnlyList<string> ListSnapshots() {
-        return NamedStorage.ListNames("snapshots");
+        return ExecuteCore(() => DesktopStateStore.ListNames("snapshots"));
     }
 
     public static object GetCurrentSnapshotSummary() {
@@ -236,106 +187,60 @@ internal static class DesktopOperations {
     }
 
     public static ScreenshotResult CaptureDesktopScreenshot(int? monitorIndex, string? deviceId, string? deviceName, int? left, int? top, int? width, int? height, string? outputPath) {
-        bool hasRegionSelector = left.HasValue || top.HasValue || width.HasValue || height.HasValue;
-        if (hasRegionSelector && (!left.HasValue || !top.HasValue || !width.HasValue || !height.HasValue)) {
-            throw new CommandLineException("Region capture requires --left, --top, --width, and --height.");
-        }
+        return ExecuteCore(() => {
+            bool hasRegionSelector = left.HasValue || top.HasValue || width.HasValue || height.HasValue;
+            if (hasRegionSelector && (!left.HasValue || !top.HasValue || !width.HasValue || !height.HasValue)) {
+                throw new ArgumentException("Region capture requires --left, --top, --width, and --height.");
+            }
 
-        if (hasRegionSelector) {
-            using Bitmap bitmap = ScreenshotService.CaptureRegion(left!.Value, top!.Value, width!.Value, height!.Value);
-            return SaveScreenshot(bitmap, "region", "region", outputPath);
-        }
+            using DesktopCapture capture = hasRegionSelector
+                ? new DesktopAutomationService().CaptureRegion(left!.Value, top!.Value, width!.Value, height!.Value)
+                : monitorIndex.HasValue || !string.IsNullOrWhiteSpace(deviceId) || !string.IsNullOrWhiteSpace(deviceName)
+                    ? new DesktopAutomationService().CaptureMonitor(monitorIndex, deviceId, deviceName)
+                    : new DesktopAutomationService().CaptureDesktop();
 
-        if (monitorIndex.HasValue || !string.IsNullOrWhiteSpace(deviceId) || !string.IsNullOrWhiteSpace(deviceName)) {
-            Monitor monitor = new Monitors().GetMonitors(index: monitorIndex, deviceId: deviceId, deviceName: deviceName).FirstOrDefault()
-                ?? throw new CommandLineException("No matching monitor was found.");
-
-            using Bitmap bitmap = ScreenshotService.CaptureMonitor(index: monitor.Index, deviceId: monitor.DeviceId, deviceName: monitor.DeviceName);
-            return SaveScreenshot(bitmap, "monitor", $"monitor-{monitor.Index}", outputPath, monitorIndex: monitor.Index, monitorDeviceName: monitor.DeviceName);
-        }
-
-        using Bitmap desktopBitmap = ScreenshotService.CaptureScreen();
-        return SaveScreenshot(desktopBitmap, "desktop", "desktop", outputPath);
+            string prefix = capture.Kind == "monitor" && capture.MonitorIndex.HasValue ? $"monitor-{capture.MonitorIndex.Value}" : capture.Kind;
+            return SaveScreenshot(capture, prefix, outputPath);
+        });
     }
 
     public static ScreenshotResult CaptureWindowScreenshot(WindowSelectionCriteria criteria, string? outputPath) {
-        WindowInfo window = SelectSingleWindow(criteria);
-        using Bitmap bitmap = ScreenshotService.CaptureWindow(window.Handle);
-        return SaveScreenshot(bitmap, "window", $"window-{window.ProcessId}", outputPath, window: MapWindow(window));
+        return ExecuteCore(() => {
+            using DesktopCapture capture = new DesktopAutomationService().CaptureWindow(CreateWindowQuery(criteria));
+            string prefix = capture.Window == null ? "window" : $"window-{capture.Window.ProcessId}";
+            return SaveScreenshot(capture, prefix, outputPath);
+        });
     }
 
     public static ProcessLaunchResult LaunchProcess(string filePath, string? arguments, string? workingDirectory, int? waitForInputIdleMilliseconds) {
-        if (string.IsNullOrWhiteSpace(filePath)) {
-            throw new CommandLineException("A process path or command is required.");
-        }
+        return ExecuteCore(() => {
+            DesktopProcessLaunchInfo result = new DesktopAutomationService().LaunchProcess(new DesktopProcessStartOptions {
+                FilePath = filePath,
+                Arguments = arguments,
+                WorkingDirectory = workingDirectory,
+                WaitForInputIdleMilliseconds = waitForInputIdleMilliseconds
+            });
 
-        if (waitForInputIdleMilliseconds.HasValue && waitForInputIdleMilliseconds.Value < 0) {
-            throw new CommandLineException("waitForInputIdleMilliseconds must be zero or greater.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(workingDirectory) && !Directory.Exists(workingDirectory)) {
-            throw new CommandLineException($"The working directory '{workingDirectory}' does not exist.");
-        }
-
-        var startInfo = new ProcessStartInfo(filePath) {
-            UseShellExecute = true
-        };
-        if (!string.IsNullOrWhiteSpace(arguments)) {
-            startInfo.Arguments = arguments;
-        }
-        if (!string.IsNullOrWhiteSpace(workingDirectory)) {
-            startInfo.WorkingDirectory = workingDirectory;
-        }
-
-        using Process process = Process.Start(startInfo) ?? throw new CommandLineException($"Failed to start process '{filePath}'.");
-
-        if (waitForInputIdleMilliseconds.HasValue && waitForInputIdleMilliseconds.Value > 0) {
-            try {
-                process.WaitForInputIdle(waitForInputIdleMilliseconds.Value);
-            } catch (InvalidOperationException) {
-                // Ignore processes without a message loop or already exited.
-            }
-        }
-
-        process.Refresh();
-        Thread.Sleep(200);
-        WindowResult? mainWindow = TryGetWindowForProcess(process.Id) ?? TryGetWindowForProcessName(filePath);
-
-        return new ProcessLaunchResult {
-            FilePath = filePath,
-            Arguments = arguments,
-            WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory) ? null : Path.GetFullPath(workingDirectory),
-            ProcessId = process.Id,
-            HasExited = process.HasExited,
-            MainWindow = mainWindow
-        };
+            return new ProcessLaunchResult {
+                FilePath = result.FilePath,
+                Arguments = result.Arguments,
+                WorkingDirectory = result.WorkingDirectory,
+                ProcessId = result.ProcessId,
+                HasExited = result.HasExited,
+                MainWindow = result.MainWindow == null ? null : MapWindow(result.MainWindow)
+            };
+        });
     }
 
     public static WaitForWindowResult WaitForWindow(WindowSelectionCriteria criteria, int timeoutMilliseconds, int intervalMilliseconds) {
-        if (timeoutMilliseconds <= 0) {
-            throw new CommandLineException("timeoutMilliseconds must be greater than zero.");
-        }
-
-        if (intervalMilliseconds <= 0) {
-            throw new CommandLineException("intervalMilliseconds must be greater than zero.");
-        }
-
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        while (stopwatch.ElapsedMilliseconds < timeoutMilliseconds) {
-            var windows = SelectWindows(criteria);
-            if (windows.Count > 0) {
-                IReadOnlyList<WindowInfo> selected = criteria.All ? windows : new[] { windows[0] };
-                return new WaitForWindowResult {
-                    ElapsedMilliseconds = (int)stopwatch.ElapsedMilliseconds,
-                    Count = selected.Count,
-                    Windows = selected.Select(MapWindow).ToArray()
-                };
-            }
-
-            Thread.Sleep(intervalMilliseconds);
-        }
-
-        throw new CommandLineException($"Timed out after {timeoutMilliseconds}ms waiting for a matching window.");
+        return ExecuteCore(() => {
+            DesktopWindowWaitResult result = new DesktopAutomationService().WaitForWindows(CreateWindowQuery(criteria), timeoutMilliseconds, intervalMilliseconds, criteria.All);
+            return new WaitForWindowResult {
+                ElapsedMilliseconds = result.ElapsedMilliseconds,
+                Count = result.Windows.Count,
+                Windows = result.Windows.Select(MapWindow).ToArray()
+            };
+        });
     }
 
     private static WindowResult? SafeGetActiveWindow() {
@@ -346,84 +251,12 @@ internal static class DesktopOperations {
         }
     }
 
-    private static IReadOnlyList<WindowInfo> SelectTargetWindows(WindowSelectionCriteria criteria) {
-        var windows = SelectWindows(criteria);
-        if (windows.Count == 0) {
-            throw new CommandLineException("No matching windows were found.");
-        }
-
-        if (criteria.All) {
-            return windows;
-        }
-
-        return new[] { windows[0] };
-    }
-
-    private static WindowInfo SelectSingleWindow(WindowSelectionCriteria criteria) {
-        IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
-        return windows[0];
-    }
-
-    private static IReadOnlyList<WindowControlTargetInfo> SelectTargetControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
-        List<WindowControlTargetInfo> controls = GetControlTargets(windowCriteria, controlCriteria, allWindows);
-        if (controls.Count == 0) {
-            throw new CommandLineException("No matching controls were found.");
-        }
-
-        if (controlCriteria.All) {
-            return controls;
-        }
-
-        return new[] { controls[0] };
-    }
-
-    private static List<WindowControlTargetInfo> GetControlTargets(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
-        WindowManager manager = new WindowManager();
-        WindowQueryOptions query = CreateWindowQuery(windowCriteria);
-        List<WindowInfo> windows = manager.GetWindows(query);
-        if (windows.Count == 0) {
-            throw new CommandLineException("No matching windows were found.");
-        }
-
-        if (!allWindows && windows.Count > 1) {
-            windows = new List<WindowInfo> { windows[0] };
-        }
-
-        var results = new List<WindowControlTargetInfo>();
-        WindowControlQueryOptions controlQuery = CreateControlQuery(controlCriteria);
-        foreach (WindowInfo window in windows) {
-            List<WindowControlInfo> controls = manager.GetControls(window, controlQuery);
-            foreach (WindowControlInfo control in controls) {
-                results.Add(new WindowControlTargetInfo {
-                    Window = window,
-                    Control = control
-                });
-            }
-        }
-
-        return results;
-    }
-
-    private static List<WindowInfo> SelectWindows(WindowSelectionCriteria criteria) {
-        return new WindowManager().GetWindows(CreateWindowQuery(criteria));
-    }
-
-    private static WindowChangeResult BuildWindowChangeResult(WindowManager manager, string action, IReadOnlyList<WindowInfo> windows) {
+    private static WindowChangeResult BuildWindowChangeResult(string action, IReadOnlyList<WindowInfo> windows) {
         return new WindowChangeResult {
             Action = action,
             Count = windows.Count,
-            Windows = windows.Select(window => RefreshWindow(manager, window)).ToArray()
+            Windows = windows.Select(MapWindow).ToArray()
         };
-    }
-
-    private static WindowResult RefreshWindow(WindowManager manager, WindowInfo window) {
-        List<WindowInfo> current = manager.GetWindows(
-            processId: (int)window.ProcessId,
-            includeHidden: true,
-            includeCloaked: true,
-            includeOwned: true);
-        WindowInfo? refreshed = current.FirstOrDefault(candidate => candidate.Handle == window.Handle);
-        return refreshed != null ? MapWindow(refreshed) : MapWindow(window);
     }
 
     private static WindowResult MapWindow(WindowInfo window) {
@@ -460,43 +293,6 @@ internal static class DesktopOperations {
             Count = controls.Count,
             Controls = controls.Select(MapControl).ToArray()
         };
-    }
-
-    private static WindowResult? TryGetWindowForProcess(int processId) {
-        var criteria = new WindowSelectionCriteria {
-            ProcessId = processId,
-            IncludeHidden = true,
-            IncludeCloaked = true,
-            IncludeOwned = true,
-            IncludeEmptyTitles = true,
-            All = true
-        };
-
-        var windows = SelectWindows(criteria);
-        WindowInfo? preferred = windows.FirstOrDefault(window => !string.IsNullOrWhiteSpace(window.Title))
-            ?? windows.FirstOrDefault();
-        return preferred == null ? null : MapWindow(preferred);
-    }
-
-    private static WindowResult? TryGetWindowForProcessName(string filePath) {
-        string processName = Path.GetFileNameWithoutExtension(filePath);
-        if (string.IsNullOrWhiteSpace(processName)) {
-            return null;
-        }
-
-        var criteria = new WindowSelectionCriteria {
-            ProcessNamePattern = processName,
-            IncludeHidden = true,
-            IncludeCloaked = true,
-            IncludeOwned = true,
-            IncludeEmptyTitles = true,
-            All = true
-        };
-
-        var windows = SelectWindows(criteria);
-        WindowInfo? preferred = windows.FirstOrDefault(window => !string.IsNullOrWhiteSpace(window.Title))
-            ?? windows.FirstOrDefault();
-        return preferred == null ? null : MapWindow(preferred);
     }
 
     private static MouseButton ParseMouseButton(string? value) {
@@ -552,53 +348,18 @@ internal static class DesktopOperations {
         throw new CommandLineException($"Unsupported key '{value}'.");
     }
 
-    private static ScreenshotResult SaveScreenshot(Bitmap bitmap, string kind, string prefix, string? outputPath, int? monitorIndex = null, string? monitorDeviceName = null, WindowResult? window = null) {
-        string path = ResolveScreenshotPath(prefix, outputPath);
-        bitmap.Save(path, ImageFormat.Png);
+    private static ScreenshotResult SaveScreenshot(DesktopCapture capture, string prefix, string? outputPath) {
+        string path = DesktopStateStore.ResolveCapturePath(prefix, outputPath);
+        capture.Bitmap.Save(path, ImageFormat.Png);
         return new ScreenshotResult {
-            Kind = kind,
+            Kind = capture.Kind,
             Path = path,
-            Width = bitmap.Width,
-            Height = bitmap.Height,
-            MonitorIndex = monitorIndex,
-            MonitorDeviceName = monitorDeviceName,
-            Window = window
+            Width = capture.Bitmap.Width,
+            Height = capture.Bitmap.Height,
+            MonitorIndex = capture.MonitorIndex,
+            MonitorDeviceName = capture.MonitorDeviceName,
+            Window = capture.Window == null ? null : MapWindow(capture.Window)
         };
-    }
-
-    private static string ResolveScreenshotPath(string prefix, string? outputPath) {
-        string path = string.IsNullOrWhiteSpace(outputPath)
-            ? Path.Combine(NamedStorage.GetCapturesDirectory(), $"{prefix}-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}.png")
-            : outputPath;
-
-        if (string.IsNullOrWhiteSpace(Path.GetExtension(path))) {
-            path += ".png";
-        }
-
-        string fullPath = Path.GetFullPath(path);
-        string? directory = Path.GetDirectoryName(fullPath);
-        if (!string.IsNullOrWhiteSpace(directory)) {
-            Directory.CreateDirectory(directory);
-        }
-
-        return fullPath;
-    }
-
-    private static IntPtr ParseHandle(string value) {
-        bool isHex = value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ||
-            value.IndexOfAny(new[] { 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f' }) >= 0;
-        if (isHex) {
-            string normalized = value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? value.Substring(2) : value;
-            if (long.TryParse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long hexValue)) {
-                return new IntPtr(hexValue);
-            }
-        }
-
-        if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long decimalValue)) {
-            return new IntPtr(decimalValue);
-        }
-
-        throw new CommandLineException("The provided handle is not a valid decimal or hexadecimal window handle.");
     }
 
     private static bool HasExplicitSelector(WindowSelectionCriteria criteria) {
@@ -615,7 +376,7 @@ internal static class DesktopOperations {
             TitlePattern = criteria.TitlePattern,
             ProcessNamePattern = criteria.ProcessNamePattern,
             ClassNamePattern = criteria.ClassNamePattern,
-            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : ParseHandle(criteria.Handle),
+            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : DesktopHandleParser.Parse(criteria.Handle),
             ActiveWindow = criteria.Active,
             IncludeHidden = criteria.IncludeHidden,
             IncludeCloaked = criteria.IncludeCloaked,
@@ -630,8 +391,26 @@ internal static class DesktopOperations {
             ClassNamePattern = criteria.ClassNamePattern,
             TextPattern = criteria.TextPattern,
             Id = criteria.Id,
-            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : ParseHandle(criteria.Handle)
+            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : DesktopHandleParser.Parse(criteria.Handle)
         };
+    }
+
+    private static T ExecuteCore<T>(Func<T> operation) {
+        try {
+            return operation();
+        } catch (ArgumentOutOfRangeException ex) {
+            throw new CommandLineException(ex.Message);
+        } catch (ArgumentException ex) {
+            throw new CommandLineException(ex.Message);
+        } catch (DirectoryNotFoundException ex) {
+            throw new CommandLineException(ex.Message);
+        } catch (FileNotFoundException ex) {
+            throw new CommandLineException(ex.Message);
+        } catch (InvalidOperationException ex) {
+            throw new CommandLineException(ex.Message);
+        } catch (TimeoutException ex) {
+            throw new CommandLineException(ex.Message);
+        }
     }
 
     private static bool TryParseSnapPosition(string value, out SnapPosition position) {

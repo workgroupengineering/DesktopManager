@@ -60,7 +60,7 @@ public sealed class CmdletGetDesktopMonitor : PSCmdlet {
     /// <para type="description">Begin processing the command.</para>
     /// </summary>
     protected override void BeginProcessing() {
-        Monitors monitors = new Monitors();
+        var automation = new DesktopAutomationService();
 
         // Check if parameters are set by the user
         bool? connectedOnly = MyInvocation.BoundParameters.ContainsKey(nameof(ConnectedOnly)) ? (bool?)ConnectedOnly : null;
@@ -70,8 +70,8 @@ public sealed class CmdletGetDesktopMonitor : PSCmdlet {
         string deviceName = MyInvocation.BoundParameters.ContainsKey(nameof(DeviceName)) ? DeviceName : null;
 
         // Get monitors
-        var getMonitors = monitors.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName);
+        var getMonitors = automation.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName);
         // Write monitors
-        WriteObject(getMonitors);
+        WriteObject(getMonitors, true);
     }
 }

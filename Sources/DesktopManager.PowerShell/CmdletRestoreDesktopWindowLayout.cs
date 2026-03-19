@@ -22,9 +22,9 @@ public sealed class CmdletRestoreDesktopWindowLayout : PSCmdlet {
     /// Begin processing.
     /// </summary>
     protected override void BeginProcessing() {
-        var manager = new WindowManager();
+        var automation = new DesktopAutomationService();
         if (ShouldProcess($"Layout file '{Path}'", "Restore desktop window layout")) {
-            manager.LoadLayout(Path, Validate.IsPresent);
+            automation.LoadLayout(Path, Validate.IsPresent);
         }
     }
 }

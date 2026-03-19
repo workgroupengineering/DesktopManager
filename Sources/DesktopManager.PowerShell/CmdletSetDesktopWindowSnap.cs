@@ -27,12 +27,20 @@ namespace DesktopManager.PowerShell {
         /// Snaps matching windows to the chosen position.
         /// </summary>
         protected override void BeginProcessing() {
-            var manager = new WindowManager();
-            var windows = manager.GetWindows(Name);
+            var automation = new DesktopAutomationService();
+            var windows = automation.GetWindows(new WindowQueryOptions {
+                TitlePattern = Name
+            });
             foreach (var window in windows) {
                 if (ShouldProcess($"Window '{window.Title}'", $"Snap {Position}")) {
                     try {
-                        manager.SnapWindow(window, Position);
+                        automation.SnapWindows(new WindowQueryOptions {
+                            Handle = window.Handle,
+                            IncludeHidden = true,
+                            IncludeCloaked = true,
+                            IncludeOwned = true,
+                            IncludeEmptyTitles = true
+                        }, Position);
                     } catch (Exception ex) {
                         WriteWarning($"Failed to snap window '{window.Title}': {ex.Message}");
                     }

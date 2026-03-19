@@ -103,7 +103,7 @@ namespace DesktopManager.PowerShell {
         /// Retrieves and outputs matching windows.
         /// </summary>
         protected override void BeginProcessing() {
-            var manager = new WindowManager();
+            var automation = new DesktopAutomationService();
             var options = new WindowQueryOptions {
                 TitlePattern = Name,
                 ProcessNamePattern = ProcessName,
@@ -121,7 +121,7 @@ namespace DesktopManager.PowerShell {
                 ZOrderMin = ZOrderMin,
                 ZOrderMax = ZOrderMax
             };
-            var windows = manager.GetWindows(options);
+            var windows = automation.GetWindows(options);
             WriteObject(windows, true);
         }
     }
