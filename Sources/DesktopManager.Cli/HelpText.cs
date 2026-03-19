@@ -10,6 +10,7 @@ Usage:
 
 Groups:
   window     List and control windows
+  control    Inspect and interact with child controls
   monitor    Inspect connected monitors
   process    Start desktop applications
   screenshot Capture the desktop, monitors, or windows
@@ -21,6 +22,7 @@ Groups:
 Examples:
   desktopmanager window list
   desktopmanager window wait --process notepad --timeout-ms 5000
+  desktopmanager control list --window-process notepad
   desktopmanager process start notepad.exe --wait-for-input-idle-ms 1000
   desktopmanager screenshot desktop
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400
@@ -32,6 +34,7 @@ Examples:
 
 Use:
   desktopmanager help window
+  desktopmanager help control
   desktopmanager help monitor
   desktopmanager help process
   desktopmanager help screenshot
@@ -49,6 +52,7 @@ Window commands:
   desktopmanager window focus [selector] [--all] [--json]
   desktopmanager window minimize [selector] [--all] [--json]
   desktopmanager window snap [selector] --position <left|right|top-left|top-right|bottom-left|bottom-right> [--all] [--json]
+  desktopmanager window type [selector] --text <value> [--paste] [--delay-ms <value>] [--all] [--json]
   desktopmanager window wait [selector] [--timeout-ms <value>] [--interval-ms <value>] [--all] [--json]
 
 Selectors:
@@ -63,7 +67,37 @@ Examples:
   desktopmanager window list --title "*Notepad*" --json
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --activate
   desktopmanager window snap --process notepad --position left
+  desktopmanager window type --process notepad --text "Hello world"
   desktopmanager window wait --process notepad --timeout-ms 5000
+""";
+    }
+
+    public static string GetControlHelp() {
+        return """
+Control commands:
+  desktopmanager control list [window-selector] [--class <pattern>] [--text-pattern <pattern>] [--id <value>] [--handle <value>] [--all-windows] [--json]
+  desktopmanager control click [window-selector] [control-selector] [--button <left|right>] [--all] [--all-windows] [--json]
+  desktopmanager control set-text [window-selector] [control-selector] --text <value> [--all] [--all-windows] [--json]
+  desktopmanager control send-keys [window-selector] [control-selector] --keys <VK_A,VK_B> [--keys <VK_C>] [--all] [--all-windows] [--json]
+
+Window selectors:
+  --window-title <pattern>
+  --window-process <pattern>
+  --window-pid <id>
+  --window-class <pattern>
+  --window-handle <value>
+
+Control selectors:
+  --class <pattern>
+  --text-pattern <pattern>
+  --id <value>
+  --handle <value>
+
+Examples:
+  desktopmanager control list --window-process notepad --json
+  desktopmanager control click --window-process notepad --class Edit
+  desktopmanager control set-text --window-process notepad --class Edit --text "Hello world"
+  desktopmanager control send-keys --window-process notepad --class Edit --keys VK_CONTROL,VK_A
 """;
     }
 

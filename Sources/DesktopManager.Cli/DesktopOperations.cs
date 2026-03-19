@@ -5,6 +5,7 @@ using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace DesktopManager.Cli;
@@ -103,6 +104,24 @@ internal static class DesktopOperations {
         return BuildWindowChangeResult(manager, "snap", windows);
     }
 
+    public static WindowChangeResult TypeWindowText(WindowSelectionCriteria criteria, string text, bool paste, int delayMilliseconds) {
+        if (text == null) {
+            throw new CommandLineException("Text is required.");
+        }
+
+        var manager = new WindowManager();
+        IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
+        foreach (WindowInfo window in windows) {
+            if (paste) {
+                manager.PasteText(window, text);
+            } else {
+                manager.TypeText(window, text, delayMilliseconds);
+            }
+        }
+
+        return BuildWindowChangeResult(manager, paste ? "paste-text" : "type-text", windows);
+    }
+
     public static IReadOnlyList<MonitorResult> ListMonitors(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null) {
         return new Monitors().GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index)
             .Select(monitor => new MonitorResult {
@@ -120,6 +139,47 @@ internal static class DesktopOperations {
                 SerialNumber = monitor.SerialNumber
             })
             .ToArray();
+    }
+
+    public static IReadOnlyList<ControlResult> ListControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
+        IReadOnlyList<WindowInfo> windows = SelectWindowsForControls(windowCriteria, allWindows);
+        return EnumerateControls(windows, controlCriteria)
+            .Select(MapControl)
+            .ToArray();
+    }
+
+    public static ControlActionResult ClickControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string button, bool allWindows) {
+        MouseButton mouseButton = ParseMouseButton(button);
+        var manager = new WindowManager();
+        IReadOnlyList<ControlTarget> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
+        foreach (ControlTarget control in controls) {
+            manager.ClickControl(control.Control, mouseButton);
+        }
+
+        return BuildControlActionResult("click-control", controls);
+    }
+
+    public static ControlActionResult SetControlText(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string text, bool allWindows) {
+        if (text == null) {
+            throw new CommandLineException("Text is required.");
+        }
+
+        IReadOnlyList<ControlTarget> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
+        foreach (ControlTarget control in controls) {
+            MonitorNativeMethods.SendMessage(control.Control.Handle, MonitorNativeMethods.WM_SETTEXT, IntPtr.Zero, text);
+        }
+
+        return BuildControlActionResult("set-control-text", controls);
+    }
+
+    public static ControlActionResult SendControlKeys(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, IReadOnlyList<string> keys, bool allWindows) {
+        VirtualKey[] virtualKeys = ParseVirtualKeys(keys);
+        IReadOnlyList<ControlTarget> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
+        foreach (ControlTarget control in controls) {
+            KeyboardInputService.SendToControl(control.Control, virtualKeys);
+        }
+
+        return BuildControlActionResult("send-control-keys", controls);
     }
 
     public static NamedStateResult SaveLayout(string name) {
@@ -312,9 +372,36 @@ internal static class DesktopOperations {
         return new[] { windows[0] };
     }
 
+    private static IReadOnlyList<WindowInfo> SelectWindowsForControls(WindowSelectionCriteria criteria, bool allWindows) {
+        var windows = SelectWindows(criteria);
+        if (windows.Count == 0) {
+            throw new CommandLineException("No matching windows were found.");
+        }
+
+        if (allWindows) {
+            return windows;
+        }
+
+        return new[] { windows[0] };
+    }
+
     private static WindowInfo SelectSingleWindow(WindowSelectionCriteria criteria) {
         IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
         return windows[0];
+    }
+
+    private static IReadOnlyList<ControlTarget> SelectTargetControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
+        IReadOnlyList<WindowInfo> windows = SelectWindowsForControls(windowCriteria, allWindows);
+        List<ControlTarget> controls = EnumerateControls(windows, controlCriteria);
+        if (controls.Count == 0) {
+            throw new CommandLineException("No matching controls were found.");
+        }
+
+        if (controlCriteria.All) {
+            return controls;
+        }
+
+        return new[] { controls[0] };
     }
 
     private static List<WindowInfo> SelectWindows(WindowSelectionCriteria criteria) {
@@ -361,6 +448,26 @@ internal static class DesktopOperations {
         return refreshed != null ? MapWindow(refreshed) : MapWindow(window);
     }
 
+    private static List<ControlTarget> EnumerateControls(IReadOnlyList<WindowInfo> windows, ControlSelectionCriteria criteria) {
+        var enumerator = new ControlEnumerator();
+        var results = new List<ControlTarget>();
+
+        foreach (WindowInfo window in windows) {
+            foreach (WindowControlInfo control in enumerator.EnumerateControls(window.Handle)) {
+                if (!MatchesControl(control, criteria)) {
+                    continue;
+                }
+
+                results.Add(new ControlTarget {
+                    Window = window,
+                    Control = control
+                });
+            }
+        }
+
+        return results;
+    }
+
     private static WindowResult MapWindow(WindowInfo window) {
         return new WindowResult {
             Title = window.Title,
@@ -376,6 +483,24 @@ internal static class DesktopOperations {
             Height = window.Height,
             MonitorIndex = window.MonitorIndex,
             MonitorDeviceName = window.MonitorDeviceName
+        };
+    }
+
+    private static ControlResult MapControl(ControlTarget target) {
+        return new ControlResult {
+            Handle = $"0x{target.Control.Handle.ToInt64():X}",
+            ClassName = target.Control.ClassName,
+            Id = target.Control.Id,
+            Text = WindowTextHelper.GetWindowText(target.Control.Handle),
+            ParentWindow = MapWindow(target.Window)
+        };
+    }
+
+    private static ControlActionResult BuildControlActionResult(string action, IReadOnlyList<ControlTarget> controls) {
+        return new ControlActionResult {
+            Action = action,
+            Count = controls.Count,
+            Controls = controls.Select(MapControl).ToArray()
         };
     }
 
@@ -414,6 +539,98 @@ internal static class DesktopOperations {
         WindowInfo? preferred = windows.FirstOrDefault(window => !string.IsNullOrWhiteSpace(window.Title))
             ?? windows.FirstOrDefault();
         return preferred == null ? null : MapWindow(preferred);
+    }
+
+    private static bool MatchesControl(WindowControlInfo control, ControlSelectionCriteria criteria) {
+        if (!string.IsNullOrWhiteSpace(criteria.Handle)) {
+            IntPtr handle = ParseHandle(criteria.Handle);
+            if (control.Handle != handle) {
+                return false;
+            }
+        }
+
+        if (criteria.Id.HasValue && control.Id != criteria.Id.Value) {
+            return false;
+        }
+
+        if (!MatchesPattern(control.ClassName, criteria.ClassNamePattern)) {
+            return false;
+        }
+
+        if (!MatchesPattern(control.Text, criteria.TextPattern)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool MatchesPattern(string? value, string? pattern) {
+        if (string.IsNullOrWhiteSpace(pattern) || pattern == "*") {
+            return true;
+        }
+
+        string text = value ?? string.Empty;
+        if (pattern.Contains('*') || pattern.Contains('?')) {
+            string regexPattern = "^" + Regex.Escape(pattern)
+                .Replace("\\*", ".*")
+                .Replace("\\?", ".") + "$";
+            return Regex.IsMatch(text, regexPattern, RegexOptions.IgnoreCase);
+        }
+
+        return text.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static MouseButton ParseMouseButton(string? value) {
+        if (string.IsNullOrWhiteSpace(value) || value.Equals("left", StringComparison.OrdinalIgnoreCase)) {
+            return MouseButton.Left;
+        }
+
+        if (value.Equals("right", StringComparison.OrdinalIgnoreCase)) {
+            return MouseButton.Right;
+        }
+
+        throw new CommandLineException($"Unsupported mouse button '{value}'.");
+    }
+
+    private static VirtualKey[] ParseVirtualKeys(IReadOnlyList<string> values) {
+        if (values == null || values.Count == 0) {
+            throw new CommandLineException("At least one key is required.");
+        }
+
+        var keys = new List<VirtualKey>();
+        foreach (string raw in values) {
+            foreach (string part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+                keys.Add(ParseVirtualKey(part));
+            }
+        }
+
+        if (keys.Count == 0) {
+            throw new CommandLineException("At least one key is required.");
+        }
+
+        return keys.ToArray();
+    }
+
+    private static VirtualKey ParseVirtualKey(string value) {
+        if (Enum.TryParse<VirtualKey>(value, ignoreCase: true, out VirtualKey parsed)) {
+            return parsed;
+        }
+
+        if (value.Length == 1) {
+            char character = char.ToUpperInvariant(value[0]);
+            string enumName = character switch {
+                >= 'A' and <= 'Z' => $"VK_{character}",
+                >= '0' and <= '9' => $"VK_{character}",
+                ' ' => "VK_SPACE",
+                _ => string.Empty
+            };
+
+            if (!string.IsNullOrWhiteSpace(enumName) && Enum.TryParse<VirtualKey>(enumName, ignoreCase: true, out parsed)) {
+                return parsed;
+            }
+        }
+
+        throw new CommandLineException($"Unsupported key '{value}'.");
     }
 
     private static ScreenshotResult SaveScreenshot(Bitmap bitmap, string kind, string prefix, string? outputPath, int? monitorIndex = null, string? monitorDeviceName = null, WindowResult? window = null) {
@@ -497,5 +714,10 @@ internal static class DesktopOperations {
                 position = default;
                 return false;
         }
+    }
+
+    private sealed class ControlTarget {
+        public WindowInfo Window { get; set; } = null!;
+        public WindowControlInfo Control { get; set; } = null!;
     }
 }

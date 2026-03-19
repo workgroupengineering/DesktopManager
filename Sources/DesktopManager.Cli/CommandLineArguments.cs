@@ -68,6 +68,14 @@ internal sealed class CommandLineArguments {
         return values[values.Count - 1];
     }
 
+    public IReadOnlyList<string> GetOptions(string name) {
+        if (!_options.TryGetValue(name, out List<string>? values) || values.Count == 0) {
+            return Array.Empty<string>();
+        }
+
+        return values.ToArray();
+    }
+
     public string GetRequiredOption(string name) {
         return GetOption(name) ?? throw new CommandLineException($"Missing required option '--{name}'.");
     }

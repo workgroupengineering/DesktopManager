@@ -16,6 +16,7 @@ internal static class CliApplication {
 
             return group switch {
                 "window" => WindowCommands.Run(action, parsed),
+                "control" => ControlCommands.Run(action, parsed),
                 "monitor" => MonitorCommands.Run(action, parsed),
                 "process" => ProcessCommands.Run(action, parsed),
                 "screenshot" => ScreenshotCommands.Run(action, parsed),
@@ -40,6 +41,7 @@ internal static class CliApplication {
         string topic = parsed.GetCommandPart(1)?.ToLowerInvariant() ?? string.Empty;
         string help = topic switch {
             "window" => HelpText.GetWindowHelp(),
+            "control" => HelpText.GetControlHelp(),
             "monitor" => HelpText.GetMonitorHelp(),
             "process" => HelpText.GetProcessHelp(),
             "screenshot" => HelpText.GetScreenshotHelp(),

@@ -13,10 +13,16 @@ The repository now includes a `DesktopManager.Cli` project that exposes a small,
 ```text
 desktopmanager window list
 desktopmanager window wait
+desktopmanager window type
 desktopmanager window move
 desktopmanager window focus
 desktopmanager window minimize
 desktopmanager window snap
+
+desktopmanager control list
+desktopmanager control click
+desktopmanager control set-text
+desktopmanager control send-keys
 
 desktopmanager monitor list
 
@@ -44,11 +50,19 @@ desktopmanager mcp serve
 - snapshots currently reuse the window layout format and are therefore windows-only for now.
 - `process start` launches a desktop application and can optionally wait for input idle.
 - `window wait` polls for a matching window and returns when one appears.
+- `control` works with child window controls discovered from the target window.
+- `window type` sends text to the target window, either by simulated typing or clipboard paste.
 - `mcp serve` hosts a stdio MCP server.
 
 ## Why this shape
 
 - `window`, `monitor`, `layout`, and `snapshot` scale better than flat verbs.
 - `process` and `screenshot` add the first inspect-launch-wait loop needed for desktop automation.
+- `control` and `window type` add the first direct interaction layer for classic desktop controls.
 - the CLI mirrors existing concepts already present in the library and PowerShell module.
 - the CLI and MCP server reuse the same desktop operations and storage conventions.
+
+## Current Limits
+
+- Control enumeration is currently based on child window handles and classes, not full UI Automation.
+- This works well for many classic Win32 controls and some hybrid apps, but modern apps may need UIA-based selectors later.

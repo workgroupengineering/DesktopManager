@@ -14,7 +14,9 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 - `get_active_window`
 - `list_windows`
 - `wait_for_window`
+- `list_window_controls`
 - `move_window`
+- `type_window_text`
 - `focus_window`
 - `minimize_windows`
 - `snap_window`
@@ -22,6 +24,9 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 - `screenshot_desktop`
 - `screenshot_window`
 - `launch_process`
+- `click_control`
+- `set_control_text`
+- `send_control_keys`
 - `list_named_layouts`
 - `save_current_layout`
 - `apply_named_layout`
@@ -52,15 +57,19 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 2. Launch when needed.
    - Use `launch_process` for the app under test.
    - Use `wait_for_window` before trying to move, focus, or capture the window.
-3. Prefer named state when available.
+3. Inspect controls before trying to interact.
+   - Use `list_window_controls` to discover target handles, classes, and visible text.
+   - Prefer `type_window_text` for whole-window text entry.
+   - Prefer `click_control`, `set_control_text`, and `send_control_keys` for control-level interactions.
+4. Prefer named state when available.
    - Use `list_named_layouts` before moving windows one by one.
    - Use `apply_named_layout` or `restore_saved_snapshot` when a saved state exists.
-4. Make reversible changes.
+5. Make reversible changes.
    - Prefer `focus_window`, `snap_window`, and `minimize_windows` over destructive actions.
    - Save the current layout or snapshot before larger rearrangements.
-5. Explain intent.
+6. Explain intent.
    - Say what will change before applying a layout or minimizing multiple windows.
-6. Avoid assumptions.
+7. Avoid assumptions.
    - Match windows by title, process, class, pid, or handle.
    - Start with specific selectors when possible.
 
@@ -71,6 +80,11 @@ Use the CLI when MCP is unavailable or when validating the same operation outsid
 ```text
 desktopmanager window list
 desktopmanager window wait --process notepad --timeout-ms 5000
+desktopmanager window type --process notepad --text "Hello world"
+desktopmanager control list --window-process notepad
+desktopmanager control click --window-process notepad --class RichEditD2DPT
+desktopmanager control set-text --window-process notepad --class RichEditD2DPT --text "Hello world"
+desktopmanager control send-keys --window-process notepad --class RichEditD2DPT --keys VK_CONTROL,VK_A
 desktopmanager process start notepad.exe --wait-for-input-idle-ms 1000
 desktopmanager screenshot desktop
 desktopmanager screenshot window --process notepad
@@ -91,5 +105,6 @@ desktopmanager mcp serve
 - DesktopManager currently focuses on non-destructive window and layout operations.
 - Screenshots are written to PNG files and returned as file paths.
 - Snapshots are windows-only for now.
+- Control discovery currently uses child-window enumeration, not full UIA selectors.
 - Prefer minimizing distractions instead of closing applications.
 - When targeting multiple windows, verify selectors carefully before using `all`.

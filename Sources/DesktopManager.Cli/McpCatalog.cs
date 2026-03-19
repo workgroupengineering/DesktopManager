@@ -24,6 +24,68 @@ internal static class McpCatalog {
                     ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
                     ["intervalMs"] = CreateIntegerSchema("Polling interval in milliseconds.")
                 }), readOnly: true),
+            CreateTool("list_window_controls", "List Window Controls", "List child controls for one or more matching windows.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["windowClassName"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Window process identifier."),
+                    ["windowHandle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["controlClassName"] = CreateStringSchema("Control class filter."),
+                    ["controlText"] = CreateStringSchema("Control text filter."),
+                    ["controlId"] = CreateIntegerSchema("Control identifier."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
+                }), readOnly: true),
+            CreateTool("click_control", "Click Control", "Click a matching child control.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["windowClassName"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Window process identifier."),
+                    ["windowHandle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["controlClassName"] = CreateStringSchema("Control class filter."),
+                    ["controlText"] = CreateStringSchema("Control text filter."),
+                    ["controlId"] = CreateIntegerSchema("Control identifier."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["button"] = CreateStringSchema("Mouse button: left or right."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching controls."),
+                    ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
+                }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_control_text", "Set Control Text", "Set text on a matching child control.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["windowClassName"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Window process identifier."),
+                    ["windowHandle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["controlClassName"] = CreateStringSchema("Control class filter."),
+                    ["controlText"] = CreateStringSchema("Control text filter."),
+                    ["controlId"] = CreateIntegerSchema("Control identifier."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["text"] = CreateStringSchema("Text to set on the control."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching controls."),
+                    ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
+                }, new[] { "text" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("send_control_keys", "Send Control Keys", "Send keys to a matching child control.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["windowClassName"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Window process identifier."),
+                    ["windowHandle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["controlClassName"] = CreateStringSchema("Control class filter."),
+                    ["controlText"] = CreateStringSchema("Control text filter."),
+                    ["controlId"] = CreateIntegerSchema("Control identifier."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["keys"] = new {
+                        type = "array",
+                        items = new { type = "string" },
+                        description = "Virtual key names such as VK_CONTROL or VK_S."
+                    },
+                    ["all"] = CreateBooleanSchema("Apply to all matching controls."),
+                    ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
+                }, new[] { "keys" }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("move_window", "Move Window", "Move and optionally resize a window by title, process, pid, class, or handle.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -39,6 +101,18 @@ internal static class McpCatalog {
                     ["activate"] = CreateBooleanSchema("Activate the window after moving."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
                 }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("type_window_text", "Type Window Text", "Type or paste text into a matching window.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["text"] = CreateStringSchema("Text to send to the window."),
+                    ["paste"] = CreateBooleanSchema("Use clipboard paste instead of typed characters."),
+                    ["delayMs"] = CreateIntegerSchema("Delay in milliseconds between typed characters."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
+                }, new[] { "text" }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("focus_window", "Focus Window", "Bring a matching window to the foreground.", CreateWindowSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
             CreateTool("minimize_windows", "Minimize Windows", "Minimize one or more matching windows.", CreateWindowSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
             CreateTool("snap_window", "Snap Window", "Snap one or more matching windows to a predefined monitor region.", CreateObjectSchema(
@@ -218,6 +292,30 @@ internal static class McpCatalog {
                     ReadOptionalString(arguments, "arguments"),
                     ReadOptionalString(arguments, "workingDirectory"),
                     ReadInt(arguments, "waitForInputIdleMs")),
+                "list_window_controls" => DesktopOperations.ListControls(
+                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                    ReadControlCriteria(arguments),
+                    ReadBool(arguments, "allWindows")),
+                "click_control" => DesktopOperations.ClickControl(
+                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                    ReadControlCriteria(arguments),
+                    ReadOptionalString(arguments, "button") ?? "left",
+                    ReadBool(arguments, "allWindows")),
+                "set_control_text" => DesktopOperations.SetControlText(
+                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                    ReadControlCriteria(arguments),
+                    ReadRequiredString(arguments, "text"),
+                    ReadBool(arguments, "allWindows")),
+                "send_control_keys" => DesktopOperations.SendControlKeys(
+                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                    ReadControlCriteria(arguments),
+                    ReadStringList(arguments, "keys"),
+                    ReadBool(arguments, "allWindows")),
+                "type_window_text" => DesktopOperations.TypeWindowText(
+                    ReadWindowCriteria(arguments, true),
+                    ReadRequiredString(arguments, "text"),
+                    ReadBool(arguments, "paste"),
+                    ReadInt(arguments, "delayMs") ?? 0),
                 "list_named_layouts" => DesktopOperations.ListLayouts(),
                 "save_current_layout" => DesktopOperations.SaveLayout(ReadRequiredString(arguments, "name")),
                 "apply_named_layout" => DesktopOperations.ApplyLayout(ReadRequiredString(arguments, "name"), ReadBool(arguments, "validate")),
@@ -273,16 +371,30 @@ internal static class McpCatalog {
     }
 
     private static WindowSelectionCriteria ReadWindowCriteria(JsonElement element, bool includeEmptyDefault) {
+        return ReadWindowCriteria(element, includeEmptyDefault, "windowTitle", "processName", "className", "processId", "handle");
+    }
+
+    private static WindowSelectionCriteria ReadWindowCriteria(JsonElement element, bool includeEmptyDefault, string titleProperty, string processNameProperty, string classNameProperty, string processIdProperty, string handleProperty) {
         return new WindowSelectionCriteria {
-            TitlePattern = ReadOptionalString(element, "windowTitle") ?? "*",
-            ProcessNamePattern = ReadOptionalString(element, "processName") ?? "*",
-            ClassNamePattern = ReadOptionalString(element, "className") ?? "*",
-            ProcessId = ReadInt(element, "processId"),
-            Handle = ReadOptionalString(element, "handle"),
+            TitlePattern = ReadOptionalString(element, titleProperty) ?? "*",
+            ProcessNamePattern = ReadOptionalString(element, processNameProperty) ?? "*",
+            ClassNamePattern = ReadOptionalString(element, classNameProperty) ?? "*",
+            ProcessId = ReadInt(element, processIdProperty),
+            Handle = ReadOptionalString(element, handleProperty),
             IncludeHidden = ReadBool(element, "includeHidden"),
             IncludeCloaked = !ReadBool(element, "excludeCloaked"),
             IncludeOwned = !ReadBool(element, "excludeOwned"),
             IncludeEmptyTitles = ReadNullableBool(element, "includeEmpty") ?? includeEmptyDefault,
+            All = ReadBool(element, "all")
+        };
+    }
+
+    private static ControlSelectionCriteria ReadControlCriteria(JsonElement element) {
+        return new ControlSelectionCriteria {
+            ClassNamePattern = ReadOptionalString(element, "controlClassName") ?? "*",
+            TextPattern = ReadOptionalString(element, "controlText") ?? "*",
+            Id = ReadInt(element, "controlId"),
+            Handle = ReadOptionalString(element, "controlHandle"),
             All = ReadBool(element, "all")
         };
     }
@@ -365,6 +477,28 @@ internal static class McpCatalog {
         }
 
         return property.ValueKind == JsonValueKind.String ? property.GetString() : property.ToString();
+    }
+
+    private static IReadOnlyList<string> ReadStringList(JsonElement element, string propertyName) {
+        if (!element.TryGetProperty(propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
+            return Array.Empty<string>();
+        }
+
+        if (property.ValueKind == JsonValueKind.Array) {
+            List<string> values = new();
+            foreach (JsonElement item in property.EnumerateArray()) {
+                if (item.ValueKind == JsonValueKind.Null) {
+                    continue;
+                }
+
+                values.Add(item.ValueKind == JsonValueKind.String ? item.GetString() ?? string.Empty : item.ToString());
+            }
+
+            return values;
+        }
+
+        string? single = ReadOptionalString(element, propertyName);
+        return string.IsNullOrWhiteSpace(single) ? Array.Empty<string>() : new[] { single };
     }
 
     private static int? ReadInt(JsonElement element, string propertyName) {

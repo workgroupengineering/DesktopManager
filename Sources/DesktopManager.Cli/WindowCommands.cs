@@ -12,6 +12,7 @@ internal static class WindowCommands {
             "focus" => Focus(arguments),
             "minimize" => Minimize(arguments),
             "snap" => Snap(arguments),
+            "type" => Type(arguments),
             "wait" => Wait(arguments),
             _ => throw new CommandLineException($"Unknown window command '{action}'.")
         };
@@ -71,6 +72,16 @@ internal static class WindowCommands {
         return WriteWindowMutationResult(
             arguments,
             DesktopOperations.SnapWindow(CreateCriteria(arguments, includeEmptyDefault: true), arguments.GetRequiredOption("position")));
+    }
+
+    private static int Type(CommandLineArguments arguments) {
+        return WriteWindowMutationResult(
+            arguments,
+            DesktopOperations.TypeWindowText(
+                CreateCriteria(arguments, includeEmptyDefault: true),
+                arguments.GetRequiredOption("text"),
+                arguments.GetBoolFlag("paste"),
+                arguments.GetIntOption("delay-ms") ?? 0));
     }
 
     private static int Wait(CommandLineArguments arguments) {

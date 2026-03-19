@@ -15,6 +15,14 @@ internal sealed class WindowSelectionCriteria {
     public bool All { get; set; }
 }
 
+internal sealed class ControlSelectionCriteria {
+    public string ClassNamePattern { get; set; } = "*";
+    public string TextPattern { get; set; } = "*";
+    public int? Id { get; set; }
+    public string? Handle { get; set; }
+    public bool All { get; set; }
+}
+
 internal sealed class WindowResult {
     public string Title { get; set; } = string.Empty;
     public string Handle { get; set; } = string.Empty;
@@ -35,6 +43,20 @@ internal sealed class WindowChangeResult {
     public string Action { get; set; } = string.Empty;
     public int Count { get; set; }
     public IReadOnlyList<WindowResult> Windows { get; set; } = new List<WindowResult>();
+}
+
+internal sealed class ControlResult {
+    public string Handle { get; set; } = string.Empty;
+    public string ClassName { get; set; } = string.Empty;
+    public int Id { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public WindowResult ParentWindow { get; set; } = new WindowResult();
+}
+
+internal sealed class ControlActionResult {
+    public string Action { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public IReadOnlyList<ControlResult> Controls { get; set; } = new List<ControlResult>();
 }
 
 internal sealed class MonitorResult {
