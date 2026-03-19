@@ -21,6 +21,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 - `control_exists`
 - `wait_for_control`
 - `move_window`
+- `click_window_point`
 - `type_window_text`
 - `focus_window`
 - `minimize_windows`
@@ -70,6 +71,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
    - Use `control_exists` or `wait_for_control` when the target control can appear asynchronously or when you want a structured assertion before clicking.
    - When modern controls expose state through UI Automation, filter by current value, enabled state, or keyboard focusability instead of guessing from text alone.
    - If a UIA-heavy query is host-sensitive, opt into foreground assistance before falling back to brittle retries.
+   - If structure discovery still fails, use `screenshot_window` plus `click_window_point` as the shared coordinate-based fallback.
    - Prefer `type_window_text` for whole-window text entry.
    - Prefer `click_control`, `set_control_text`, and `send_control_keys` for control-level interactions.
 4. Prefer named state when available.
@@ -95,6 +97,7 @@ desktopmanager window exists --title "Codex"
 desktopmanager window active-matches --title "Codex"
 desktopmanager window wait --process notepad --timeout-ms 5000
 desktopmanager window list --process notepad --json
+desktopmanager window click --handle 0xFF1802 --x 200 --y 200
 desktopmanager window type --handle 0x30A263C --text "Hello world"
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
@@ -131,6 +134,7 @@ desktopmanager mcp serve
 - Control discovery supports both child-window selectors and UIA-oriented selectors.
 - Control assertions and waits are available on the same shared selector model as list/click/set-text.
 - Control diagnostics are available on the same shared selector model and help explain Win32 versus UIA discovery gaps.
+- Window-relative clicking is available as a shared fallback for apps that do not expose stable controls.
 - The shared control selector model now supports value, enabled, and keyboard-focusable checks.
 - The shared control selector model also supports an opt-in foreground hint for UIA discovery when a target window needs focus.
 - Prefer minimizing distractions instead of closing applications.

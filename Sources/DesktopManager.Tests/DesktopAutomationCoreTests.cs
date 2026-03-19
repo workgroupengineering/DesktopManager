@@ -117,4 +117,24 @@ public class DesktopAutomationCoreTests {
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.GetControlDiagnostics(new WindowQueryOptions { TitlePattern = "*" }, sampleLimit: -1));
     }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window-relative clicks reject a negative X coordinate.
+    /// </summary>
+    public void DesktopAutomationService_ClickWindowPoint_NegativeX_ThrowsArgumentOutOfRangeException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.ClickWindowPoint(new WindowQueryOptions { TitlePattern = "*" }, -1, 0, MouseButton.Left, activate: false));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window-relative clicks reject a negative Y coordinate.
+    /// </summary>
+    public void DesktopAutomationService_ClickWindowPoint_NegativeY_ThrowsArgumentOutOfRangeException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.ClickWindowPoint(new WindowQueryOptions { TitlePattern = "*" }, 0, -1, MouseButton.Left, activate: false));
+    }
 }

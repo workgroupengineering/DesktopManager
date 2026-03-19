@@ -35,20 +35,20 @@ internal sealed class UiAutomationControlService {
         _conditionType != null &&
         _treeScopeType != null;
 
-    public List<WindowControlInfo> EnumerateControls(IntPtr windowHandle) {
+    public List<WindowControlInfo> EnumerateControls(IntPtr windowHandle, IReadOnlyList<IntPtr>? fallbackRootHandles = null) {
         if (!IsAvailable || windowHandle == IntPtr.Zero) {
             return new List<WindowControlInfo>();
         }
 
         if (Thread.CurrentThread.GetApartmentState() == ApartmentState.STA) {
-            return EnumerateControlsCore(windowHandle);
+            return EnumerateControlsCore(windowHandle, fallbackRootHandles);
         }
 
         List<WindowControlInfo> controls = new List<WindowControlInfo>();
         Exception? workerException = null;
         var thread = new Thread(() => {
             try {
-                controls = new UiAutomationControlService().EnumerateControlsCore(windowHandle);
+                controls = new UiAutomationControlService().EnumerateControlsCore(windowHandle, fallbackRootHandles);
             } catch (Exception ex) {
                 workerException = ex;
             }
@@ -60,6 +60,30 @@ internal sealed class UiAutomationControlService {
             throw workerException;
         }
         return controls;
+    }
+
+    internal static IReadOnlyList<IntPtr> GetFallbackRootHandles(IntPtr windowHandle, IEnumerable<WindowControlInfo>? win32Controls) {
+        if (windowHandle == IntPtr.Zero || win32Controls == null) {
+            return Array.Empty<IntPtr>();
+        }
+
+        var prioritized = new List<IntPtr>();
+        var remaining = new List<IntPtr>();
+        var seen = new HashSet<IntPtr>();
+        foreach (WindowControlInfo control in win32Controls) {
+            if (control.Handle == IntPtr.Zero || control.Handle == windowHandle || !seen.Add(control.Handle)) {
+                continue;
+            }
+
+            if (string.Equals(control.ClassName, "Chrome_RenderWidgetHostHWND", StringComparison.OrdinalIgnoreCase)) {
+                prioritized.Add(control.Handle);
+            } else {
+                remaining.Add(control.Handle);
+            }
+        }
+
+        prioritized.AddRange(remaining);
+        return prioritized;
     }
 
     public bool TryInvoke(WindowInfo window, WindowControlInfo control) {
@@ -118,50 +142,69 @@ internal sealed class UiAutomationControlService {
         return result;
     }
 
-    private List<WindowControlInfo> EnumerateControlsCore(IntPtr windowHandle) {
+    private List<WindowControlInfo> EnumerateControlsCore(IntPtr windowHandle, IReadOnlyList<IntPtr>? fallbackRootHandles) {
         try {
-            object? rootElement = _automationElementType!.GetMethod("FromHandle", BindingFlags.Public | BindingFlags.Static)?
-                .Invoke(null, new object[] { windowHandle });
-            if (rootElement == null) {
-                return new List<WindowControlInfo>();
+            List<WindowControlInfo> primaryControls = EnumerateControlsForRoot(windowHandle, includeRoot: false);
+            if (primaryControls.Count > 0 || fallbackRootHandles == null || fallbackRootHandles.Count == 0) {
+                return primaryControls;
             }
 
-            object? treeScope = Enum.Parse(_treeScopeType!, "Descendants", ignoreCase: false);
-            object? trueCondition = _conditionType!.GetField("TrueCondition", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
-            if (treeScope == null || trueCondition == null) {
-                return new List<WindowControlInfo>();
-            }
-
-            object? collection = _automationElementType.GetMethod("FindAll", new[] { _treeScopeType!, _conditionType! })?
-                .Invoke(rootElement, new[] { treeScope, trueCondition });
-            if (collection == null) {
-                return new List<WindowControlInfo>();
-            }
-
-            PropertyInfo? countProperty = _automationElementCollectionType!.GetProperty("Count");
-            PropertyInfo? itemProperty = _automationElementCollectionType.GetProperty("Item");
-            if (countProperty == null || itemProperty == null) {
-                return new List<WindowControlInfo>();
-            }
-
-            int count = (int)(countProperty.GetValue(collection) ?? 0);
-            var controls = new List<WindowControlInfo>(count);
-            for (int index = 0; index < count; index++) {
-                object? element = itemProperty.GetValue(collection, new object[] { index });
-                if (element == null) {
-                    continue;
-                }
-
-                WindowControlInfo? info = CreateControlInfo(element);
-                if (info != null) {
-                    controls.Add(info);
+            var mergedControls = new List<WindowControlInfo>();
+            foreach (IntPtr fallbackRootHandle in fallbackRootHandles) {
+                List<WindowControlInfo> fallbackControls = EnumerateControlsForRoot(fallbackRootHandle, includeRoot: true);
+                foreach (WindowControlInfo control in fallbackControls) {
+                    if (!ContainsEquivalentControl(mergedControls, control)) {
+                        mergedControls.Add(control);
+                    }
                 }
             }
 
-            return controls;
+            return mergedControls;
         } catch {
             return new List<WindowControlInfo>();
         }
+    }
+
+    private List<WindowControlInfo> EnumerateControlsForRoot(IntPtr rootHandle, bool includeRoot) {
+        object? rootElement = _automationElementType!.GetMethod("FromHandle", BindingFlags.Public | BindingFlags.Static)?
+            .Invoke(null, new object[] { rootHandle });
+        if (rootElement == null) {
+            return new List<WindowControlInfo>();
+        }
+
+        object? treeScope = Enum.Parse(_treeScopeType!, includeRoot ? "Subtree" : "Descendants", ignoreCase: false);
+        object? trueCondition = _conditionType!.GetField("TrueCondition", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+        if (treeScope == null || trueCondition == null) {
+            return new List<WindowControlInfo>();
+        }
+
+        object? collection = _automationElementType.GetMethod("FindAll", new[] { _treeScopeType!, _conditionType! })?
+            .Invoke(rootElement, new[] { treeScope, trueCondition });
+        if (collection == null) {
+            return new List<WindowControlInfo>();
+        }
+
+        PropertyInfo? countProperty = _automationElementCollectionType!.GetProperty("Count");
+        PropertyInfo? itemProperty = _automationElementCollectionType.GetProperty("Item");
+        if (countProperty == null || itemProperty == null) {
+            return new List<WindowControlInfo>();
+        }
+
+        int count = (int)(countProperty.GetValue(collection) ?? 0);
+        var controls = new List<WindowControlInfo>(count);
+        for (int index = 0; index < count; index++) {
+            object? element = itemProperty.GetValue(collection, new object[] { index });
+            if (element == null) {
+                continue;
+            }
+
+            WindowControlInfo? info = CreateControlInfo(element);
+            if (info != null) {
+                controls.Add(info);
+            }
+        }
+
+        return controls;
     }
 
     private bool TryInvokeCore(WindowInfo window, WindowControlInfo control) {
@@ -300,6 +343,17 @@ internal sealed class UiAutomationControlService {
         } catch {
             return null;
         }
+    }
+
+    private static bool ContainsEquivalentControl(List<WindowControlInfo> controls, WindowControlInfo candidate) {
+        return controls.Any(existing =>
+            (existing.Handle != IntPtr.Zero &&
+            candidate.Handle != IntPtr.Zero &&
+            existing.Handle == candidate.Handle) ||
+            (string.Equals(existing.AutomationId, candidate.AutomationId, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(existing.ControlType, candidate.ControlType, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(existing.Text, candidate.Text, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(existing.ClassName, candidate.ClassName, StringComparison.OrdinalIgnoreCase)));
     }
 
     private WindowControlInfo? CreateControlInfo(object element) {

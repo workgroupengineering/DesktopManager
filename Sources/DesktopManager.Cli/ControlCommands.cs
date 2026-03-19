@@ -84,6 +84,7 @@ internal static class ControlCommands {
             Console.WriteLine($"effective-source: {diagnostic.EffectiveSource}");
             Console.WriteLine($"uia: required={diagnostic.RequiresUiAutomation} available={diagnostic.UiAutomationAvailable} requested={diagnostic.UseUiAutomation} include={diagnostic.IncludeUiAutomation}");
             Console.WriteLine($"preparation: attempted={diagnostic.PreparationAttempted} succeeded={diagnostic.PreparationSucceeded} ensureForeground={diagnostic.EnsureForegroundWindow}");
+            Console.WriteLine($"fallback-roots: count={diagnostic.UiAutomationFallbackRootCount} used={diagnostic.UsedUiAutomationFallbackRoots}");
             Console.WriteLine($"counts: win32={diagnostic.Win32ControlCount} uia={diagnostic.UiAutomationControlCount} effective={diagnostic.EffectiveControlCount} matched={diagnostic.MatchedControlCount}");
             foreach (ControlResult sample in diagnostic.SampleControls) {
                 Console.WriteLine($"- {sample.Source} {sample.ControlType} {sample.AutomationId} {sample.Text}");

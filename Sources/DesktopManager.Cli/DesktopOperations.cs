@@ -36,6 +36,13 @@ internal static class DesktopOperations {
             new DesktopAutomationService().FocusWindows(CreateWindowQuery(criteria), criteria.All)));
     }
 
+    public static WindowChangeResult ClickWindowPoint(WindowSelectionCriteria criteria, int x, int y, string button, bool activate) {
+        MouseButton mouseButton = ParseMouseButton(button);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "click-point",
+            new DesktopAutomationService().ClickWindowPoint(CreateWindowQuery(criteria), x, y, mouseButton, activate, criteria.All)));
+    }
+
     public static WindowChangeResult MinimizeWindows(WindowSelectionCriteria criteria) {
         return ExecuteCore(() => BuildWindowChangeResult(
             "minimize",
@@ -392,6 +399,8 @@ internal static class DesktopOperations {
             UiAutomationAvailable = diagnostics.UiAutomationAvailable,
             PreparationAttempted = diagnostics.PreparationAttempted,
             PreparationSucceeded = diagnostics.PreparationSucceeded,
+            UiAutomationFallbackRootCount = diagnostics.UiAutomationFallbackRootCount,
+            UsedUiAutomationFallbackRoots = diagnostics.UsedUiAutomationFallbackRoots,
             EffectiveSource = diagnostics.EffectiveSource,
             Win32ControlCount = diagnostics.Win32ControlCount,
             UiAutomationControlCount = diagnostics.UiAutomationControlCount,

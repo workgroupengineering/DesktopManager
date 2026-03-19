@@ -140,6 +140,16 @@ public sealed class DesktopControlDiscoveryDiagnostics {
     public bool PreparationSucceeded { get; set; }
 
     /// <summary>
+    /// Gets or sets the number of child handles considered as UI Automation fallback roots.
+    /// </summary>
+    public int UiAutomationFallbackRootCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether child-handle fallback roots were used for UI Automation discovery.
+    /// </summary>
+    public bool UsedUiAutomationFallbackRoots { get; set; }
+
+    /// <summary>
     /// Gets or sets the effective discovery mode used for the final control set.
     /// </summary>
     public string EffectiveSource { get; set; } = string.Empty;

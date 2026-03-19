@@ -97,6 +97,10 @@ internal sealed class CommandLineArguments {
         throw new CommandLineException($"Option '--{name}' expects an integer value.");
     }
 
+    public int GetRequiredIntOption(string name) {
+        return GetIntOption(name) ?? throw new CommandLineException($"Missing required option '--{name}'.");
+    }
+
     public bool GetBoolFlag(string name) {
         return HasFlag(name);
     }

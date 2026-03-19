@@ -49,9 +49,15 @@ public partial class WindowManager {
 
         var enumerator = new ControlEnumerator();
         List<WindowControlInfo> win32Controls = enumerator.EnumerateControls(window.Handle);
+        IReadOnlyList<IntPtr> fallbackRootHandles = UiAutomationControlService.GetFallbackRootHandles(window.Handle, win32Controls);
         var uiAutomation = new UiAutomationControlService();
-        List<WindowControlInfo> uiAutomationControls = filter.RequiresUiAutomation()
+        List<WindowControlInfo> primaryUiAutomationControls = filter.RequiresUiAutomation()
             ? uiAutomation.EnumerateControls(window.Handle)
+            : new List<WindowControlInfo>();
+        List<WindowControlInfo> uiAutomationControls = filter.RequiresUiAutomation()
+            ? primaryUiAutomationControls.Count > 0
+                ? primaryUiAutomationControls
+                : uiAutomation.EnumerateControls(window.Handle, fallbackRootHandles)
             : new List<WindowControlInfo>();
         List<WindowControlInfo> effectiveControls = SelectDiscoveredControls(filter, win32Controls, uiAutomationControls);
         List<WindowControlInfo> matchedControls = effectiveControls.FindAll(control => MatchesControl(control, filter));
@@ -65,6 +71,8 @@ public partial class WindowManager {
             UiAutomationAvailable = uiAutomation.IsAvailable,
             PreparationAttempted = preparation.Attempted,
             PreparationSucceeded = preparation.Succeeded,
+            UiAutomationFallbackRootCount = fallbackRootHandles.Count,
+            UsedUiAutomationFallbackRoots = filter.RequiresUiAutomation() && primaryUiAutomationControls.Count == 0 && uiAutomationControls.Count > 0 && fallbackRootHandles.Count > 0,
             EffectiveSource = GetEffectiveSource(filter, uiAutomationControls),
             Win32ControlCount = win32Controls.Count,
             UiAutomationControlCount = uiAutomationControls.Count,
@@ -96,7 +104,8 @@ public partial class WindowManager {
         }
 
         var uiAutomation = new UiAutomationControlService();
-        List<WindowControlInfo> uiAutomationControls = uiAutomation.EnumerateControls(windowHandle);
+        IReadOnlyList<IntPtr> fallbackRootHandles = UiAutomationControlService.GetFallbackRootHandles(windowHandle, win32Controls);
+        List<WindowControlInfo> uiAutomationControls = uiAutomation.EnumerateControls(windowHandle, fallbackRootHandles);
 
         return SelectDiscoveredControls(filter, win32Controls, uiAutomationControls);
     }

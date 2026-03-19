@@ -173,6 +173,33 @@ public sealed class DesktopAutomationService {
     }
 
     /// <summary>
+    /// Clicks a point relative to each matching window.
+    /// </summary>
+    public IReadOnlyList<WindowInfo> ClickWindowPoint(WindowQueryOptions options, int x, int y, MouseButton button, bool activate, bool all = false) {
+        if (x < 0) {
+            throw new ArgumentOutOfRangeException(nameof(x), "x must be zero or greater.");
+        }
+
+        if (y < 0) {
+            throw new ArgumentOutOfRangeException(nameof(y), "y must be zero or greater.");
+        }
+
+        IReadOnlyList<WindowInfo> windows = ResolveWindows(options, all);
+        foreach (WindowInfo window in windows) {
+            if (activate) {
+                _windowManager.ActivateWindow(window);
+                Thread.Sleep(100);
+            }
+
+            _windowManager.MoveMouse(window.Left + x, window.Top + y);
+            Thread.Sleep(50);
+            _windowManager.ClickMouse(button);
+        }
+
+        return RefreshWindows(windows);
+    }
+
+    /// <summary>
     /// Gets matching controls for one or more windows.
     /// </summary>
     public IReadOnlyList<WindowControlTargetInfo> GetControls(WindowQueryOptions windowOptions, WindowControlQueryOptions? controlOptions = null, bool allWindows = false, bool allControls = true) {

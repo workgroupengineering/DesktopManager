@@ -92,6 +92,8 @@ internal sealed class ControlDiagnosticResult {
     public bool UiAutomationAvailable { get; set; }
     public bool PreparationAttempted { get; set; }
     public bool PreparationSucceeded { get; set; }
+    public int UiAutomationFallbackRootCount { get; set; }
+    public bool UsedUiAutomationFallbackRoots { get; set; }
     public string EffectiveSource { get; set; } = string.Empty;
     public int Win32ControlCount { get; set; }
     public int UiAutomationControlCount { get; set; }

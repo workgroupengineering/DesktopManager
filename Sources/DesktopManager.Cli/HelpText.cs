@@ -51,6 +51,7 @@ Window commands:
   desktopmanager window exists [selector] [--json]
   desktopmanager window active-matches [selector] [--json]
   desktopmanager window move [selector] [--monitor <index>] [--x <value>] [--y <value>] [--width <value>] [--height <value>] [--activate] [--all] [--json]
+  desktopmanager window click [selector] --x <value> --y <value> [--button <left|right>] [--activate] [--all] [--json]
   desktopmanager window focus [selector] [--all] [--json]
   desktopmanager window minimize [selector] [--all] [--json]
   desktopmanager window snap [selector] --position <left|right|top-left|top-right|bottom-left|bottom-right> [--all] [--json]
@@ -70,6 +71,7 @@ Examples:
   desktopmanager window list --title "*Notepad*" --json
   desktopmanager window exists --process notepad
   desktopmanager window active-matches --title "Codex"
+  desktopmanager window click --process notepad --x 200 --y 200
   desktopmanager window type --active --text "Hello world"
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --activate
   desktopmanager window snap --process notepad --position left

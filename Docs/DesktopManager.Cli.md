@@ -17,6 +17,7 @@ desktopmanager window active-matches
 desktopmanager window wait
 desktopmanager window type
 desktopmanager window move
+desktopmanager window click
 desktopmanager window focus
 desktopmanager window minimize
 desktopmanager window snap
@@ -63,6 +64,7 @@ desktopmanager mcp serve
 - control selectors can now match `value`, `enabled`, and `focusable` state through the shared library.
 - `--ensure-foreground` provides a shared opt-in reliability hint for UIA-heavy control queries.
 - `window type` sends text to the target window, either by simulated typing or clipboard paste.
+- `window click` provides a shared window-relative fallback for modern apps when structural control discovery is unavailable.
 - `window` commands support exact handle targeting and active-window targeting for safer selection when multiple windows match.
 - `screenshot window` now prefers real window rendering before falling back to screen pixels, which improves captures for covered windows.
 - `mcp serve` hosts a stdio MCP server.
@@ -72,6 +74,7 @@ desktopmanager mcp serve
 - `window`, `monitor`, `layout`, and `snapshot` scale better than flat verbs.
 - `process` and `screenshot` add the first inspect-launch-wait loop needed for desktop automation.
 - `control` and `window type` add the first direct interaction layer for classic desktop controls.
+- `window click` gives CLI, MCP, and PowerShell the same coordinate-based fallback path when UIA-heavy apps stay opaque.
 - the CLI mirrors existing concepts already present in the library and PowerShell module.
 - the CLI and MCP server reuse the same desktop operations and storage conventions.
 - window selection and text-entry reliability now live in the shared C# library so CLI, MCP, and PowerShell stay aligned.

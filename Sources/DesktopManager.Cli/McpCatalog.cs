@@ -218,6 +218,20 @@ internal static class McpCatalog {
                     ["activate"] = CreateBooleanSchema("Activate the window after moving."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
                 }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("click_window_point", "Click Window Point", "Click a point relative to a matching window.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["x"] = CreateIntegerSchema("Horizontal coordinate relative to the window bounds."),
+                    ["y"] = CreateIntegerSchema("Vertical coordinate relative to the window bounds."),
+                    ["button"] = CreateStringSchema("Mouse button: left or right."),
+                    ["activate"] = CreateBooleanSchema("Activate the window before clicking."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
+                }, new[] { "x", "y" }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("type_window_text", "Type Window Text", "Type or paste text into a matching window.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -394,6 +408,12 @@ internal static class McpCatalog {
                     ReadInt(arguments, "y"),
                     ReadInt(arguments, "width"),
                     ReadInt(arguments, "height"),
+                    ReadBool(arguments, "activate")),
+                "click_window_point" => DesktopOperations.ClickWindowPoint(
+                    ReadWindowCriteria(arguments, true),
+                    ReadInt(arguments, "x") ?? throw new CommandLineException("Property 'x' is required."),
+                    ReadInt(arguments, "y") ?? throw new CommandLineException("Property 'y' is required."),
+                    ReadOptionalString(arguments, "button") ?? "left",
                     ReadBool(arguments, "activate")),
                 "focus_window" => DesktopOperations.FocusWindow(ReadWindowCriteria(arguments, true)),
                 "minimize_windows" => DesktopOperations.MinimizeWindows(ReadWindowCriteria(arguments, true)),

@@ -11,6 +11,7 @@ internal static class WindowCommands {
             "exists" => Exists(arguments),
             "active-matches" => ActiveMatches(arguments),
             "move" => Move(arguments),
+            "click" => Click(arguments),
             "focus" => Focus(arguments),
             "minimize" => Minimize(arguments),
             "snap" => Snap(arguments),
@@ -74,6 +75,17 @@ internal static class WindowCommands {
 
     private static int Focus(CommandLineArguments arguments) {
         return WriteWindowMutationResult(arguments, DesktopOperations.FocusWindow(CreateCriteria(arguments, includeEmptyDefault: true)));
+    }
+
+    private static int Click(CommandLineArguments arguments) {
+        return WriteWindowMutationResult(
+            arguments,
+            DesktopOperations.ClickWindowPoint(
+                CreateCriteria(arguments, includeEmptyDefault: true),
+                arguments.GetRequiredIntOption("x"),
+                arguments.GetRequiredIntOption("y"),
+                arguments.GetOption("button") ?? "left",
+                arguments.GetBoolFlag("activate")));
     }
 
     private static int Minimize(CommandLineArguments arguments) {
