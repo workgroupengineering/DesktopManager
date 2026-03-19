@@ -5,7 +5,6 @@ using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 
 namespace DesktopManager.Cli;
@@ -131,8 +130,7 @@ internal static class DesktopOperations {
     }
 
     public static IReadOnlyList<ControlResult> ListControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
-        IReadOnlyList<WindowInfo> windows = SelectWindowsForControls(windowCriteria, allWindows);
-        return EnumerateControls(windows, controlCriteria)
+        return GetControlTargets(windowCriteria, controlCriteria, allWindows)
             .Select(MapControl)
             .ToArray();
     }
@@ -140,8 +138,8 @@ internal static class DesktopOperations {
     public static ControlActionResult ClickControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string button, bool allWindows) {
         MouseButton mouseButton = ParseMouseButton(button);
         var manager = new WindowManager();
-        IReadOnlyList<ControlTarget> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
-        foreach (ControlTarget control in controls) {
+        IReadOnlyList<WindowControlTargetInfo> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
+        foreach (WindowControlTargetInfo control in controls) {
             manager.ClickControl(control.Control, mouseButton);
         }
 
@@ -153,8 +151,8 @@ internal static class DesktopOperations {
             throw new CommandLineException("Text is required.");
         }
 
-        IReadOnlyList<ControlTarget> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
-        foreach (ControlTarget control in controls) {
+        IReadOnlyList<WindowControlTargetInfo> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
+        foreach (WindowControlTargetInfo control in controls) {
             MonitorNativeMethods.SendMessage(control.Control.Handle, MonitorNativeMethods.WM_SETTEXT, IntPtr.Zero, text);
         }
 
@@ -163,8 +161,8 @@ internal static class DesktopOperations {
 
     public static ControlActionResult SendControlKeys(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, IReadOnlyList<string> keys, bool allWindows) {
         VirtualKey[] virtualKeys = ParseVirtualKeys(keys);
-        IReadOnlyList<ControlTarget> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
-        foreach (ControlTarget control in controls) {
+        IReadOnlyList<WindowControlTargetInfo> controls = SelectTargetControls(windowCriteria, controlCriteria, allWindows);
+        foreach (WindowControlTargetInfo control in controls) {
             KeyboardInputService.SendToControl(control.Control, virtualKeys);
         }
 
@@ -361,27 +359,13 @@ internal static class DesktopOperations {
         return new[] { windows[0] };
     }
 
-    private static IReadOnlyList<WindowInfo> SelectWindowsForControls(WindowSelectionCriteria criteria, bool allWindows) {
-        var windows = SelectWindows(criteria);
-        if (windows.Count == 0) {
-            throw new CommandLineException("No matching windows were found.");
-        }
-
-        if (allWindows) {
-            return windows;
-        }
-
-        return new[] { windows[0] };
-    }
-
     private static WindowInfo SelectSingleWindow(WindowSelectionCriteria criteria) {
         IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
         return windows[0];
     }
 
-    private static IReadOnlyList<ControlTarget> SelectTargetControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
-        IReadOnlyList<WindowInfo> windows = SelectWindowsForControls(windowCriteria, allWindows);
-        List<ControlTarget> controls = EnumerateControls(windows, controlCriteria);
+    private static IReadOnlyList<WindowControlTargetInfo> SelectTargetControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
+        List<WindowControlTargetInfo> controls = GetControlTargets(windowCriteria, controlCriteria, allWindows);
         if (controls.Count == 0) {
             throw new CommandLineException("No matching controls were found.");
         }
@@ -393,21 +377,35 @@ internal static class DesktopOperations {
         return new[] { controls[0] };
     }
 
-    private static List<WindowInfo> SelectWindows(WindowSelectionCriteria criteria) {
-        var query = new WindowQueryOptions {
-            TitlePattern = criteria.TitlePattern,
-            ProcessNamePattern = criteria.ProcessNamePattern,
-            ClassNamePattern = criteria.ClassNamePattern,
-            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : ParseHandle(criteria.Handle),
-            ActiveWindow = criteria.Active,
-            IncludeHidden = criteria.IncludeHidden,
-            IncludeCloaked = criteria.IncludeCloaked,
-            IncludeOwned = criteria.IncludeOwned,
-            IncludeEmptyTitles = criteria.IncludeEmptyTitles ? true : HasExplicitSelector(criteria) ? null : false,
-            ProcessId = criteria.ProcessId ?? 0
-        };
+    private static List<WindowControlTargetInfo> GetControlTargets(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
+        WindowManager manager = new WindowManager();
+        WindowQueryOptions query = CreateWindowQuery(windowCriteria);
+        List<WindowInfo> windows = manager.GetWindows(query);
+        if (windows.Count == 0) {
+            throw new CommandLineException("No matching windows were found.");
+        }
 
-        return new WindowManager().GetWindows(query);
+        if (!allWindows && windows.Count > 1) {
+            windows = new List<WindowInfo> { windows[0] };
+        }
+
+        var results = new List<WindowControlTargetInfo>();
+        WindowControlQueryOptions controlQuery = CreateControlQuery(controlCriteria);
+        foreach (WindowInfo window in windows) {
+            List<WindowControlInfo> controls = manager.GetControls(window, controlQuery);
+            foreach (WindowControlInfo control in controls) {
+                results.Add(new WindowControlTargetInfo {
+                    Window = window,
+                    Control = control
+                });
+            }
+        }
+
+        return results;
+    }
+
+    private static List<WindowInfo> SelectWindows(WindowSelectionCriteria criteria) {
+        return new WindowManager().GetWindows(CreateWindowQuery(criteria));
     }
 
     private static WindowChangeResult BuildWindowChangeResult(WindowManager manager, string action, IReadOnlyList<WindowInfo> windows) {
@@ -428,26 +426,6 @@ internal static class DesktopOperations {
         return refreshed != null ? MapWindow(refreshed) : MapWindow(window);
     }
 
-    private static List<ControlTarget> EnumerateControls(IReadOnlyList<WindowInfo> windows, ControlSelectionCriteria criteria) {
-        var enumerator = new ControlEnumerator();
-        var results = new List<ControlTarget>();
-
-        foreach (WindowInfo window in windows) {
-            foreach (WindowControlInfo control in enumerator.EnumerateControls(window.Handle)) {
-                if (!MatchesControl(control, criteria)) {
-                    continue;
-                }
-
-                results.Add(new ControlTarget {
-                    Window = window,
-                    Control = control
-                });
-            }
-        }
-
-        return results;
-    }
-
     private static WindowResult MapWindow(WindowInfo window) {
         return new WindowResult {
             Title = window.Title,
@@ -466,7 +444,7 @@ internal static class DesktopOperations {
         };
     }
 
-    private static ControlResult MapControl(ControlTarget target) {
+    private static ControlResult MapControl(WindowControlTargetInfo target) {
         return new ControlResult {
             Handle = $"0x{target.Control.Handle.ToInt64():X}",
             ClassName = target.Control.ClassName,
@@ -476,7 +454,7 @@ internal static class DesktopOperations {
         };
     }
 
-    private static ControlActionResult BuildControlActionResult(string action, IReadOnlyList<ControlTarget> controls) {
+    private static ControlActionResult BuildControlActionResult(string action, IReadOnlyList<WindowControlTargetInfo> controls) {
         return new ControlActionResult {
             Action = action,
             Count = controls.Count,
@@ -519,45 +497,6 @@ internal static class DesktopOperations {
         WindowInfo? preferred = windows.FirstOrDefault(window => !string.IsNullOrWhiteSpace(window.Title))
             ?? windows.FirstOrDefault();
         return preferred == null ? null : MapWindow(preferred);
-    }
-
-    private static bool MatchesControl(WindowControlInfo control, ControlSelectionCriteria criteria) {
-        if (!string.IsNullOrWhiteSpace(criteria.Handle)) {
-            IntPtr handle = ParseHandle(criteria.Handle);
-            if (control.Handle != handle) {
-                return false;
-            }
-        }
-
-        if (criteria.Id.HasValue && control.Id != criteria.Id.Value) {
-            return false;
-        }
-
-        if (!MatchesPattern(control.ClassName, criteria.ClassNamePattern)) {
-            return false;
-        }
-
-        if (!MatchesPattern(control.Text, criteria.TextPattern)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool MatchesPattern(string? value, string? pattern) {
-        if (string.IsNullOrWhiteSpace(pattern) || pattern == "*") {
-            return true;
-        }
-
-        string text = value ?? string.Empty;
-        if (pattern.Contains('*') || pattern.Contains('?')) {
-            string regexPattern = "^" + Regex.Escape(pattern)
-                .Replace("\\*", ".*")
-                .Replace("\\?", ".") + "$";
-            return Regex.IsMatch(text, regexPattern, RegexOptions.IgnoreCase);
-        }
-
-        return text.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static MouseButton ParseMouseButton(string? value) {
@@ -671,6 +610,30 @@ internal static class DesktopOperations {
             !string.IsNullOrWhiteSpace(criteria.Handle);
     }
 
+    private static WindowQueryOptions CreateWindowQuery(WindowSelectionCriteria criteria) {
+        return new WindowQueryOptions {
+            TitlePattern = criteria.TitlePattern,
+            ProcessNamePattern = criteria.ProcessNamePattern,
+            ClassNamePattern = criteria.ClassNamePattern,
+            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : ParseHandle(criteria.Handle),
+            ActiveWindow = criteria.Active,
+            IncludeHidden = criteria.IncludeHidden,
+            IncludeCloaked = criteria.IncludeCloaked,
+            IncludeOwned = criteria.IncludeOwned,
+            IncludeEmptyTitles = criteria.IncludeEmptyTitles ? true : HasExplicitSelector(criteria) ? null : false,
+            ProcessId = criteria.ProcessId ?? 0
+        };
+    }
+
+    private static WindowControlQueryOptions CreateControlQuery(ControlSelectionCriteria criteria) {
+        return new WindowControlQueryOptions {
+            ClassNamePattern = criteria.ClassNamePattern,
+            TextPattern = criteria.TextPattern,
+            Id = criteria.Id,
+            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : ParseHandle(criteria.Handle)
+        };
+    }
+
     private static bool TryParseSnapPosition(string value, out SnapPosition position) {
         switch (value.ToLowerInvariant()) {
             case "left":
@@ -697,8 +660,4 @@ internal static class DesktopOperations {
         }
     }
 
-    private sealed class ControlTarget {
-        public WindowInfo Window { get; set; } = null!;
-        public WindowControlInfo Control { get; set; } = null!;
-    }
 }
