@@ -36,7 +36,7 @@ public partial class WindowManager {
             return;
         }
 
-        if (WindowActivationService.TryActivateWindow(window.Handle)) {
+        if (WindowActivationService.TryPrepareWindowForAutomation(window.Handle)) {
             Thread.Sleep(200);
         }
     }
