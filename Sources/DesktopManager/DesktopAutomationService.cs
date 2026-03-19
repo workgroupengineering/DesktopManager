@@ -193,8 +193,15 @@ public sealed class DesktopAutomationService {
     /// </summary>
     public IReadOnlyList<WindowControlTargetInfo> ClickControls(WindowQueryOptions windowOptions, WindowControlQueryOptions? controlOptions, MouseButton button, bool allWindows = false, bool allControls = false) {
         IReadOnlyList<WindowControlTargetInfo> controls = RequireControls(windowOptions, controlOptions, allWindows, allControls);
+        var uiAutomation = new UiAutomationControlService();
         foreach (WindowControlTargetInfo control in controls) {
-            _windowManager.ClickControl(control.Control, button);
+            if (control.Control.Source == WindowControlSource.UiAutomation && control.Control.Handle == IntPtr.Zero) {
+                if (!uiAutomation.TryInvoke(control.Window, control.Control)) {
+                    throw new InvalidOperationException("The UI Automation control could not be invoked.");
+                }
+            } else {
+                _windowManager.ClickControl(control.Control, button);
+            }
         }
 
         return controls;
@@ -209,8 +216,15 @@ public sealed class DesktopAutomationService {
         }
 
         IReadOnlyList<WindowControlTargetInfo> controls = RequireControls(windowOptions, controlOptions, allWindows, allControls);
+        var uiAutomation = new UiAutomationControlService();
         foreach (WindowControlTargetInfo control in controls) {
-            MonitorNativeMethods.SendMessage(control.Control.Handle, MonitorNativeMethods.WM_SETTEXT, IntPtr.Zero, text);
+            if (control.Control.Source == WindowControlSource.UiAutomation && control.Control.Handle == IntPtr.Zero) {
+                if (!uiAutomation.TrySetValue(control.Window, control.Control, text)) {
+                    throw new InvalidOperationException("The UI Automation control value could not be set.");
+                }
+            } else {
+                MonitorNativeMethods.SendMessage(control.Control.Handle, MonitorNativeMethods.WM_SETTEXT, IntPtr.Zero, text);
+            }
         }
 
         return controls;
