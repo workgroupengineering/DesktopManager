@@ -1,7 +1,11 @@
 using System;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace DesktopManager.Cli;
 
@@ -184,6 +188,109 @@ internal static class DesktopOperations {
         };
     }
 
+    public static ScreenshotResult CaptureDesktopScreenshot(int? monitorIndex, string? deviceId, string? deviceName, int? left, int? top, int? width, int? height, string? outputPath) {
+        bool hasRegionSelector = left.HasValue || top.HasValue || width.HasValue || height.HasValue;
+        if (hasRegionSelector && (!left.HasValue || !top.HasValue || !width.HasValue || !height.HasValue)) {
+            throw new CommandLineException("Region capture requires --left, --top, --width, and --height.");
+        }
+
+        if (hasRegionSelector) {
+            using Bitmap bitmap = ScreenshotService.CaptureRegion(left!.Value, top!.Value, width!.Value, height!.Value);
+            return SaveScreenshot(bitmap, "region", "region", outputPath);
+        }
+
+        if (monitorIndex.HasValue || !string.IsNullOrWhiteSpace(deviceId) || !string.IsNullOrWhiteSpace(deviceName)) {
+            Monitor monitor = new Monitors().GetMonitors(index: monitorIndex, deviceId: deviceId, deviceName: deviceName).FirstOrDefault()
+                ?? throw new CommandLineException("No matching monitor was found.");
+
+            using Bitmap bitmap = ScreenshotService.CaptureMonitor(index: monitor.Index, deviceId: monitor.DeviceId, deviceName: monitor.DeviceName);
+            return SaveScreenshot(bitmap, "monitor", $"monitor-{monitor.Index}", outputPath, monitorIndex: monitor.Index, monitorDeviceName: monitor.DeviceName);
+        }
+
+        using Bitmap desktopBitmap = ScreenshotService.CaptureScreen();
+        return SaveScreenshot(desktopBitmap, "desktop", "desktop", outputPath);
+    }
+
+    public static ScreenshotResult CaptureWindowScreenshot(WindowSelectionCriteria criteria, string? outputPath) {
+        WindowInfo window = SelectSingleWindow(criteria);
+        using Bitmap bitmap = ScreenshotService.CaptureWindow(window.Handle);
+        return SaveScreenshot(bitmap, "window", $"window-{window.ProcessId}", outputPath, window: MapWindow(window));
+    }
+
+    public static ProcessLaunchResult LaunchProcess(string filePath, string? arguments, string? workingDirectory, int? waitForInputIdleMilliseconds) {
+        if (string.IsNullOrWhiteSpace(filePath)) {
+            throw new CommandLineException("A process path or command is required.");
+        }
+
+        if (waitForInputIdleMilliseconds.HasValue && waitForInputIdleMilliseconds.Value < 0) {
+            throw new CommandLineException("waitForInputIdleMilliseconds must be zero or greater.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(workingDirectory) && !Directory.Exists(workingDirectory)) {
+            throw new CommandLineException($"The working directory '{workingDirectory}' does not exist.");
+        }
+
+        var startInfo = new ProcessStartInfo(filePath) {
+            UseShellExecute = true
+        };
+        if (!string.IsNullOrWhiteSpace(arguments)) {
+            startInfo.Arguments = arguments;
+        }
+        if (!string.IsNullOrWhiteSpace(workingDirectory)) {
+            startInfo.WorkingDirectory = workingDirectory;
+        }
+
+        using Process process = Process.Start(startInfo) ?? throw new CommandLineException($"Failed to start process '{filePath}'.");
+
+        if (waitForInputIdleMilliseconds.HasValue && waitForInputIdleMilliseconds.Value > 0) {
+            try {
+                process.WaitForInputIdle(waitForInputIdleMilliseconds.Value);
+            } catch (InvalidOperationException) {
+                // Ignore processes without a message loop or already exited.
+            }
+        }
+
+        process.Refresh();
+        Thread.Sleep(200);
+        WindowResult? mainWindow = TryGetWindowForProcess(process.Id) ?? TryGetWindowForProcessName(filePath);
+
+        return new ProcessLaunchResult {
+            FilePath = filePath,
+            Arguments = arguments,
+            WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory) ? null : Path.GetFullPath(workingDirectory),
+            ProcessId = process.Id,
+            HasExited = process.HasExited,
+            MainWindow = mainWindow
+        };
+    }
+
+    public static WaitForWindowResult WaitForWindow(WindowSelectionCriteria criteria, int timeoutMilliseconds, int intervalMilliseconds) {
+        if (timeoutMilliseconds <= 0) {
+            throw new CommandLineException("timeoutMilliseconds must be greater than zero.");
+        }
+
+        if (intervalMilliseconds <= 0) {
+            throw new CommandLineException("intervalMilliseconds must be greater than zero.");
+        }
+
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        while (stopwatch.ElapsedMilliseconds < timeoutMilliseconds) {
+            var windows = SelectWindows(criteria);
+            if (windows.Count > 0) {
+                IReadOnlyList<WindowInfo> selected = criteria.All ? windows : new[] { windows[0] };
+                return new WaitForWindowResult {
+                    ElapsedMilliseconds = (int)stopwatch.ElapsedMilliseconds,
+                    Count = selected.Count,
+                    Windows = selected.Select(MapWindow).ToArray()
+                };
+            }
+
+            Thread.Sleep(intervalMilliseconds);
+        }
+
+        throw new CommandLineException($"Timed out after {timeoutMilliseconds}ms waiting for a matching window.");
+    }
+
     private static WindowResult? SafeGetActiveWindow() {
         try {
             return GetActiveWindow();
@@ -203,6 +310,11 @@ internal static class DesktopOperations {
         }
 
         return new[] { windows[0] };
+    }
+
+    private static WindowInfo SelectSingleWindow(WindowSelectionCriteria criteria) {
+        IReadOnlyList<WindowInfo> windows = SelectTargetWindows(criteria);
+        return windows[0];
     }
 
     private static List<WindowInfo> SelectWindows(WindowSelectionCriteria criteria) {
@@ -265,6 +377,75 @@ internal static class DesktopOperations {
             MonitorIndex = window.MonitorIndex,
             MonitorDeviceName = window.MonitorDeviceName
         };
+    }
+
+    private static WindowResult? TryGetWindowForProcess(int processId) {
+        var criteria = new WindowSelectionCriteria {
+            ProcessId = processId,
+            IncludeHidden = true,
+            IncludeCloaked = true,
+            IncludeOwned = true,
+            IncludeEmptyTitles = true,
+            All = true
+        };
+
+        var windows = SelectWindows(criteria);
+        WindowInfo? preferred = windows.FirstOrDefault(window => !string.IsNullOrWhiteSpace(window.Title))
+            ?? windows.FirstOrDefault();
+        return preferred == null ? null : MapWindow(preferred);
+    }
+
+    private static WindowResult? TryGetWindowForProcessName(string filePath) {
+        string processName = Path.GetFileNameWithoutExtension(filePath);
+        if (string.IsNullOrWhiteSpace(processName)) {
+            return null;
+        }
+
+        var criteria = new WindowSelectionCriteria {
+            ProcessNamePattern = processName,
+            IncludeHidden = true,
+            IncludeCloaked = true,
+            IncludeOwned = true,
+            IncludeEmptyTitles = true,
+            All = true
+        };
+
+        var windows = SelectWindows(criteria);
+        WindowInfo? preferred = windows.FirstOrDefault(window => !string.IsNullOrWhiteSpace(window.Title))
+            ?? windows.FirstOrDefault();
+        return preferred == null ? null : MapWindow(preferred);
+    }
+
+    private static ScreenshotResult SaveScreenshot(Bitmap bitmap, string kind, string prefix, string? outputPath, int? monitorIndex = null, string? monitorDeviceName = null, WindowResult? window = null) {
+        string path = ResolveScreenshotPath(prefix, outputPath);
+        bitmap.Save(path, ImageFormat.Png);
+        return new ScreenshotResult {
+            Kind = kind,
+            Path = path,
+            Width = bitmap.Width,
+            Height = bitmap.Height,
+            MonitorIndex = monitorIndex,
+            MonitorDeviceName = monitorDeviceName,
+            Window = window
+        };
+    }
+
+    private static string ResolveScreenshotPath(string prefix, string? outputPath) {
+        string path = string.IsNullOrWhiteSpace(outputPath)
+            ? Path.Combine(NamedStorage.GetCapturesDirectory(), $"{prefix}-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}.png")
+            : outputPath;
+
+        if (string.IsNullOrWhiteSpace(Path.GetExtension(path))) {
+            path += ".png";
+        }
+
+        string fullPath = Path.GetFullPath(path);
+        string? directory = Path.GetDirectoryName(fullPath);
+        if (!string.IsNullOrWhiteSpace(directory)) {
+            Directory.CreateDirectory(directory);
+        }
+
+        return fullPath;
     }
 
     private static IntPtr ParseHandle(string value) {

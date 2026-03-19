@@ -2,5 +2,6 @@ display_name: DesktopManager Operator
 short_description: Operate Windows desktop state through DesktopManager MCP and CLI with an inspect-first workflow.
 default_prompt: >-
   Use DesktopManager to inspect and manage the Windows desktop. Prefer MCP first,
-  inspect windows and monitors before mutating anything, prefer named layouts and
-  snapshots over manual moves, and use CLI only as fallback or verification.
+  inspect windows and monitors before mutating anything, use screenshots when visual
+  confirmation matters, launch apps and wait for windows when needed, prefer named
+  layouts and snapshots over manual moves, and use CLI only as fallback or verification.

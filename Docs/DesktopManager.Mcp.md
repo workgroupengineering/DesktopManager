@@ -13,11 +13,15 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 
 - `get_active_window`
 - `list_windows`
+- `wait_for_window`
 - `move_window`
 - `focus_window`
 - `minimize_windows`
 - `snap_window`
 - `list_monitors`
+- `screenshot_desktop`
+- `screenshot_window`
+- `launch_process`
 - `list_named_layouts`
 - `save_current_layout`
 - `apply_named_layout`
@@ -28,6 +32,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 ## Current MCP Resources
 
 - `desktop://monitors`
+- `desktop://windows/active`
 - `desktop://windows/visible`
 - `desktop://layouts`
 - `desktop://snapshot/current`
@@ -41,17 +46,21 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 ## Recommended Agent Workflow
 
 1. Inspect first.
-   - Read `desktop://windows/visible` and `desktop://monitors`.
+   - Read `desktop://windows/visible`, `desktop://windows/active`, and `desktop://monitors`.
    - Use `get_active_window` when focus matters.
-2. Prefer named state when available.
+   - Use `screenshot_desktop` or `screenshot_window` when visual confirmation is needed.
+2. Launch when needed.
+   - Use `launch_process` for the app under test.
+   - Use `wait_for_window` before trying to move, focus, or capture the window.
+3. Prefer named state when available.
    - Use `list_named_layouts` before moving windows one by one.
    - Use `apply_named_layout` or `restore_saved_snapshot` when a saved state exists.
-3. Make reversible changes.
+4. Make reversible changes.
    - Prefer `focus_window`, `snap_window`, and `minimize_windows` over destructive actions.
    - Save the current layout or snapshot before larger rearrangements.
-4. Explain intent.
+5. Explain intent.
    - Say what will change before applying a layout or minimizing multiple windows.
-5. Avoid assumptions.
+6. Avoid assumptions.
    - Match windows by title, process, class, pid, or handle.
    - Start with specific selectors when possible.
 
@@ -61,6 +70,10 @@ Use the CLI when MCP is unavailable or when validating the same operation outsid
 
 ```text
 desktopmanager window list
+desktopmanager window wait --process notepad --timeout-ms 5000
+desktopmanager process start notepad.exe --wait-for-input-idle-ms 1000
+desktopmanager screenshot desktop
+desktopmanager screenshot window --process notepad
 desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400
 desktopmanager window focus --process code
 desktopmanager window snap --title "Visual Studio Code" --position left
@@ -76,6 +89,7 @@ desktopmanager mcp serve
 ## Safety Notes
 
 - DesktopManager currently focuses on non-destructive window and layout operations.
+- Screenshots are written to PNG files and returned as file paths.
 - Snapshots are windows-only for now.
 - Prefer minimizing distractions instead of closing applications.
 - When targeting multiple windows, verify selectors carefully before using `all`.

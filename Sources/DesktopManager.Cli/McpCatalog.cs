@@ -9,6 +9,21 @@ internal static class McpCatalog {
         return new object[] {
             CreateTool("get_active_window", "Get Active Window", "Return information about the currently focused window.", CreateObjectSchema(), readOnly: true),
             CreateTool("list_windows", "List Windows", "List visible desktop windows with optional filtering.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
+            CreateTool("wait_for_window", "Wait For Window", "Wait for a matching window to appear.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["all"] = CreateBooleanSchema("Return all matching windows instead of the first match."),
+                    ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
+                    ["intervalMs"] = CreateIntegerSchema("Polling interval in milliseconds.")
+                }), readOnly: true),
             CreateTool("move_window", "Move Window", "Move and optionally resize a window by title, process, pid, class, or handle.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -42,6 +57,33 @@ internal static class McpCatalog {
                     ["primaryOnly"] = CreateBooleanSchema("Return only the primary monitor."),
                     ["index"] = CreateIntegerSchema("Specific monitor index to return.")
                 }), readOnly: true),
+            CreateTool("screenshot_desktop", "Screenshot Desktop", "Capture the desktop, a monitor, or a region to a PNG file.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["monitor"] = CreateIntegerSchema("Target monitor index."),
+                    ["deviceId"] = CreateStringSchema("Target monitor device identifier."),
+                    ["deviceName"] = CreateStringSchema("Target monitor device name."),
+                    ["left"] = CreateIntegerSchema("Left coordinate for region capture."),
+                    ["top"] = CreateIntegerSchema("Top coordinate for region capture."),
+                    ["width"] = CreateIntegerSchema("Width for region capture."),
+                    ["height"] = CreateIntegerSchema("Height for region capture."),
+                    ["outputPath"] = CreateStringSchema("Optional PNG output path.")
+                }), readOnly: true),
+            CreateTool("screenshot_window", "Screenshot Window", "Capture a matching window to a PNG file.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["outputPath"] = CreateStringSchema("Optional PNG output path.")
+                }), readOnly: true),
+            CreateTool("launch_process", "Launch Process", "Start a desktop application or process.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["filePath"] = CreateStringSchema("Executable path or shell command."),
+                    ["arguments"] = CreateStringSchema("Optional argument string."),
+                    ["workingDirectory"] = CreateStringSchema("Optional working directory."),
+                    ["waitForInputIdleMs"] = CreateIntegerSchema("Optional wait for UI input idle in milliseconds.")
+                }, new[] { "filePath" }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("list_named_layouts", "List Named Layouts", "List saved named layouts.", CreateObjectSchema(), readOnly: true),
             CreateTool("save_current_layout", "Save Current Layout", "Save the current desktop window layout under a given name.", CreateObjectSchema(
                 new Dictionary<string, object> {
@@ -79,6 +121,13 @@ internal static class McpCatalog {
                 title = "Visible Windows",
                 uri = "desktop://windows/visible",
                 description = "Current visible windows as JSON.",
+                mimeType = "application/json"
+            },
+            new {
+                name = "desktop_active_window",
+                title = "Active Window",
+                uri = "desktop://windows/active",
+                description = "Current active window as JSON.",
                 mimeType = "application/json"
             },
             new {
@@ -138,6 +187,10 @@ internal static class McpCatalog {
             result = name switch {
                 "get_active_window" => DesktopOperations.GetActiveWindow(),
                 "list_windows" => DesktopOperations.ListWindows(ReadWindowCriteria(arguments, false)),
+                "wait_for_window" => DesktopOperations.WaitForWindow(
+                    ReadWindowCriteria(arguments, true),
+                    ReadInt(arguments, "timeoutMs") ?? 10000,
+                    ReadInt(arguments, "intervalMs") ?? 200),
                 "move_window" => DesktopOperations.MoveWindow(
                     ReadWindowCriteria(arguments, true),
                     ReadInt(arguments, "monitor"),
@@ -150,6 +203,21 @@ internal static class McpCatalog {
                 "minimize_windows" => DesktopOperations.MinimizeWindows(ReadWindowCriteria(arguments, true)),
                 "snap_window" => DesktopOperations.SnapWindow(ReadWindowCriteria(arguments, true), ReadRequiredString(arguments, "position")),
                 "list_monitors" => DesktopOperations.ListMonitors(ReadNullableBool(arguments, "connectedOnly"), ReadNullableBool(arguments, "primaryOnly"), ReadInt(arguments, "index")),
+                "screenshot_desktop" => DesktopOperations.CaptureDesktopScreenshot(
+                    ReadInt(arguments, "monitor"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName"),
+                    ReadInt(arguments, "left"),
+                    ReadInt(arguments, "top"),
+                    ReadInt(arguments, "width"),
+                    ReadInt(arguments, "height"),
+                    ReadOptionalString(arguments, "outputPath")),
+                "screenshot_window" => DesktopOperations.CaptureWindowScreenshot(ReadWindowCriteria(arguments, true), ReadOptionalString(arguments, "outputPath")),
+                "launch_process" => DesktopOperations.LaunchProcess(
+                    ReadRequiredString(arguments, "filePath"),
+                    ReadOptionalString(arguments, "arguments"),
+                    ReadOptionalString(arguments, "workingDirectory"),
+                    ReadInt(arguments, "waitForInputIdleMs")),
                 "list_named_layouts" => DesktopOperations.ListLayouts(),
                 "save_current_layout" => DesktopOperations.SaveLayout(ReadRequiredString(arguments, "name")),
                 "apply_named_layout" => DesktopOperations.ApplyLayout(ReadRequiredString(arguments, "name"), ReadBool(arguments, "validate")),
@@ -171,6 +239,7 @@ internal static class McpCatalog {
         return uri switch {
             "desktop://monitors" => DesktopOperations.ListMonitors(connectedOnly: true),
             "desktop://windows/visible" => DesktopOperations.ListWindows(new WindowSelectionCriteria()),
+            "desktop://windows/active" => DesktopOperations.GetActiveWindow(),
             "desktop://layouts" => DesktopOperations.ListLayouts(),
             "desktop://snapshot/current" => DesktopOperations.GetCurrentSnapshotSummary(),
             _ => throw new CommandLineException($"Unknown resource '{uri}'.")

@@ -11,6 +11,8 @@ Usage:
 Groups:
   window     List and control windows
   monitor    Inspect connected monitors
+  process    Start desktop applications
+  screenshot Capture the desktop, monitors, or windows
   layout     Save, apply, and list named layouts
   snapshot   Save, restore, and list named snapshots
   mcp        Host an MCP server over stdio
@@ -18,6 +20,9 @@ Groups:
 
 Examples:
   desktopmanager window list
+  desktopmanager window wait --process notepad --timeout-ms 5000
+  desktopmanager process start notepad.exe --wait-for-input-idle-ms 1000
+  desktopmanager screenshot desktop
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400
   desktopmanager monitor list --json
   desktopmanager layout save coding
@@ -28,6 +33,8 @@ Examples:
 Use:
   desktopmanager help window
   desktopmanager help monitor
+  desktopmanager help process
+  desktopmanager help screenshot
   desktopmanager help layout
   desktopmanager help snapshot
   desktopmanager help mcp
@@ -42,6 +49,7 @@ Window commands:
   desktopmanager window focus [selector] [--all] [--json]
   desktopmanager window minimize [selector] [--all] [--json]
   desktopmanager window snap [selector] --position <left|right|top-left|top-right|bottom-left|bottom-right> [--all] [--json]
+  desktopmanager window wait [selector] [--timeout-ms <value>] [--interval-ms <value>] [--all] [--json]
 
 Selectors:
   --title <pattern>
@@ -55,6 +63,7 @@ Examples:
   desktopmanager window list --title "*Notepad*" --json
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --activate
   desktopmanager window snap --process notepad --position left
+  desktopmanager window wait --process notepad --timeout-ms 5000
 """;
     }
 
@@ -67,6 +76,30 @@ Examples:
   desktopmanager monitor list
   desktopmanager monitor list --json
   desktopmanager monitor list --primary
+""";
+    }
+
+    public static string GetProcessHelp() {
+        return """
+Process commands:
+  desktopmanager process start <file> [--arguments <text>] [--working-directory <path>] [--wait-for-input-idle-ms <value>] [--json]
+
+Examples:
+  desktopmanager process start notepad.exe --wait-for-input-idle-ms 1000
+  desktopmanager process start code --arguments "." --working-directory C:\Support\GitHub\DesktopManager
+""";
+    }
+
+    public static string GetScreenshotHelp() {
+        return """
+Screenshot commands:
+  desktopmanager screenshot desktop [--monitor <index>] [--device-id <value>] [--device-name <value>] [--left <value> --top <value> --width <value> --height <value>] [--output <path>] [--json]
+  desktopmanager screenshot window [selector] [--output <path>] [--json]
+
+Examples:
+  desktopmanager screenshot desktop
+  desktopmanager screenshot desktop --monitor 0 --output .\monitor0.png
+  desktopmanager screenshot window --process notepad --output .\notepad.png
 """;
     }
 

@@ -6,6 +6,12 @@ using System.Linq;
 namespace DesktopManager.Cli;
 
 internal static class NamedStorage {
+    public static string GetCapturesDirectory() {
+        string directory = GetCategoryDirectory("captures");
+        Directory.CreateDirectory(directory);
+        return directory;
+    }
+
     public static string GetLayoutPath(string name) {
         return GetNamedPath("layouts", name);
     }

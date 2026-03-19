@@ -17,6 +17,8 @@ internal static class CliApplication {
             return group switch {
                 "window" => WindowCommands.Run(action, parsed),
                 "monitor" => MonitorCommands.Run(action, parsed),
+                "process" => ProcessCommands.Run(action, parsed),
+                "screenshot" => ScreenshotCommands.Run(action, parsed),
                 "layout" => LayoutCommands.Run(action, parsed),
                 "snapshot" => SnapshotCommands.Run(action, parsed),
                 "mcp" => McpCommands.Run(action, parsed),
@@ -39,6 +41,8 @@ internal static class CliApplication {
         string help = topic switch {
             "window" => HelpText.GetWindowHelp(),
             "monitor" => HelpText.GetMonitorHelp(),
+            "process" => HelpText.GetProcessHelp(),
+            "screenshot" => HelpText.GetScreenshotHelp(),
             "layout" => HelpText.GetLayoutHelp(),
             "snapshot" => HelpText.GetSnapshotHelp(),
             "mcp" => HelpText.GetMcpHelp(),

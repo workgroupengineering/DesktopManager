@@ -12,12 +12,18 @@ The repository now includes a `DesktopManager.Cli` project that exposes a small,
 
 ```text
 desktopmanager window list
+desktopmanager window wait
 desktopmanager window move
 desktopmanager window focus
 desktopmanager window minimize
 desktopmanager window snap
 
 desktopmanager monitor list
+
+desktopmanager process start
+
+desktopmanager screenshot desktop
+desktopmanager screenshot window
 
 desktopmanager layout save
 desktopmanager layout apply
@@ -34,11 +40,15 @@ desktopmanager mcp serve
 
 - `layout` stores named JSON files under `%AppData%\DesktopManager\layouts`.
 - `snapshot` stores named JSON files under `%AppData%\DesktopManager\snapshots`.
+- `screenshot` stores generated PNG files under `%AppData%\DesktopManager\captures` when `--output` is not provided.
 - snapshots currently reuse the window layout format and are therefore windows-only for now.
+- `process start` launches a desktop application and can optionally wait for input idle.
+- `window wait` polls for a matching window and returns when one appears.
 - `mcp serve` hosts a stdio MCP server.
 
 ## Why this shape
 
 - `window`, `monitor`, `layout`, and `snapshot` scale better than flat verbs.
+- `process` and `screenshot` add the first inspect-launch-wait loop needed for desktop automation.
 - the CLI mirrors existing concepts already present in the library and PowerShell module.
 - the CLI and MCP server reuse the same desktop operations and storage conventions.

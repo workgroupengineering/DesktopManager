@@ -12,6 +12,7 @@ internal static class WindowCommands {
             "focus" => Focus(arguments),
             "minimize" => Minimize(arguments),
             "snap" => Snap(arguments),
+            "wait" => Wait(arguments),
             _ => throw new CommandLineException($"Unknown window command '{action}'.")
         };
     }
@@ -70,6 +71,24 @@ internal static class WindowCommands {
         return WriteWindowMutationResult(
             arguments,
             DesktopOperations.SnapWindow(CreateCriteria(arguments, includeEmptyDefault: true), arguments.GetRequiredOption("position")));
+    }
+
+    private static int Wait(CommandLineArguments arguments) {
+        WaitForWindowResult result = DesktopOperations.WaitForWindow(
+            CreateCriteria(arguments, includeEmptyDefault: true),
+            arguments.GetIntOption("timeout-ms") ?? 10000,
+            arguments.GetIntOption("interval-ms") ?? 200);
+
+        if (arguments.GetBoolFlag("json")) {
+            OutputFormatter.WriteJson(result);
+            return 0;
+        }
+
+        Console.WriteLine($"wait: {result.Count} window(s) after {result.ElapsedMilliseconds}ms");
+        foreach (WindowResult window in result.Windows) {
+            Console.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
+        }
+        return 0;
     }
 
     private static int WriteWindowMutationResult(CommandLineArguments arguments, WindowChangeResult payload) {

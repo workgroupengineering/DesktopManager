@@ -58,3 +58,28 @@ internal sealed class NamedStateResult {
     public string Path { get; set; } = string.Empty;
     public string? Scope { get; set; }
 }
+
+internal sealed class ScreenshotResult {
+    public string Kind { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public int? MonitorIndex { get; set; }
+    public string? MonitorDeviceName { get; set; }
+    public WindowResult? Window { get; set; }
+}
+
+internal sealed class ProcessLaunchResult {
+    public string FilePath { get; set; } = string.Empty;
+    public string? Arguments { get; set; }
+    public string? WorkingDirectory { get; set; }
+    public int ProcessId { get; set; }
+    public bool HasExited { get; set; }
+    public WindowResult? MainWindow { get; set; }
+}
+
+internal sealed class WaitForWindowResult {
+    public int ElapsedMilliseconds { get; set; }
+    public int Count { get; set; }
+    public IReadOnlyList<WindowResult> Windows { get; set; } = new List<WindowResult>();
+}
