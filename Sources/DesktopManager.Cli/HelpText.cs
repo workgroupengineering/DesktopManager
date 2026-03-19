@@ -77,7 +77,7 @@ Examples:
     public static string GetControlHelp() {
         return """
 Control commands:
-  desktopmanager control list [window-selector] [--class <pattern>] [--text-pattern <pattern>] [--id <value>] [--handle <value>] [--all-windows] [--json]
+  desktopmanager control list [window-selector] [--class <pattern>] [--text-pattern <pattern>] [--id <value>] [--handle <value>] [--automation-id <pattern>] [--control-type <pattern>] [--framework-id <pattern>] [--uia] [--include-uia] [--all-windows] [--json]
   desktopmanager control click [window-selector] [control-selector] [--button <left|right>] [--all] [--all-windows] [--json]
   desktopmanager control set-text [window-selector] [control-selector] --text <value> [--all] [--all-windows] [--json]
   desktopmanager control send-keys [window-selector] [control-selector] --keys <VK_A,VK_B> [--keys <VK_C>] [--all] [--all-windows] [--json]
@@ -95,9 +95,15 @@ Control selectors:
   --text-pattern <pattern>
   --id <value>
   --handle <value>
+  --automation-id <pattern>
+  --control-type <pattern>
+  --framework-id <pattern>
+  --uia
+  --include-uia
 
 Examples:
   desktopmanager control list --window-process notepad --json
+  desktopmanager control list --window-active --uia --control-type Edit --json
   desktopmanager control set-text --window-active --class RichEditD2DPT --text "Hello world"
   desktopmanager control click --window-process notepad --class Edit
   desktopmanager control set-text --window-process notepad --class Edit --text "Hello world"

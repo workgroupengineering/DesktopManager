@@ -282,7 +282,13 @@ internal static class DesktopOperations {
             Handle = $"0x{target.Control.Handle.ToInt64():X}",
             ClassName = target.Control.ClassName,
             Id = target.Control.Id,
-            Text = WindowTextHelper.GetWindowText(target.Control.Handle),
+            Text = !string.IsNullOrWhiteSpace(target.Control.Text) ? target.Control.Text : target.Control.Handle != IntPtr.Zero ? WindowTextHelper.GetWindowText(target.Control.Handle) : string.Empty,
+            Source = target.Control.Source.ToString(),
+            AutomationId = target.Control.AutomationId,
+            ControlType = target.Control.ControlType,
+            FrameworkId = target.Control.FrameworkId,
+            IsKeyboardFocusable = target.Control.IsKeyboardFocusable,
+            IsEnabled = target.Control.IsEnabled,
             ParentWindow = MapWindow(target.Window)
         };
     }
@@ -391,7 +397,12 @@ internal static class DesktopOperations {
             ClassNamePattern = criteria.ClassNamePattern,
             TextPattern = criteria.TextPattern,
             Id = criteria.Id,
-            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : DesktopHandleParser.Parse(criteria.Handle)
+            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : DesktopHandleParser.Parse(criteria.Handle),
+            AutomationIdPattern = criteria.AutomationIdPattern,
+            ControlTypePattern = criteria.ControlTypePattern,
+            FrameworkIdPattern = criteria.FrameworkIdPattern,
+            UseUiAutomation = criteria.UiAutomation,
+            IncludeUiAutomation = criteria.IncludeUiAutomation
         };
     }
 

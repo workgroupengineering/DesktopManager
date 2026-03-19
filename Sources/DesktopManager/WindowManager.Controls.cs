@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DesktopManager;
 
@@ -22,27 +23,99 @@ public partial class WindowManager {
     public List<WindowControlInfo> GetControls(WindowInfo window, WindowControlQueryOptions? options = null) {
         ValidateWindowInfo(window);
 
-        var enumerator = new ControlEnumerator();
-        var controls = enumerator.EnumerateControls(window.Handle);
         WindowControlQueryOptions filter = options ?? new WindowControlQueryOptions();
+        List<WindowControlInfo> controls = GetControlsInternal(window.Handle, filter);
 
+        return controls.FindAll(control => MatchesControl(control, filter));
+    }
+
+    private List<WindowControlInfo> GetControlsInternal(IntPtr windowHandle, WindowControlQueryOptions filter) {
+        var enumerator = new ControlEnumerator();
+        List<WindowControlInfo> win32Controls = enumerator.EnumerateControls(windowHandle);
+
+        if (!filter.RequiresUiAutomation()) {
+            return win32Controls;
+        }
+
+        var uiAutomation = new UiAutomationControlService();
+        List<WindowControlInfo> uiAutomationControls = uiAutomation.EnumerateControls(windowHandle);
+
+        if (filter.UseUiAutomation && !filter.IncludeUiAutomation) {
+            return uiAutomationControls;
+        }
+
+        if (!filter.IncludeUiAutomation) {
+            return uiAutomationControls.Count > 0 ? uiAutomationControls : win32Controls;
+        }
+
+        return MergeControls(win32Controls, uiAutomationControls);
+    }
+
+    private static List<WindowControlInfo> MergeControls(List<WindowControlInfo> win32Controls, List<WindowControlInfo> uiAutomationControls) {
+        var merged = new List<WindowControlInfo>(win32Controls.Count + uiAutomationControls.Count);
+        merged.AddRange(win32Controls);
+
+        foreach (WindowControlInfo uiAutomationControl in uiAutomationControls) {
+            bool alreadyPresent = merged.Any(existing =>
+                (existing.Handle != IntPtr.Zero &&
+                uiAutomationControl.Handle != IntPtr.Zero &&
+                existing.Handle == uiAutomationControl.Handle) ||
+                (string.Equals(existing.AutomationId, uiAutomationControl.AutomationId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(existing.ControlType, uiAutomationControl.ControlType, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(existing.Text, uiAutomationControl.Text, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(existing.ClassName, uiAutomationControl.ClassName, StringComparison.OrdinalIgnoreCase)));
+            if (!alreadyPresent) {
+                merged.Add(uiAutomationControl);
+            }
+        }
+
+        return merged;
+    }
+
+    private bool MatchesControl(WindowControlInfo control, WindowControlQueryOptions filter) {
         if (filter.Handle.HasValue && filter.Handle.Value != IntPtr.Zero) {
-            controls = controls.FindAll(control => control.Handle == filter.Handle.Value);
+            if (control.Handle != filter.Handle.Value) {
+                return false;
+            }
         }
 
         if (filter.Id.HasValue) {
-            controls = controls.FindAll(control => control.Id == filter.Id.Value);
+            if (control.Id != filter.Id.Value) {
+                return false;
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(filter.ClassNamePattern) && filter.ClassNamePattern != "*") {
-            controls = controls.FindAll(control => MatchesWildcard(control.ClassName, filter.ClassNamePattern));
+            if (!MatchesWildcard(control.ClassName, filter.ClassNamePattern)) {
+                return false;
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(filter.TextPattern) && filter.TextPattern != "*") {
-            controls = controls.FindAll(control => MatchesWildcard(control.Text ?? string.Empty, filter.TextPattern));
+            if (!MatchesWildcard(control.Text ?? string.Empty, filter.TextPattern)) {
+                return false;
+            }
         }
 
-        return controls;
+        if (!string.IsNullOrWhiteSpace(filter.AutomationIdPattern) && filter.AutomationIdPattern != "*") {
+            if (!MatchesWildcard(control.AutomationId, filter.AutomationIdPattern)) {
+                return false;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.ControlTypePattern) && filter.ControlTypePattern != "*") {
+            if (!MatchesWildcard(control.ControlType, filter.ControlTypePattern)) {
+                return false;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.FrameworkIdPattern) && filter.FrameworkIdPattern != "*") {
+            if (!MatchesWildcard(control.FrameworkId, filter.FrameworkIdPattern)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

@@ -37,6 +37,11 @@ internal static class McpCatalog {
                     ["controlText"] = CreateStringSchema("Control text filter."),
                     ["controlId"] = CreateIntegerSchema("Control identifier."),
                     ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["controlAutomationId"] = CreateStringSchema("UI Automation automation identifier filter."),
+                    ["controlType"] = CreateStringSchema("UI Automation control type filter."),
+                    ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
+                    ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
+                    ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
                 }), readOnly: true),
             CreateTool("click_control", "Click Control", "Click a matching child control.", CreateObjectSchema(
@@ -51,6 +56,11 @@ internal static class McpCatalog {
                     ["controlText"] = CreateStringSchema("Control text filter."),
                     ["controlId"] = CreateIntegerSchema("Control identifier."),
                     ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["controlAutomationId"] = CreateStringSchema("UI Automation automation identifier filter."),
+                    ["controlType"] = CreateStringSchema("UI Automation control type filter."),
+                    ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
+                    ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
+                    ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["button"] = CreateStringSchema("Mouse button: left or right."),
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
@@ -67,6 +77,11 @@ internal static class McpCatalog {
                     ["controlText"] = CreateStringSchema("Control text filter."),
                     ["controlId"] = CreateIntegerSchema("Control identifier."),
                     ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["controlAutomationId"] = CreateStringSchema("UI Automation automation identifier filter."),
+                    ["controlType"] = CreateStringSchema("UI Automation control type filter."),
+                    ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
+                    ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
+                    ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["text"] = CreateStringSchema("Text to set on the control."),
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
@@ -83,6 +98,11 @@ internal static class McpCatalog {
                     ["controlText"] = CreateStringSchema("Control text filter."),
                     ["controlId"] = CreateIntegerSchema("Control identifier."),
                     ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["controlAutomationId"] = CreateStringSchema("UI Automation automation identifier filter."),
+                    ["controlType"] = CreateStringSchema("UI Automation control type filter."),
+                    ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
+                    ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
+                    ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["keys"] = new {
                         type = "array",
                         items = new { type = "string" },
@@ -405,6 +425,11 @@ internal static class McpCatalog {
             TextPattern = ReadOptionalString(element, "controlText") ?? "*",
             Id = ReadInt(element, "controlId"),
             Handle = ReadOptionalString(element, "controlHandle"),
+            AutomationIdPattern = ReadOptionalString(element, "controlAutomationId") ?? "*",
+            ControlTypePattern = ReadOptionalString(element, "controlType") ?? "*",
+            FrameworkIdPattern = ReadOptionalString(element, "controlFrameworkId") ?? "*",
+            UiAutomation = ReadBool(element, "uiAutomation"),
+            IncludeUiAutomation = ReadBool(element, "includeUiAutomation"),
             All = ReadBool(element, "all")
         };
     }

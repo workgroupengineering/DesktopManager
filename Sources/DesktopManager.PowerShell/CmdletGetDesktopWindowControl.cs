@@ -40,6 +40,36 @@ public sealed class CmdletGetDesktopWindowControl : PSCmdlet {
     [Parameter]
     public int? Id { get; set; }
 
+    /// <summary>
+    /// <para type="description">Filter UI Automation controls by automation identifier. Supports wildcards.</para>
+    /// </summary>
+    [Parameter]
+    public string AutomationId { get; set; } = "*";
+
+    /// <summary>
+    /// <para type="description">Filter UI Automation controls by control type. Supports wildcards.</para>
+    /// </summary>
+    [Parameter]
+    public string ControlType { get; set; } = "*";
+
+    /// <summary>
+    /// <para type="description">Filter UI Automation controls by framework identifier. Supports wildcards.</para>
+    /// </summary>
+    [Parameter]
+    public string FrameworkId { get; set; } = "*";
+
+    /// <summary>
+    /// <para type="description">Use UI Automation for control discovery.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter UiAutomation { get; set; }
+
+    /// <summary>
+    /// <para type="description">Combine Win32 and UI Automation control discovery.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter IncludeUiAutomation { get; set; }
+
     /// <inheritdoc />
     protected override void BeginProcessing() {
         var automation = new DesktopAutomationService();
@@ -54,7 +84,12 @@ public sealed class CmdletGetDesktopWindowControl : PSCmdlet {
         var controlOptions = new WindowControlQueryOptions {
             ClassNamePattern = ClassName,
             TextPattern = TextPattern,
-            Id = Id
+            Id = Id,
+            AutomationIdPattern = AutomationId,
+            ControlTypePattern = ControlType,
+            FrameworkIdPattern = FrameworkId,
+            UseUiAutomation = UiAutomation,
+            IncludeUiAutomation = IncludeUiAutomation
         };
         var controls = automation.GetControls(windowOptions, controlOptions, allWindows: true, allControls: true);
         WriteObject(controls.Select(target => target.Control), true);

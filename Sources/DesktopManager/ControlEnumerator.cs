@@ -16,7 +16,8 @@ public class ControlEnumerator {
         MonitorNativeMethods.EnumChildWindows(parent, (hWnd, lParam) => {
             WindowControlInfo info = new WindowControlInfo {
                 Handle = hWnd,
-                Id = MonitorNativeMethods.GetDlgCtrlID(hWnd)
+                Id = MonitorNativeMethods.GetDlgCtrlID(hWnd),
+                Source = WindowControlSource.Win32
             };
 
             info.Text = WindowTextHelper.GetWindowText(hWnd);

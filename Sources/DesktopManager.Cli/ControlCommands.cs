@@ -36,12 +36,15 @@ internal static class ControlCommands {
                 control.ParentWindow.ProcessId.ToString(),
                 control.Id.ToString(),
                 control.Handle.Replace("0x", string.Empty, StringComparison.OrdinalIgnoreCase),
+                control.Source,
+                control.ControlType,
+                control.AutomationId,
                 control.ClassName,
                 control.Text,
                 control.ParentWindow.Title
             })
             .ToArray();
-        OutputFormatter.WriteTable(new[] { "PID", "Id", "Handle", "Class", "Text", "Window" }, rows);
+        OutputFormatter.WriteTable(new[] { "PID", "Id", "Handle", "Source", "Type", "AutomationId", "Class", "Text", "Window" }, rows);
         return 0;
     }
 
@@ -112,6 +115,11 @@ internal static class ControlCommands {
             TextPattern = arguments.GetOption("text-pattern") ?? "*",
             Id = arguments.GetIntOption("id"),
             Handle = arguments.GetOption("handle"),
+            AutomationIdPattern = arguments.GetOption("automation-id") ?? "*",
+            ControlTypePattern = arguments.GetOption("control-type") ?? "*",
+            FrameworkIdPattern = arguments.GetOption("framework-id") ?? "*",
+            UiAutomation = arguments.GetBoolFlag("uia"),
+            IncludeUiAutomation = arguments.GetBoolFlag("include-uia"),
             All = arguments.GetBoolFlag("all")
         };
     }
