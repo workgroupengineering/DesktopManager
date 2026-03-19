@@ -38,3 +38,4 @@ Sources/DesktopManager.Tests/WindowTextHelper32/
 *.cache
 .vscode/
 .claude/
+artifacts/
