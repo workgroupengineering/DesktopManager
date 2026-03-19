@@ -47,6 +47,7 @@ internal static class McpCatalog {
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
                 }), readOnly: true),
             CreateTool("control_exists", "Control Exists", "Check whether a matching control currently exists.", CreateObjectSchema(
@@ -69,6 +70,7 @@ internal static class McpCatalog {
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
                 }), readOnly: true),
             CreateTool("wait_for_control", "Wait For Control", "Wait for a matching control to appear.", CreateObjectSchema(
@@ -91,6 +93,7 @@ internal static class McpCatalog {
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
                     ["all"] = CreateBooleanSchema("Return all matching controls instead of the first match."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows."),
                     ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
@@ -116,6 +119,7 @@ internal static class McpCatalog {
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
                     ["button"] = CreateStringSchema("Mouse button: left or right."),
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
@@ -140,6 +144,7 @@ internal static class McpCatalog {
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
                     ["text"] = CreateStringSchema("Text to set on the control."),
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
@@ -164,6 +169,7 @@ internal static class McpCatalog {
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
                     ["keys"] = new {
                         type = "array",
                         items = new { type = "string" },
@@ -504,6 +510,7 @@ internal static class McpCatalog {
             FrameworkIdPattern = ReadOptionalString(element, "controlFrameworkId") ?? "*",
             IsEnabled = ReadNullableBool(element, "isEnabled"),
             IsKeyboardFocusable = ReadNullableBool(element, "isKeyboardFocusable"),
+            EnsureForegroundWindow = ReadBool(element, "ensureForegroundWindow"),
             UiAutomation = ReadBool(element, "uiAutomation"),
             IncludeUiAutomation = ReadBool(element, "includeUiAutomation"),
             All = ReadBool(element, "all")

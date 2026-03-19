@@ -104,6 +104,12 @@ public sealed class CmdletWaitDesktopWindowControl : PSCmdlet {
     public SwitchParameter IncludeUiAutomation { get; set; }
 
     /// <summary>
+    /// <para type="description">Bring the target window to the foreground before UI Automation discovery.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter EnsureForeground { get; set; }
+
+    /// <summary>
     /// <para type="description">Timeout in milliseconds. Zero waits indefinitely.</para>
     /// </summary>
     [Parameter]
@@ -142,6 +148,7 @@ public sealed class CmdletWaitDesktopWindowControl : PSCmdlet {
             FrameworkIdPattern = FrameworkId,
             IsEnabled = Enabled ? true : Disabled ? false : null,
             IsKeyboardFocusable = Focusable ? true : NotFocusable ? false : null,
+            EnsureForegroundWindow = EnsureForeground,
             UseUiAutomation = UiAutomation,
             IncludeUiAutomation = IncludeUiAutomation
         };

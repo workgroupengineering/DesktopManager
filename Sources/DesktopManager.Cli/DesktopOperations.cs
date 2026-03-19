@@ -482,6 +482,7 @@ internal static class DesktopOperations {
             ValuePattern = criteria.ValuePattern,
             IsEnabled = criteria.IsEnabled,
             IsKeyboardFocusable = criteria.IsKeyboardFocusable,
+            EnsureForegroundWindow = criteria.EnsureForegroundWindow,
             UseUiAutomation = criteria.UiAutomation,
             IncludeUiAutomation = criteria.IncludeUiAutomation
         };

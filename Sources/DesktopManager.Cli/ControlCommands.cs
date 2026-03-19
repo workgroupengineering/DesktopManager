@@ -167,6 +167,7 @@ internal static class ControlCommands {
             FrameworkIdPattern = arguments.GetOption("framework-id") ?? "*",
             IsEnabled = arguments.GetBoolFlag("enabled") ? true : arguments.GetBoolFlag("disabled") ? false : null,
             IsKeyboardFocusable = arguments.GetBoolFlag("focusable") ? true : arguments.GetBoolFlag("not-focusable") ? false : null,
+            EnsureForegroundWindow = arguments.GetBoolFlag("ensure-foreground"),
             UiAutomation = arguments.GetBoolFlag("uia"),
             IncludeUiAutomation = arguments.GetBoolFlag("include-uia"),
             All = arguments.GetBoolFlag("all")

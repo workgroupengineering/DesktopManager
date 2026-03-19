@@ -67,6 +67,11 @@ public sealed class WindowControlQueryOptions {
     public bool IncludeUiAutomation { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the target window should be brought to the foreground before UI Automation queries.
+    /// </summary>
+    public bool EnsureForegroundWindow { get; set; }
+
+    /// <summary>
     /// Determines whether the current query requires UI Automation metadata.
     /// </summary>
     /// <returns><c>true</c> when UI Automation should be used; otherwise <c>false</c>.</returns>

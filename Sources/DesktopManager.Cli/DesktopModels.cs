@@ -27,6 +27,7 @@ internal sealed class ControlSelectionCriteria {
     public string FrameworkIdPattern { get; set; } = "*";
     public bool? IsEnabled { get; set; }
     public bool? IsKeyboardFocusable { get; set; }
+    public bool EnsureForegroundWindow { get; set; }
     public bool UiAutomation { get; set; }
     public bool IncludeUiAutomation { get; set; }
     public bool All { get; set; }

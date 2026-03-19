@@ -376,7 +376,7 @@ public partial class WindowManager
         /// <param name="windowInfo">The window information.</param>
         public void ActivateWindow(WindowInfo windowInfo) {
             ValidateWindowInfo(windowInfo);
-            if (!MonitorNativeMethods.SetForegroundWindow(windowInfo.Handle)) {
+            if (!WindowActivationService.TryActivateWindow(windowInfo.Handle)) {
                 throw new InvalidOperationException("Failed to activate window");
             }
         }

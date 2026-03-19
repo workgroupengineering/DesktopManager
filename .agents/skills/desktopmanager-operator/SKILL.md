@@ -28,6 +28,7 @@ Use this skill to operate the Windows desktop through DesktopManager.
    - Use UIA-oriented selectors when modern apps do not expose useful child-window controls.
    - Use `control_exists` or `wait_for_control` when the control can appear asynchronously or when you want an explicit precondition before clicking.
    - When available, prefer value, enabled, or focusable checks over brittle text-only guesses.
+   - If UIA discovery is flaky on a background window, retry with the shared foreground hint before inventing wrapper-specific workarounds.
    - Use `type_window_text` for whole-window entry.
    - Use `click_control`, `set_control_text`, or `send_control_keys` for control-level work.
 5. Prefer named state over one-off moves.
@@ -98,6 +99,7 @@ desktopmanager control list --window-process notepad
 desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar"
 desktopmanager control wait --window-active --uia --control-type Button --text-pattern "Show sidebar" --timeout-ms 5000
 desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar" --enabled --focusable
+desktopmanager control wait --window-handle 0x5BB15E4 --uia --control-type Button --text-pattern "Hide sidebar" --enabled --focusable --ensure-foreground --timeout-ms 5000
 desktopmanager control list --window-active --uia --control-type Button
 desktopmanager control click --window-process notepad --class RichEditD2DPT
 desktopmanager control set-text --window-process notepad --class RichEditD2DPT --text "Hello world"

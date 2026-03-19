@@ -146,15 +146,7 @@ public static class WindowInputService {
     }
 
     private static void TryActivateWindow(IntPtr handle, int retryCount, int retryDelayMilliseconds) {
-        for (int attempt = 0; attempt < retryCount; attempt++) {
-            if (MonitorNativeMethods.SetForegroundWindow(handle)) {
-                return;
-            }
-
-            if (attempt < retryCount - 1 && retryDelayMilliseconds > 0) {
-                Thread.Sleep(retryDelayMilliseconds);
-            }
-        }
+        WindowActivationService.TryActivateWindow(handle, retryCount, retryDelayMilliseconds);
     }
 
     private static void SendPaste(IntPtr handle, int retryCount, int retryDelayMilliseconds) {

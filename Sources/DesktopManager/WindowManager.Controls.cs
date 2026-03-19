@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace DesktopManager;
 
@@ -24,9 +25,20 @@ public partial class WindowManager {
         ValidateWindowInfo(window);
 
         WindowControlQueryOptions filter = options ?? new WindowControlQueryOptions();
+        PrepareWindowForUiAutomation(window, filter);
         List<WindowControlInfo> controls = GetControlsInternal(window.Handle, filter);
 
         return controls.FindAll(control => MatchesControl(control, filter));
+    }
+
+    private void PrepareWindowForUiAutomation(WindowInfo window, WindowControlQueryOptions filter) {
+        if (!filter.RequiresUiAutomation() || !filter.EnsureForegroundWindow) {
+            return;
+        }
+
+        if (WindowActivationService.TryActivateWindow(window.Handle)) {
+            Thread.Sleep(200);
+        }
     }
 
     private List<WindowControlInfo> GetControlsInternal(IntPtr windowHandle, WindowControlQueryOptions filter) {

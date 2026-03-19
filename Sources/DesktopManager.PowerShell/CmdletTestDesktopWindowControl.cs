@@ -99,6 +99,12 @@ public sealed class CmdletTestDesktopWindowControl : PSCmdlet {
     [Parameter]
     public SwitchParameter IncludeUiAutomation { get; set; }
 
+    /// <summary>
+    /// <para type="description">Bring the target window to the foreground before UI Automation discovery.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter EnsureForeground { get; set; }
+
     /// <inheritdoc />
     protected override void BeginProcessing() {
         var automation = new DesktopAutomationService();
@@ -120,6 +126,7 @@ public sealed class CmdletTestDesktopWindowControl : PSCmdlet {
             FrameworkIdPattern = FrameworkId,
             IsEnabled = Enabled ? true : Disabled ? false : null,
             IsKeyboardFocusable = Focusable ? true : NotFocusable ? false : null,
+            EnsureForegroundWindow = EnsureForeground,
             UseUiAutomation = UiAutomation,
             IncludeUiAutomation = IncludeUiAutomation
         };

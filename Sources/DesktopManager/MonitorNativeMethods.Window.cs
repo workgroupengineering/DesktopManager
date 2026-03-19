@@ -191,11 +191,27 @@ public static partial class MonitorNativeMethods
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     /// <summary>
+    /// Brings the specified window to the top of the Z order.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll")]
+    public static extern bool BringWindowToTop(IntPtr hWnd);
+
+    /// <summary>
     /// Gets the handle of the foreground window.
     /// </summary>
     /// <returns>The foreground window handle.</returns>
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
+
+    /// <summary>
+    /// Determines whether a window is minimized.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <returns>True when minimized; otherwise false.</returns>
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
 
     /// <summary>
     /// Sets the transparency attributes of a layered window.

@@ -81,7 +81,7 @@ Examples:
     public static string GetControlHelp() {
         return """
 Control commands:
-  desktopmanager control list [window-selector] [--class <pattern>] [--text-pattern <pattern>] [--value-pattern <pattern>] [--id <value>] [--handle <value>] [--automation-id <pattern>] [--control-type <pattern>] [--framework-id <pattern>] [--enabled|--disabled] [--focusable|--not-focusable] [--uia] [--include-uia] [--all-windows] [--json]
+  desktopmanager control list [window-selector] [--class <pattern>] [--text-pattern <pattern>] [--value-pattern <pattern>] [--id <value>] [--handle <value>] [--automation-id <pattern>] [--control-type <pattern>] [--framework-id <pattern>] [--enabled|--disabled] [--focusable|--not-focusable] [--uia] [--include-uia] [--ensure-foreground] [--all-windows] [--json]
   desktopmanager control exists [window-selector] [control-selector] [--all-windows] [--json]
   desktopmanager control wait [window-selector] [control-selector] [--timeout-ms <value>] [--interval-ms <value>] [--all-windows] [--json]
   desktopmanager control click [window-selector] [control-selector] [--button <left|right>] [--all] [--all-windows] [--json]
@@ -111,11 +111,12 @@ Control selectors:
   --not-focusable
   --uia
   --include-uia
+  --ensure-foreground
 
 Examples:
   desktopmanager control list --window-process notepad --json
-  desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar" --enabled --focusable
-  desktopmanager control wait --window-active --uia --control-type Button --text-pattern "Show sidebar" --enabled --timeout-ms 3000
+  desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar" --enabled --focusable --ensure-foreground
+  desktopmanager control wait --window-active --uia --control-type Button --text-pattern "Show sidebar" --enabled --ensure-foreground --timeout-ms 3000
   desktopmanager control list --window-active --uia --control-type Edit --json
   desktopmanager control set-text --window-active --class RichEditD2DPT --text "Hello world"
   desktopmanager control click --window-process notepad --class Edit
