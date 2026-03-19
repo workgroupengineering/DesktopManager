@@ -17,7 +17,10 @@
             ProjectUri               = 'https://github.com/EvotecIT/DesktopManager'
             RequireLicenseAcceptance = $false
             Tags                     = @('windows', 'image', 'wallpaper', 'monitor')
-        }
+            ExternalModuleDependencies = @()
+}
     }
     RootModule             = 'DesktopManager.psm1'
+    RequiredModules        = @()
+    ScriptsToProcess       = @()
 }

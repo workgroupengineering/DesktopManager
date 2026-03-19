@@ -7,6 +7,11 @@ param(
 
 Import-Module PSPublishModule -Force -ErrorAction Stop
 
+$refreshPsd1Only = $false
+if ($env:RefreshPSD1Only) {
+    $refreshPsd1Only = $env:RefreshPSD1Only -eq 'true'
+}
+
 $invokeModuleBuild = @{
     ModuleName = 'DesktopManager'
     Path       = (Join-Path $PSScriptRoot '..\..')
@@ -76,7 +81,7 @@ Invoke-ModuleBuild @invokeModuleBuild -Settings {
 
     $newConfigurationBuild = @{
         Enable                            = $true
-        SignModule                        = $true
+        SignModule                        = -not $refreshPsd1Only
         MergeModuleOnBuild                = $true
         MergeFunctionsFromApprovedModules = $true
         CertificateThumbprint             = '483292C9E317AA13B07BB7A96AE9D1A5ED9E7703'
@@ -91,7 +96,7 @@ Invoke-ModuleBuild @invokeModuleBuild -Settings {
         DotSourceLibraries                = $true
         DotSourceClasses                  = $true
         DeleteTargetModuleBeforeBuild     = $true
-        RefreshPSD1Only                   = $false
+        RefreshPSD1Only                   = $refreshPsd1Only
     }
     New-ConfigurationBuild @newConfigurationBuild
 
