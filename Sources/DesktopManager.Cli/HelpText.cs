@@ -48,6 +48,8 @@ Use:
         return """
 Window commands:
   desktopmanager window list [--title <pattern>] [--process <pattern>] [--class <pattern>] [--pid <id>] [--handle <value>] [--active] [--include-empty] [--include-hidden] [--exclude-cloaked] [--exclude-owned] [--json]
+  desktopmanager window exists [selector] [--json]
+  desktopmanager window active-matches [selector] [--json]
   desktopmanager window move [selector] [--monitor <index>] [--x <value>] [--y <value>] [--width <value>] [--height <value>] [--activate] [--all] [--json]
   desktopmanager window focus [selector] [--all] [--json]
   desktopmanager window minimize [selector] [--all] [--json]
@@ -66,6 +68,8 @@ Selectors:
 
 Examples:
   desktopmanager window list --title "*Notepad*" --json
+  desktopmanager window exists --process notepad
+  desktopmanager window active-matches --title "Codex"
   desktopmanager window type --active --text "Hello world"
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --activate
   desktopmanager window snap --process notepad --position left

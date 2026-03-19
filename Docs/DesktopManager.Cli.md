@@ -12,6 +12,8 @@ The repository now includes a `DesktopManager.Cli` project that exposes a small,
 
 ```text
 desktopmanager window list
+desktopmanager window exists
+desktopmanager window active-matches
 desktopmanager window wait
 desktopmanager window type
 desktopmanager window move
@@ -50,7 +52,8 @@ desktopmanager mcp serve
 - snapshots currently reuse the window layout format and are therefore windows-only for now.
 - `process start` launches a desktop application and can optionally wait for input idle.
 - `window wait` polls for a matching window and returns when one appears.
-- `control` works with child window controls discovered from the target window.
+- `window exists` and `window active-matches` provide non-mutating verification commands.
+- `control` works with child window controls and can also use UI Automation-oriented selectors.
 - `window type` sends text to the target window, either by simulated typing or clipboard paste.
 - `window` commands support exact handle targeting and active-window targeting for safer selection when multiple windows match.
 - `screenshot window` now prefers real window rendering before falling back to screen pixels, which improves captures for covered windows.
@@ -67,5 +70,5 @@ desktopmanager mcp serve
 
 ## Current Limits
 
-- Control enumeration is currently based on child window handles and classes, not full UI Automation.
-- This works well for many classic Win32 controls and some hybrid apps, but modern apps may need UIA-based selectors later.
+- Child-window targeting is still the most proven path for classic Win32 controls.
+- UIA selectors now exist, but host-specific verification is still sensible before depending on them in unattended flows.

@@ -13,6 +13,8 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 
 - `get_active_window`
 - `list_windows`
+- `window_exists`
+- `active_window_matches`
 - `wait_for_window`
 - `list_window_controls`
 - `move_window`
@@ -53,13 +55,14 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 1. Inspect first.
    - Read `desktop://windows/visible`, `desktop://windows/active`, and `desktop://monitors`.
    - Use `get_active_window` when focus matters.
+   - Use `window_exists` or `active_window_matches` when you want a structured assertion before acting.
    - Use `screenshot_desktop` or `screenshot_window` when visual confirmation is needed.
    - When multiple windows match, prefer an exact `handle` over a broad process selector.
 2. Launch when needed.
    - Use `launch_process` for the app under test.
    - Use `wait_for_window` before trying to move, focus, or capture the window.
 3. Inspect controls before trying to interact.
-   - Use `list_window_controls` to discover target handles, classes, and visible text.
+   - Use `list_window_controls` to discover target handles, classes, visible text, automation ids, and control types.
    - Prefer `type_window_text` for whole-window text entry.
    - Prefer `click_control`, `set_control_text`, and `send_control_keys` for control-level interactions.
 4. Prefer named state when available.
@@ -81,11 +84,14 @@ Use the CLI when MCP is unavailable or when validating the same operation outsid
 
 ```text
 desktopmanager window list
+desktopmanager window exists --title "Codex"
+desktopmanager window active-matches --title "Codex"
 desktopmanager window wait --process notepad --timeout-ms 5000
 desktopmanager window list --process notepad --json
 desktopmanager window type --handle 0x30A263C --text "Hello world"
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
+desktopmanager control list --window-active --uia --control-type Button
 desktopmanager control click --window-process notepad --class RichEditD2DPT
 desktopmanager control set-text --window-process notepad --class RichEditD2DPT --text "Hello world"
 desktopmanager control send-keys --window-process notepad --class RichEditD2DPT --keys VK_CONTROL,VK_A
@@ -110,6 +116,6 @@ desktopmanager mcp serve
 - Screenshots are written to PNG files and returned as file paths.
 - Window screenshots prefer native window rendering and fall back to screen capture when that is unavailable.
 - Snapshots are windows-only for now.
-- Control discovery currently uses child-window enumeration, not full UIA selectors.
+- Control discovery supports both child-window selectors and UIA-oriented selectors.
 - Prefer minimizing distractions instead of closing applications.
 - When targeting multiple windows, verify selectors carefully before using `all`.

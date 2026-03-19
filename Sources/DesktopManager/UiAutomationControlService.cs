@@ -45,12 +45,20 @@ internal sealed class UiAutomationControlService {
         }
 
         List<WindowControlInfo> controls = new List<WindowControlInfo>();
+        Exception? workerException = null;
         var thread = new Thread(() => {
-            controls = EnumerateControlsCore(windowHandle);
+            try {
+                controls = new UiAutomationControlService().EnumerateControlsCore(windowHandle);
+            } catch (Exception ex) {
+                workerException = ex;
+            }
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
         thread.Join();
+        if (workerException != null) {
+            throw workerException;
+        }
         return controls;
     }
 

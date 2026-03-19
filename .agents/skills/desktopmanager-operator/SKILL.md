@@ -17,13 +17,15 @@ Use this skill to operate the Windows desktop through DesktopManager.
      `desktop://windows/visible`
      `desktop://monitors`
    - Use `get_active_window` when focus matters.
+   - Use `window_exists` or `active_window_matches` when you need an explicit assertion first.
    - Use `screenshot_desktop` or `screenshot_window` when visual confirmation is needed.
    - When more than one window matches, switch to an exact handle before mutating anything.
 3. Launch and wait when the target app is not ready yet.
    - Use `launch_process` to start the app.
    - Use `wait_for_window` before moving, focusing, or capturing it.
 4. Inspect controls before interacting.
-   - Use `list_window_controls` to discover control handles, classes, and text.
+   - Use `list_window_controls` to discover control handles, classes, text, automation ids, and control types.
+   - Use UIA-oriented selectors when modern apps do not expose useful child-window controls.
    - Use `type_window_text` for whole-window entry.
    - Use `click_control`, `set_control_text`, or `send_control_keys` for control-level work.
 5. Prefer named state over one-off moves.
@@ -43,6 +45,8 @@ Tools:
 
 - `get_active_window`
 - `list_windows`
+- `window_exists`
+- `active_window_matches`
 - `wait_for_window`
 - `list_window_controls`
 - `move_window`
@@ -82,9 +86,12 @@ Prompts:
 
 ```text
 desktopmanager window list
+desktopmanager window exists --title "Codex"
+desktopmanager window active-matches --title "Codex"
 desktopmanager window wait --process notepad --timeout-ms 5000
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
+desktopmanager control list --window-active --uia --control-type Button
 desktopmanager control click --window-process notepad --class RichEditD2DPT
 desktopmanager control set-text --window-process notepad --class RichEditD2DPT --text "Hello world"
 desktopmanager control send-keys --window-process notepad --class RichEditD2DPT --keys VK_CONTROL,VK_A
@@ -117,7 +124,7 @@ desktopmanager snapshot restore before-meeting
 - Remember that `activeWindow` means the current foreground window and may resolve to Codex or the terminal if they have focus.
 - Be careful with `all`; verify the target set first.
 - Remember that snapshots are windows-only for now.
-- Remember that current control targeting is child-window based, not full UIA.
+- Remember that UIA selectors now exist, but verifying them in the current host is still smart before relying on them unattended.
 
 ## Reference Files
 

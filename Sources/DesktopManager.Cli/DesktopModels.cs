@@ -117,3 +117,11 @@ internal sealed class WaitForWindowResult {
     public int Count { get; set; }
     public IReadOnlyList<WindowResult> Windows { get; set; } = new List<WindowResult>();
 }
+
+internal sealed class WindowAssertionResult {
+    public bool Matched { get; set; }
+    public string Assertion { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public IReadOnlyList<WindowResult> Windows { get; set; } = new List<WindowResult>();
+    public WindowResult? ActiveWindow { get; set; }
+}

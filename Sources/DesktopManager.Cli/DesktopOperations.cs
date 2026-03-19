@@ -243,6 +243,57 @@ internal static class DesktopOperations {
         });
     }
 
+    public static WindowAssertionResult WindowExists(WindowSelectionCriteria criteria) {
+        return ExecuteCore(() => {
+            WindowQueryOptions query = CreateWindowQuery(criteria);
+            DesktopAutomationService automation = new DesktopAutomationService();
+            IReadOnlyList<WindowResult> windows = automation.GetWindows(query).Select(MapWindow).ToArray();
+            return new WindowAssertionResult {
+                Assertion = "window-exists",
+                Matched = automation.WindowExists(query),
+                Count = windows.Count,
+                Windows = windows
+            };
+        });
+    }
+
+    public static WindowAssertionResult ActiveWindowMatches(WindowSelectionCriteria criteria) {
+        return ExecuteCore(() => {
+            WindowQueryOptions query = CreateWindowQuery(criteria);
+            DesktopAutomationService automation = new DesktopAutomationService();
+            WindowInfo? activeWindow = automation.GetActiveWindow(includeHidden: true, includeCloaked: true, includeOwned: true, includeEmptyTitles: true);
+            bool matched = automation.ActiveWindowMatches(query);
+            IReadOnlyList<WindowResult> windows = matched
+                ? automation.GetWindows(new WindowQueryOptions {
+                    TitlePattern = query.TitlePattern,
+                    ProcessNamePattern = query.ProcessNamePattern,
+                    ClassNamePattern = query.ClassNamePattern,
+                    TitleRegex = query.TitleRegex,
+                    ProcessId = query.ProcessId,
+                    Handle = query.Handle,
+                    ActiveWindow = true,
+                    IncludeEmptyTitles = query.IncludeEmptyTitles ?? true,
+                    IncludeHidden = true,
+                    IncludeCloaked = true,
+                    IncludeOwned = true,
+                    IsVisible = query.IsVisible,
+                    State = query.State,
+                    IsTopMost = query.IsTopMost,
+                    ZOrderMin = query.ZOrderMin,
+                    ZOrderMax = query.ZOrderMax
+                }).Select(MapWindow).ToArray()
+                : Array.Empty<WindowResult>();
+
+            return new WindowAssertionResult {
+                Assertion = "active-window-matches",
+                Matched = matched,
+                Count = windows.Count,
+                Windows = windows,
+                ActiveWindow = activeWindow == null ? null : MapWindow(activeWindow)
+            };
+        });
+    }
+
     private static WindowResult? SafeGetActiveWindow() {
         try {
             return GetActiveWindow();

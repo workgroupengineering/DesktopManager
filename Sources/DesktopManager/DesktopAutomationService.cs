@@ -45,6 +45,47 @@ public sealed class DesktopAutomationService {
     }
 
     /// <summary>
+    /// Determines whether at least one window matches the supplied query.
+    /// </summary>
+    public bool WindowExists(WindowQueryOptions options) {
+        if (options == null) {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        return _windowManager.GetWindows(options).Count > 0;
+    }
+
+    /// <summary>
+    /// Determines whether the current active window matches the supplied query.
+    /// </summary>
+    public bool ActiveWindowMatches(WindowQueryOptions options) {
+        if (options == null) {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        WindowQueryOptions activeWindowOptions = new WindowQueryOptions {
+            TitlePattern = options.TitlePattern,
+            ProcessNamePattern = options.ProcessNamePattern,
+            ClassNamePattern = options.ClassNamePattern,
+            TitleRegex = options.TitleRegex,
+            ProcessId = options.ProcessId,
+            Handle = options.Handle,
+            ActiveWindow = true,
+            IncludeEmptyTitles = options.IncludeEmptyTitles ?? true,
+            IncludeHidden = true,
+            IncludeCloaked = true,
+            IncludeOwned = true,
+            IsVisible = options.IsVisible,
+            State = options.State,
+            IsTopMost = options.IsTopMost,
+            ZOrderMin = options.ZOrderMin,
+            ZOrderMax = options.ZOrderMax
+        };
+
+        return _windowManager.GetWindows(activeWindowOptions).Count > 0;
+    }
+
+    /// <summary>
     /// Moves and optionally resizes matching windows.
     /// </summary>
     public IReadOnlyList<WindowInfo> MoveWindows(WindowQueryOptions options, int? monitorIndex, int? x, int? y, int? width, int? height, bool activate, bool all = false) {

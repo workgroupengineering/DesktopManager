@@ -8,6 +8,8 @@ internal static class WindowCommands {
     public static int Run(string action, CommandLineArguments arguments) {
         return action switch {
             "list" => List(arguments),
+            "exists" => Exists(arguments),
+            "active-matches" => ActiveMatches(arguments),
             "move" => Move(arguments),
             "focus" => Focus(arguments),
             "minimize" => Minimize(arguments),
@@ -46,6 +48,16 @@ internal static class WindowCommands {
             .ToArray();
         OutputFormatter.WriteTable(new[] { "PID", "Handle", "Mon", "Visible", "State", "Title" }, rows);
         return 0;
+    }
+
+    private static int Exists(CommandLineArguments arguments) {
+        WindowAssertionResult result = DesktopOperations.WindowExists(CreateCriteria(arguments, includeEmptyDefault: true));
+        return WriteAssertionResult(arguments, result, "Matching window found.", "No matching windows found.");
+    }
+
+    private static int ActiveMatches(CommandLineArguments arguments) {
+        WindowAssertionResult result = DesktopOperations.ActiveWindowMatches(CreateCriteria(arguments, includeEmptyDefault: true));
+        return WriteAssertionResult(arguments, result, "Active window matches.", "Active window does not match.");
     }
 
     private static int Move(CommandLineArguments arguments) {
@@ -113,6 +125,23 @@ internal static class WindowCommands {
             Console.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
         }
         return 0;
+    }
+
+    private static int WriteAssertionResult(CommandLineArguments arguments, WindowAssertionResult payload, string successText, string failureText) {
+        if (arguments.GetBoolFlag("json")) {
+            OutputFormatter.WriteJson(payload);
+        } else {
+            Console.WriteLine(payload.Matched ? successText : failureText);
+            if (payload.ActiveWindow != null) {
+                Console.WriteLine($"Active: {payload.ActiveWindow.Title} [PID {payload.ActiveWindow.ProcessId}]");
+            }
+
+            foreach (WindowResult window in payload.Windows) {
+                Console.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
+            }
+        }
+
+        return payload.Matched ? 0 : 2;
     }
 
     private static WindowSelectionCriteria CreateCriteria(CommandLineArguments arguments, bool includeEmptyDefault) {

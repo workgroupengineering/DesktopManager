@@ -9,6 +9,8 @@ internal static class McpCatalog {
         return new object[] {
             CreateTool("get_active_window", "Get Active Window", "Return information about the currently focused window.", CreateObjectSchema(), readOnly: true),
             CreateTool("list_windows", "List Windows", "List visible desktop windows with optional filtering.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
+            CreateTool("window_exists", "Window Exists", "Check whether a matching window currently exists.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
+            CreateTool("active_window_matches", "Active Window Matches", "Check whether the current foreground window matches the selector.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
             CreateTool("wait_for_window", "Wait For Window", "Wait for a matching window to appear.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -290,6 +292,8 @@ internal static class McpCatalog {
             result = name switch {
                 "get_active_window" => DesktopOperations.GetActiveWindow(),
                 "list_windows" => DesktopOperations.ListWindows(ReadWindowCriteria(arguments, false)),
+                "window_exists" => DesktopOperations.WindowExists(ReadWindowCriteria(arguments, true)),
+                "active_window_matches" => DesktopOperations.ActiveWindowMatches(ReadWindowCriteria(arguments, true)),
                 "wait_for_window" => DesktopOperations.WaitForWindow(
                     ReadWindowCriteria(arguments, true),
                     ReadInt(arguments, "timeoutMs") ?? 10000,
