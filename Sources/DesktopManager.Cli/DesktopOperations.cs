@@ -40,7 +40,27 @@ internal static class DesktopOperations {
         MouseButton mouseButton = ParseMouseButton(button);
         return ExecuteCore(() => BuildWindowChangeResult(
             "click-point",
-            new DesktopAutomationService().ClickWindowPoint(CreateWindowQuery(criteria), x, y, mouseButton, activate, criteria.All)));
+            new DesktopAutomationService().ClickWindowPoint(CreateWindowQuery(criteria), x, y, mouseButton, activate, clientArea: false, criteria.All)));
+    }
+
+    public static WindowChangeResult ClickWindowPoint(WindowSelectionCriteria criteria, int x, int y, string button, bool activate, bool clientArea) {
+        MouseButton mouseButton = ParseMouseButton(button);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "click-point",
+            new DesktopAutomationService().ClickWindowPoint(CreateWindowQuery(criteria), x, y, mouseButton, activate, clientArea, criteria.All)));
+    }
+
+    public static WindowChangeResult DragWindowPoints(WindowSelectionCriteria criteria, int startX, int startY, int endX, int endY, string button, int stepDelayMilliseconds, bool activate, bool clientArea) {
+        MouseButton mouseButton = ParseMouseButton(button);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "drag-point",
+            new DesktopAutomationService().DragWindowPoints(CreateWindowQuery(criteria), startX, startY, endX, endY, mouseButton, stepDelayMilliseconds, activate, clientArea, criteria.All)));
+    }
+
+    public static WindowChangeResult ScrollWindowPoint(WindowSelectionCriteria criteria, int x, int y, int delta, bool activate, bool clientArea) {
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "scroll-point",
+            new DesktopAutomationService().ScrollWindowPoint(CreateWindowQuery(criteria), x, y, delta, activate, clientArea, criteria.All)));
     }
 
     public static WindowChangeResult MinimizeWindows(WindowSelectionCriteria criteria) {

@@ -137,4 +137,14 @@ public class DesktopAutomationCoreTests {
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.ClickWindowPoint(new WindowQueryOptions { TitlePattern = "*" }, 0, -1, MouseButton.Left, activate: false));
     }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window-relative drags reject a negative step delay.
+    /// </summary>
+    public void DesktopAutomationService_DragWindowPoints_NegativeStepDelay_ThrowsArgumentOutOfRangeException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.DragWindowPoints(new WindowQueryOptions { TitlePattern = "*" }, 0, 0, 1, 1, MouseButton.Left, -1, activate: false, clientArea: false));
+    }
 }

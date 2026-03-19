@@ -30,7 +30,7 @@ Use this skill to operate the Windows desktop through DesktopManager.
    - Use `control_exists` or `wait_for_control` when the control can appear asynchronously or when you want an explicit precondition before clicking.
    - When available, prefer value, enabled, or focusable checks over brittle text-only guesses.
    - If UIA discovery is flaky on a background window, retry with the shared foreground hint before inventing wrapper-specific workarounds.
-   - If the app still stays structurally opaque, switch to the shared coordinate-based fallback: capture the window, pick a relative point, and use `click_window_point`.
+   - If the app still stays structurally opaque, switch to the shared coordinate-based fallback: capture the window, pick relative points, and use `click_window_point`, `drag_window_points`, or `scroll_window_point`.
    - Use `type_window_text` for whole-window entry.
    - Use `click_control`, `set_control_text`, or `send_control_keys` for control-level work.
 5. Prefer named state over one-off moves.
@@ -59,6 +59,8 @@ Tools:
 - `wait_for_control`
 - `move_window`
 - `click_window_point`
+- `drag_window_points`
+- `scroll_window_point`
 - `type_window_text`
 - `focus_window`
 - `minimize_windows`
@@ -99,6 +101,8 @@ desktopmanager window exists --title "Codex"
 desktopmanager window active-matches --title "Codex"
 desktopmanager window wait --process notepad --timeout-ms 5000
 desktopmanager window click --handle 0xFF1802 --x 200 --y 200
+desktopmanager window drag --handle 0xFF1802 --start-x 200 --start-y 200 --end-x 400 --end-y 220 --client-area
+desktopmanager window scroll --handle 0xFF1802 --x 200 --y 200 --delta -120 --client-area
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
 desktopmanager control diagnose --window-title "*Codex*" --uia --ensure-foreground --sample-limit 5 --json
@@ -131,7 +135,8 @@ desktopmanager snapshot restore before-meeting
 - Prefer `launch_process` plus `wait_for_window` over blind retries.
 - Prefer `list_window_controls` before guessing a control handle.
 - Prefer `diagnose_window_controls` when Chromium-style apps or background windows are not returning expected controls.
-- Prefer `click_window_point` over inventing wrapper-specific click hacks when screenshots give you a reliable target and the app exposes no usable controls.
+- Prefer `click_window_point`, `drag_window_points`, or `scroll_window_point` over inventing wrapper-specific mouse hacks when screenshots give you a reliable target and the app exposes no usable controls.
+- Prefer client-area coordinates for browser/editor content, and outer-window coordinates when you intentionally want chrome like tabs, sidebars, or title-bar buttons.
 - Prefer window-level typing when control-level targeting is uncertain.
 - Prefer named layouts and snapshots over repeated manual window placement.
 - Prefer minimizing distracting windows over closing them.

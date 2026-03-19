@@ -12,6 +12,8 @@ internal static class WindowCommands {
             "active-matches" => ActiveMatches(arguments),
             "move" => Move(arguments),
             "click" => Click(arguments),
+            "drag" => Drag(arguments),
+            "scroll" => Scroll(arguments),
             "focus" => Focus(arguments),
             "minimize" => Minimize(arguments),
             "snap" => Snap(arguments),
@@ -85,7 +87,35 @@ internal static class WindowCommands {
                 arguments.GetRequiredIntOption("x"),
                 arguments.GetRequiredIntOption("y"),
                 arguments.GetOption("button") ?? "left",
-                arguments.GetBoolFlag("activate")));
+                arguments.GetBoolFlag("activate"),
+                arguments.GetBoolFlag("client-area")));
+    }
+
+    private static int Drag(CommandLineArguments arguments) {
+        return WriteWindowMutationResult(
+            arguments,
+            DesktopOperations.DragWindowPoints(
+                CreateCriteria(arguments, includeEmptyDefault: true),
+                arguments.GetRequiredIntOption("start-x"),
+                arguments.GetRequiredIntOption("start-y"),
+                arguments.GetRequiredIntOption("end-x"),
+                arguments.GetRequiredIntOption("end-y"),
+                arguments.GetOption("button") ?? "left",
+                arguments.GetIntOption("step-delay-ms") ?? 0,
+                arguments.GetBoolFlag("activate"),
+                arguments.GetBoolFlag("client-area")));
+    }
+
+    private static int Scroll(CommandLineArguments arguments) {
+        return WriteWindowMutationResult(
+            arguments,
+            DesktopOperations.ScrollWindowPoint(
+                CreateCriteria(arguments, includeEmptyDefault: true),
+                arguments.GetRequiredIntOption("x"),
+                arguments.GetRequiredIntOption("y"),
+                arguments.GetRequiredIntOption("delta"),
+                arguments.GetBoolFlag("activate"),
+                arguments.GetBoolFlag("client-area")));
     }
 
     private static int Minimize(CommandLineArguments arguments) {

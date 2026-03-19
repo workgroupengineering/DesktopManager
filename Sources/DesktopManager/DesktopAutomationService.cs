@@ -176,12 +176,48 @@ public sealed class DesktopAutomationService {
     /// Clicks a point relative to each matching window.
     /// </summary>
     public IReadOnlyList<WindowInfo> ClickWindowPoint(WindowQueryOptions options, int x, int y, MouseButton button, bool activate, bool all = false) {
-        if (x < 0) {
-            throw new ArgumentOutOfRangeException(nameof(x), "x must be zero or greater.");
+        IReadOnlyList<WindowInfo> windows = ResolveWindows(options, all);
+        foreach (WindowInfo window in windows) {
+            if (activate) {
+                _windowManager.ActivateWindow(window);
+                Thread.Sleep(100);
+            }
+
+            (int screenX, int screenY) = ResolveWindowPoint(window, x, y, clientArea: false);
+            Thread.Sleep(50);
+            _windowManager.MoveMouse(screenX, screenY);
+            _windowManager.ClickMouse(button);
         }
 
-        if (y < 0) {
-            throw new ArgumentOutOfRangeException(nameof(y), "y must be zero or greater.");
+        return RefreshWindows(windows);
+    }
+
+    /// <summary>
+    /// Clicks a point relative to each matching window.
+    /// </summary>
+    public IReadOnlyList<WindowInfo> ClickWindowPoint(WindowQueryOptions options, int x, int y, MouseButton button, bool activate, bool clientArea, bool all = false) {
+        IReadOnlyList<WindowInfo> windows = ResolveWindows(options, all);
+        foreach (WindowInfo window in windows) {
+            if (activate) {
+                _windowManager.ActivateWindow(window);
+                Thread.Sleep(100);
+            }
+
+            (int screenX, int screenY) = ResolveWindowPoint(window, x, y, clientArea);
+            Thread.Sleep(50);
+            _windowManager.MoveMouse(screenX, screenY);
+            _windowManager.ClickMouse(button);
+        }
+
+        return RefreshWindows(windows);
+    }
+
+    /// <summary>
+    /// Drags between two points relative to each matching window.
+    /// </summary>
+    public IReadOnlyList<WindowInfo> DragWindowPoints(WindowQueryOptions options, int startX, int startY, int endX, int endY, MouseButton button, int stepDelayMilliseconds, bool activate, bool clientArea, bool all = false) {
+        if (stepDelayMilliseconds < 0) {
+            throw new ArgumentOutOfRangeException(nameof(stepDelayMilliseconds), "stepDelayMilliseconds must be zero or greater.");
         }
 
         IReadOnlyList<WindowInfo> windows = ResolveWindows(options, all);
@@ -191,9 +227,29 @@ public sealed class DesktopAutomationService {
                 Thread.Sleep(100);
             }
 
-            _windowManager.MoveMouse(window.Left + x, window.Top + y);
+            (int startScreenX, int startScreenY) = ResolveWindowPoint(window, startX, startY, clientArea);
+            (int endScreenX, int endScreenY) = ResolveWindowPoint(window, endX, endY, clientArea);
+            _windowManager.DragMouse(button, startScreenX, startScreenY, endScreenX, endScreenY, stepDelayMilliseconds);
+        }
+
+        return RefreshWindows(windows);
+    }
+
+    /// <summary>
+    /// Scrolls the mouse wheel at a point relative to each matching window.
+    /// </summary>
+    public IReadOnlyList<WindowInfo> ScrollWindowPoint(WindowQueryOptions options, int x, int y, int delta, bool activate, bool clientArea, bool all = false) {
+        IReadOnlyList<WindowInfo> windows = ResolveWindows(options, all);
+        foreach (WindowInfo window in windows) {
+            if (activate) {
+                _windowManager.ActivateWindow(window);
+                Thread.Sleep(100);
+            }
+
+            (int screenX, int screenY) = ResolveWindowPoint(window, x, y, clientArea);
             Thread.Sleep(50);
-            _windowManager.ClickMouse(button);
+            _windowManager.MoveMouse(screenX, screenY);
+            _windowManager.ScrollMouse(delta);
         }
 
         return RefreshWindows(windows);
@@ -553,5 +609,29 @@ public sealed class DesktopAutomationService {
 
         return windows.FirstOrDefault(window => !string.IsNullOrWhiteSpace(window.Title))
             ?? windows.FirstOrDefault();
+    }
+
+    private static (int X, int Y) ResolveWindowPoint(WindowInfo window, int x, int y, bool clientArea) {
+        if (x < 0) {
+            throw new ArgumentOutOfRangeException(nameof(x), "x must be zero or greater.");
+        }
+
+        if (y < 0) {
+            throw new ArgumentOutOfRangeException(nameof(y), "y must be zero or greater.");
+        }
+
+        if (!clientArea) {
+            return (window.Left + x, window.Top + y);
+        }
+
+        var point = new MonitorNativeMethods.POINT {
+            x = x,
+            y = y
+        };
+        if (!MonitorNativeMethods.ClientToScreen(window.Handle, ref point)) {
+            throw new InvalidOperationException("Failed to convert client coordinates to screen coordinates.");
+        }
+
+        return (point.x, point.y);
     }
 }

@@ -159,6 +159,15 @@ public static partial class MonitorNativeMethods
     public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
 
     /// <summary>
+    /// Converts a client-area point to screen coordinates.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <param name="lpPoint">Point to convert.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll")]
+    public static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+
+    /// <summary>
     /// PrintWindow flag to capture only the client area.
     /// </summary>
     public const uint PW_CLIENTONLY = 0x00000001;
