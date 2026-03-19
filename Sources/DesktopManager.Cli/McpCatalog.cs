@@ -46,9 +46,14 @@ internal static class McpCatalog {
                     ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
                     ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["supportsBackgroundClick"] = CreateBooleanSchema("Filter by whether the control supports background-safe click or invoke actions."),
+                    ["supportsBackgroundText"] = CreateBooleanSchema("Filter by whether the control supports background-safe text updates."),
+                    ["supportsBackgroundKeys"] = CreateBooleanSchema("Filter by whether the control supports background-safe key delivery."),
+                    ["supportsForegroundInputFallback"] = CreateBooleanSchema("Filter by whether the control supports explicit foreground input fallback."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
+                    ["targetName"] = CreateStringSchema("Optional saved control target name."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
                 }), readOnly: true),
             CreateTool("diagnose_window_controls", "Diagnose Window Controls", "Collect discovery diagnostics for matching window controls.", CreateObjectSchema(
@@ -69,11 +74,17 @@ internal static class McpCatalog {
                     ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
                     ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["supportsBackgroundClick"] = CreateBooleanSchema("Filter by whether the control supports background-safe click or invoke actions."),
+                    ["supportsBackgroundText"] = CreateBooleanSchema("Filter by whether the control supports background-safe text updates."),
+                    ["supportsBackgroundKeys"] = CreateBooleanSchema("Filter by whether the control supports background-safe key delivery."),
+                    ["supportsForegroundInputFallback"] = CreateBooleanSchema("Filter by whether the control supports explicit foreground input fallback."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
+                    ["targetName"] = CreateStringSchema("Optional saved control target name."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows."),
-                    ["sampleLimit"] = CreateIntegerSchema("Maximum number of sample controls to include in each diagnostic result.")
+                    ["sampleLimit"] = CreateIntegerSchema("Maximum number of sample controls to include in each diagnostic result."),
+                    ["includeActionProbe"] = CreateBooleanSchema("Include a read-only UI Automation action-resolution probe for the first matched UIA control.")
                 }), readOnly: true),
             CreateTool("control_exists", "Control Exists", "Check whether a matching control currently exists.", CreateObjectSchema(
                 new Dictionary<string, object> {
@@ -93,9 +104,14 @@ internal static class McpCatalog {
                     ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
                     ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["supportsBackgroundClick"] = CreateBooleanSchema("Filter by whether the control supports background-safe click or invoke actions."),
+                    ["supportsBackgroundText"] = CreateBooleanSchema("Filter by whether the control supports background-safe text updates."),
+                    ["supportsBackgroundKeys"] = CreateBooleanSchema("Filter by whether the control supports background-safe key delivery."),
+                    ["supportsForegroundInputFallback"] = CreateBooleanSchema("Filter by whether the control supports explicit foreground input fallback."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
+                    ["targetName"] = CreateStringSchema("Optional saved control target name."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
                 }), readOnly: true),
             CreateTool("wait_for_control", "Wait For Control", "Wait for a matching control to appear.", CreateObjectSchema(
@@ -116,9 +132,14 @@ internal static class McpCatalog {
                     ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
                     ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["supportsBackgroundClick"] = CreateBooleanSchema("Filter by whether the control supports background-safe click or invoke actions."),
+                    ["supportsBackgroundText"] = CreateBooleanSchema("Filter by whether the control supports background-safe text updates."),
+                    ["supportsBackgroundKeys"] = CreateBooleanSchema("Filter by whether the control supports background-safe key delivery."),
+                    ["supportsForegroundInputFallback"] = CreateBooleanSchema("Filter by whether the control supports explicit foreground input fallback."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
+                    ["targetName"] = CreateStringSchema("Optional saved control target name."),
                     ["all"] = CreateBooleanSchema("Return all matching controls instead of the first match."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows."),
                     ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
@@ -142,9 +163,14 @@ internal static class McpCatalog {
                     ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
                     ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["supportsBackgroundClick"] = CreateBooleanSchema("Filter by whether the control supports background-safe click or invoke actions."),
+                    ["supportsBackgroundText"] = CreateBooleanSchema("Filter by whether the control supports background-safe text updates."),
+                    ["supportsBackgroundKeys"] = CreateBooleanSchema("Filter by whether the control supports background-safe key delivery."),
+                    ["supportsForegroundInputFallback"] = CreateBooleanSchema("Filter by whether the control supports explicit foreground input fallback."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
+                    ["targetName"] = CreateStringSchema("Optional saved control target name."),
                     ["button"] = CreateStringSchema("Mouse button: left or right."),
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
@@ -167,9 +193,15 @@ internal static class McpCatalog {
                     ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
                     ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["supportsBackgroundClick"] = CreateBooleanSchema("Filter by whether the control supports background-safe click or invoke actions."),
+                    ["supportsBackgroundText"] = CreateBooleanSchema("Filter by whether the control supports background-safe text updates."),
+                    ["supportsBackgroundKeys"] = CreateBooleanSchema("Filter by whether the control supports background-safe key delivery."),
+                    ["supportsForegroundInputFallback"] = CreateBooleanSchema("Filter by whether the control supports explicit foreground input fallback."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
+                    ["allowForegroundInput"] = CreateBooleanSchema("Explicitly allow focused foreground input fallback for zero-handle UI Automation controls."),
+                    ["targetName"] = CreateStringSchema("Optional saved control target name."),
                     ["text"] = CreateStringSchema("Text to set on the control."),
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
@@ -192,9 +224,15 @@ internal static class McpCatalog {
                     ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
                     ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
                     ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["supportsBackgroundClick"] = CreateBooleanSchema("Filter by whether the control supports background-safe click or invoke actions."),
+                    ["supportsBackgroundText"] = CreateBooleanSchema("Filter by whether the control supports background-safe text updates."),
+                    ["supportsBackgroundKeys"] = CreateBooleanSchema("Filter by whether the control supports background-safe key delivery."),
+                    ["supportsForegroundInputFallback"] = CreateBooleanSchema("Filter by whether the control supports explicit foreground input fallback."),
                     ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
                     ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
                     ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
+                    ["allowForegroundInput"] = CreateBooleanSchema("Explicitly allow focused foreground input fallback for zero-handle UI Automation controls."),
+                    ["targetName"] = CreateStringSchema("Optional saved control target name."),
                     ["keys"] = new {
                         type = "array",
                         items = new { type = "string" },
@@ -227,6 +265,7 @@ internal static class McpCatalog {
                     ["processId"] = CreateIntegerSchema("Process identifier."),
                     ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
                     ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["targetName"] = CreateStringSchema("Saved reusable target name."),
                     ["x"] = CreateIntegerSchema("Horizontal coordinate relative to the window bounds."),
                     ["y"] = CreateIntegerSchema("Vertical coordinate relative to the window bounds."),
                     ["xRatio"] = CreateNumberSchema("Horizontal coordinate ratio from 0 to 1."),
@@ -244,6 +283,8 @@ internal static class McpCatalog {
                     ["processId"] = CreateIntegerSchema("Process identifier."),
                     ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
                     ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["startTargetName"] = CreateStringSchema("Saved reusable starting target name."),
+                    ["endTargetName"] = CreateStringSchema("Saved reusable ending target name."),
                     ["startX"] = CreateIntegerSchema("Horizontal starting coordinate relative to the window bounds."),
                     ["startY"] = CreateIntegerSchema("Vertical starting coordinate relative to the window bounds."),
                     ["startXRatio"] = CreateNumberSchema("Horizontal starting coordinate ratio from 0 to 1."),
@@ -266,6 +307,7 @@ internal static class McpCatalog {
                     ["processId"] = CreateIntegerSchema("Process identifier."),
                     ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
                     ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["targetName"] = CreateStringSchema("Saved reusable target name."),
                     ["x"] = CreateIntegerSchema("Horizontal coordinate relative to the window bounds."),
                     ["y"] = CreateIntegerSchema("Vertical coordinate relative to the window bounds."),
                     ["xRatio"] = CreateNumberSchema("Horizontal coordinate ratio from 0 to 1."),
@@ -333,8 +375,86 @@ internal static class McpCatalog {
                     ["filePath"] = CreateStringSchema("Executable path or shell command."),
                     ["arguments"] = CreateStringSchema("Optional argument string."),
                     ["workingDirectory"] = CreateStringSchema("Optional working directory."),
-                    ["waitForInputIdleMs"] = CreateIntegerSchema("Optional wait for UI input idle in milliseconds.")
+                    ["waitForInputIdleMs"] = CreateIntegerSchema("Optional wait for UI input idle in milliseconds."),
+                    ["waitForWindowMs"] = CreateIntegerSchema("Optional time to wait for a launched window in milliseconds."),
+                    ["waitForWindowIntervalMs"] = CreateIntegerSchema("Polling interval while waiting for a launched window."),
+                    ["windowTitle"] = CreateStringSchema("Optional launched-window title filter."),
+                    ["windowClassName"] = CreateStringSchema("Optional launched-window class filter."),
+                    ["requireWindow"] = CreateBooleanSchema("Require a launched window to be found before returning.")
                 }, new[] { "filePath" }), readOnly: false, destructive: false, idempotent: false),
+            CreateTool("list_named_targets", "List Named Targets", "List saved reusable window-relative targets.", CreateObjectSchema(), readOnly: true),
+            CreateTool("get_named_target", "Get Named Target", "Get a saved reusable window-relative target definition.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["name"] = CreateStringSchema("Target name.")
+                }, new[] { "name" }), readOnly: true),
+            CreateTool("save_window_target", "Save Window Target", "Save or update a reusable window-relative target definition.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["name"] = CreateStringSchema("Target name."),
+                    ["description"] = CreateStringSchema("Optional target description."),
+                    ["x"] = CreateIntegerSchema("Horizontal coordinate relative to the target bounds."),
+                    ["y"] = CreateIntegerSchema("Vertical coordinate relative to the target bounds."),
+                    ["xRatio"] = CreateNumberSchema("Horizontal coordinate ratio from 0 to 1."),
+                    ["yRatio"] = CreateNumberSchema("Vertical coordinate ratio from 0 to 1."),
+                    ["clientArea"] = CreateBooleanSchema("Interpret coordinates relative to the window client area.")
+                }, new[] { "name" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("resolve_window_target", "Resolve Window Target", "Resolve a saved target against one or more live windows.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["name"] = CreateStringSchema("Target name."),
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
+                }, new[] { "name" }), readOnly: true),
+            CreateTool("list_named_control_targets", "List Named Control Targets", "List saved reusable control selector targets.", CreateObjectSchema(), readOnly: true),
+            CreateTool("get_named_control_target", "Get Named Control Target", "Get a saved reusable control selector target definition.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["name"] = CreateStringSchema("Control target name.")
+                }, new[] { "name" }), readOnly: true),
+            CreateTool("save_control_target", "Save Control Target", "Save or update a reusable control selector target definition.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["name"] = CreateStringSchema("Control target name."),
+                    ["description"] = CreateStringSchema("Optional control target description."),
+                    ["controlClassName"] = CreateStringSchema("Control class filter."),
+                    ["controlText"] = CreateStringSchema("Control text filter."),
+                    ["controlValue"] = CreateStringSchema("Control value filter."),
+                    ["controlId"] = CreateIntegerSchema("Control identifier."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["controlAutomationId"] = CreateStringSchema("UI Automation automation identifier filter."),
+                    ["controlType"] = CreateStringSchema("UI Automation control type filter."),
+                    ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
+                    ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
+                    ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["supportsBackgroundClick"] = CreateBooleanSchema("Filter by whether the control supports background-safe click or invoke actions."),
+                    ["supportsBackgroundText"] = CreateBooleanSchema("Filter by whether the control supports background-safe text updates."),
+                    ["supportsBackgroundKeys"] = CreateBooleanSchema("Filter by whether the control supports background-safe key delivery."),
+                    ["supportsForegroundInputFallback"] = CreateBooleanSchema("Filter by whether the control supports explicit foreground input fallback."),
+                    ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
+                    ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries.")
+                }, new[] { "name" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("resolve_control_target", "Resolve Control Target", "Resolve a saved control selector target against one or more live windows.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["name"] = CreateStringSchema("Control target name."),
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match."),
+                    ["allControls"] = CreateBooleanSchema("Return all matching controls instead of only the first match per window.")
+                }, new[] { "name" }), readOnly: true),
             CreateTool("list_named_layouts", "List Named Layouts", "List saved named layouts.", CreateObjectSchema(), readOnly: true),
             CreateTool("save_current_layout", "Save Current Layout", "Save the current desktop window layout under a given name.", CreateObjectSchema(
                 new Dictionary<string, object> {
@@ -386,6 +506,20 @@ internal static class McpCatalog {
                 title = "Named Layouts",
                 uri = "desktop://layouts",
                 description = "Saved named layouts as JSON.",
+                mimeType = "application/json"
+            },
+            new {
+                name = "desktop_targets",
+                title = "Named Targets",
+                uri = "desktop://targets",
+                description = "Saved reusable window-relative targets as JSON.",
+                mimeType = "application/json"
+            },
+            new {
+                name = "desktop_control_targets",
+                title = "Named Control Targets",
+                uri = "desktop://control-targets",
+                description = "Saved reusable control selector targets as JSON.",
                 mimeType = "application/json"
             },
             new {
@@ -453,38 +587,9 @@ internal static class McpCatalog {
                     ReadInt(arguments, "width"),
                     ReadInt(arguments, "height"),
                     ReadBool(arguments, "activate")),
-                "click_window_point" => DesktopOperations.ClickWindowPoint(
-                    ReadWindowCriteria(arguments, true),
-                    ReadInt(arguments, "x"),
-                    ReadInt(arguments, "y"),
-                    ReadDouble(arguments, "xRatio"),
-                    ReadDouble(arguments, "yRatio"),
-                    ReadOptionalString(arguments, "button") ?? "left",
-                    ReadBool(arguments, "activate"),
-                    ReadBool(arguments, "clientArea")),
-                "drag_window_points" => DesktopOperations.DragWindowPoints(
-                    ReadWindowCriteria(arguments, true),
-                    ReadInt(arguments, "startX"),
-                    ReadInt(arguments, "startY"),
-                    ReadDouble(arguments, "startXRatio"),
-                    ReadDouble(arguments, "startYRatio"),
-                    ReadInt(arguments, "endX"),
-                    ReadInt(arguments, "endY"),
-                    ReadDouble(arguments, "endXRatio"),
-                    ReadDouble(arguments, "endYRatio"),
-                    ReadOptionalString(arguments, "button") ?? "left",
-                    ReadInt(arguments, "stepDelayMs") ?? 0,
-                    ReadBool(arguments, "activate"),
-                    ReadBool(arguments, "clientArea")),
-                "scroll_window_point" => DesktopOperations.ScrollWindowPoint(
-                    ReadWindowCriteria(arguments, true),
-                    ReadInt(arguments, "x"),
-                    ReadInt(arguments, "y"),
-                    ReadDouble(arguments, "xRatio"),
-                    ReadDouble(arguments, "yRatio"),
-                    ReadInt(arguments, "delta") ?? throw new CommandLineException("Property 'delta' is required."),
-                    ReadBool(arguments, "activate"),
-                    ReadBool(arguments, "clientArea")),
+                "click_window_point" => CallClickWindowPoint(arguments),
+                "drag_window_points" => CallDragWindowPoints(arguments),
+                "scroll_window_point" => CallScrollWindowPoint(arguments),
                 "focus_window" => DesktopOperations.FocusWindow(ReadWindowCriteria(arguments, true)),
                 "minimize_windows" => DesktopOperations.MinimizeWindows(ReadWindowCriteria(arguments, true)),
                 "snap_window" => DesktopOperations.SnapWindow(ReadWindowCriteria(arguments, true), ReadRequiredString(arguments, "position")),
@@ -503,41 +608,120 @@ internal static class McpCatalog {
                     ReadRequiredString(arguments, "filePath"),
                     ReadOptionalString(arguments, "arguments"),
                     ReadOptionalString(arguments, "workingDirectory"),
-                    ReadInt(arguments, "waitForInputIdleMs")),
-                "list_window_controls" => DesktopOperations.ListControls(
-                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                    ReadInt(arguments, "waitForInputIdleMs"),
+                    ReadInt(arguments, "waitForWindowMs"),
+                    ReadInt(arguments, "waitForWindowIntervalMs"),
+                    ReadOptionalString(arguments, "windowTitle"),
+                    ReadOptionalString(arguments, "windowClassName"),
+                    ReadBool(arguments, "requireWindow")),
+                "list_named_targets" => DesktopOperations.ListWindowTargets(),
+                "get_named_target" => DesktopOperations.GetWindowTarget(ReadRequiredString(arguments, "name")),
+                "save_window_target" => DesktopOperations.SaveWindowTarget(
+                    ReadRequiredString(arguments, "name"),
+                    ReadOptionalString(arguments, "description"),
+                    ReadInt(arguments, "x"),
+                    ReadInt(arguments, "y"),
+                    ReadDouble(arguments, "xRatio"),
+                    ReadDouble(arguments, "yRatio"),
+                    ReadBool(arguments, "clientArea")),
+                "resolve_window_target" => DesktopOperations.ResolveWindowTargets(ReadWindowCriteria(arguments, true), ReadRequiredString(arguments, "name")),
+                "list_named_control_targets" => DesktopOperations.ListControlTargets(),
+                "get_named_control_target" => DesktopOperations.GetControlTarget(ReadRequiredString(arguments, "name")),
+                "save_control_target" => DesktopOperations.SaveControlTarget(
+                    ReadRequiredString(arguments, "name"),
                     ReadControlCriteria(arguments),
-                    ReadBool(arguments, "allWindows")),
-                "diagnose_window_controls" => DesktopOperations.DiagnoseControls(
-                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
-                    ReadControlCriteria(arguments),
-                    ReadBool(arguments, "allWindows"),
-                    ReadInt(arguments, "sampleLimit") ?? 10),
-                "control_exists" => DesktopOperations.ControlExists(
-                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
-                    ReadControlCriteria(arguments),
-                    ReadBool(arguments, "allWindows")),
-                "wait_for_control" => DesktopOperations.WaitForControl(
-                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
-                    ReadControlCriteria(arguments),
-                    ReadInt(arguments, "timeoutMs") ?? 10000,
-                    ReadInt(arguments, "intervalMs") ?? 200,
-                    ReadBool(arguments, "allWindows")),
-                "click_control" => DesktopOperations.ClickControl(
-                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
-                    ReadControlCriteria(arguments),
-                    ReadOptionalString(arguments, "button") ?? "left",
-                    ReadBool(arguments, "allWindows")),
-                "set_control_text" => DesktopOperations.SetControlText(
-                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
-                    ReadControlCriteria(arguments),
-                    ReadRequiredString(arguments, "text"),
-                    ReadBool(arguments, "allWindows")),
-                "send_control_keys" => DesktopOperations.SendControlKeys(
-                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
-                    ReadControlCriteria(arguments),
-                    ReadStringList(arguments, "keys"),
-                    ReadBool(arguments, "allWindows")),
+                    ReadOptionalString(arguments, "description")),
+                "resolve_control_target" => DesktopOperations.ResolveControlTargets(
+                    ReadWindowCriteria(arguments, true),
+                    ReadRequiredString(arguments, "name"),
+                    ReadBool(arguments, "allControls")),
+                "list_window_controls" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
+                    ? DesktopOperations.ListControls(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadControlCriteria(arguments),
+                        ReadBool(arguments, "allWindows"))
+                    : DesktopOperations.ListControlTargets(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadRequiredString(arguments, "targetName"),
+                        ReadBool(arguments, "allWindows"),
+                        ReadBool(arguments, "all")),
+                "diagnose_window_controls" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
+                    ? DesktopOperations.DiagnoseControls(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadControlCriteria(arguments),
+                        ReadBool(arguments, "allWindows"),
+                        ReadInt(arguments, "sampleLimit") ?? 10,
+                        ReadBool(arguments, "includeActionProbe"))
+                    : DesktopOperations.DiagnoseControlTargets(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadRequiredString(arguments, "targetName"),
+                        ReadBool(arguments, "allWindows"),
+                        ReadInt(arguments, "sampleLimit") ?? 10,
+                        ReadBool(arguments, "includeActionProbe")),
+                "control_exists" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
+                    ? DesktopOperations.ControlExists(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadControlCriteria(arguments),
+                        ReadBool(arguments, "allWindows"))
+                    : DesktopOperations.ControlTargetExists(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadRequiredString(arguments, "targetName"),
+                        ReadBool(arguments, "allWindows"),
+                        ReadBool(arguments, "all")),
+                "wait_for_control" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
+                    ? DesktopOperations.WaitForControl(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadControlCriteria(arguments),
+                        ReadInt(arguments, "timeoutMs") ?? 10000,
+                        ReadInt(arguments, "intervalMs") ?? 200,
+                        ReadBool(arguments, "allWindows"))
+                    : DesktopOperations.WaitForControlTarget(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadRequiredString(arguments, "targetName"),
+                        ReadInt(arguments, "timeoutMs") ?? 10000,
+                        ReadInt(arguments, "intervalMs") ?? 200,
+                        ReadBool(arguments, "allWindows"),
+                        ReadBool(arguments, "all")),
+                "click_control" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
+                    ? DesktopOperations.ClickControl(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadControlCriteria(arguments),
+                        ReadOptionalString(arguments, "button") ?? "left",
+                        ReadBool(arguments, "allWindows"))
+                    : DesktopOperations.ClickControlTarget(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadRequiredString(arguments, "targetName"),
+                        ReadOptionalString(arguments, "button") ?? "left",
+                        ReadBool(arguments, "allWindows"),
+                        ReadBool(arguments, "all")),
+                "set_control_text" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
+                    ? DesktopOperations.SetControlText(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadControlCriteria(arguments),
+                        ReadRequiredString(arguments, "text"),
+                        ReadBool(arguments, "allWindows"))
+                    : DesktopOperations.SetControlTargetText(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadRequiredString(arguments, "targetName"),
+                        ReadRequiredString(arguments, "text"),
+                        ReadBool(arguments, "ensureForegroundWindow"),
+                        ReadBool(arguments, "allowForegroundInput"),
+                        ReadBool(arguments, "allWindows"),
+                        ReadBool(arguments, "all")),
+                "send_control_keys" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
+                    ? DesktopOperations.SendControlKeys(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadControlCriteria(arguments),
+                        ReadStringList(arguments, "keys"),
+                        ReadBool(arguments, "allWindows"))
+                    : DesktopOperations.SendControlTargetKeys(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadRequiredString(arguments, "targetName"),
+                        ReadStringList(arguments, "keys"),
+                        ReadBool(arguments, "ensureForegroundWindow"),
+                        ReadBool(arguments, "allowForegroundInput"),
+                        ReadBool(arguments, "allWindows"),
+                        ReadBool(arguments, "all")),
                 "type_window_text" => DesktopOperations.TypeWindowText(
                     ReadWindowCriteria(arguments, true),
                     ReadRequiredString(arguments, "text"),
@@ -566,6 +750,8 @@ internal static class McpCatalog {
             "desktop://windows/visible" => DesktopOperations.ListWindows(new WindowSelectionCriteria()),
             "desktop://windows/active" => DesktopOperations.GetActiveWindow(),
             "desktop://layouts" => DesktopOperations.ListLayouts(),
+            "desktop://targets" => DesktopOperations.ListWindowTargets(),
+            "desktop://control-targets" => DesktopOperations.ListControlTargets(),
             "desktop://snapshot/current" => DesktopOperations.GetCurrentSnapshotSummary(),
             _ => throw new CommandLineException($"Unknown resource '{uri}'.")
         };
@@ -629,11 +815,90 @@ internal static class McpCatalog {
             FrameworkIdPattern = ReadOptionalString(element, "controlFrameworkId") ?? "*",
             IsEnabled = ReadNullableBool(element, "isEnabled"),
             IsKeyboardFocusable = ReadNullableBool(element, "isKeyboardFocusable"),
+            SupportsBackgroundClick = ReadNullableBool(element, "supportsBackgroundClick"),
+            SupportsBackgroundText = ReadNullableBool(element, "supportsBackgroundText"),
+            SupportsBackgroundKeys = ReadNullableBool(element, "supportsBackgroundKeys"),
+            SupportsForegroundInputFallback = ReadNullableBool(element, "supportsForegroundInputFallback"),
             EnsureForegroundWindow = ReadBool(element, "ensureForegroundWindow"),
+            AllowForegroundInputFallback = ReadBool(element, "allowForegroundInput"),
             UiAutomation = ReadBool(element, "uiAutomation"),
             IncludeUiAutomation = ReadBool(element, "includeUiAutomation"),
             All = ReadBool(element, "all")
         };
+    }
+
+    private static object CallClickWindowPoint(JsonElement arguments) {
+        WindowSelectionCriteria criteria = ReadWindowCriteria(arguments, true);
+        string? targetName = ReadOptionalString(arguments, "targetName");
+        if (!string.IsNullOrWhiteSpace(targetName)) {
+            return DesktopOperations.ClickWindowTarget(
+                criteria,
+                targetName,
+                ReadOptionalString(arguments, "button") ?? "left",
+                ReadBool(arguments, "activate"));
+        }
+
+        return DesktopOperations.ClickWindowPoint(
+            criteria,
+            ReadInt(arguments, "x"),
+            ReadInt(arguments, "y"),
+            ReadDouble(arguments, "xRatio"),
+            ReadDouble(arguments, "yRatio"),
+            ReadOptionalString(arguments, "button") ?? "left",
+            ReadBool(arguments, "activate"),
+            ReadBool(arguments, "clientArea"));
+    }
+
+    private static object CallDragWindowPoints(JsonElement arguments) {
+        WindowSelectionCriteria criteria = ReadWindowCriteria(arguments, true);
+        string? startTargetName = ReadOptionalString(arguments, "startTargetName");
+        if (!string.IsNullOrWhiteSpace(startTargetName)) {
+            return DesktopOperations.DragWindowTargets(
+                criteria,
+                startTargetName,
+                ReadRequiredString(arguments, "endTargetName"),
+                ReadOptionalString(arguments, "button") ?? "left",
+                ReadInt(arguments, "stepDelayMs") ?? 0,
+                ReadBool(arguments, "activate"));
+        }
+
+        return DesktopOperations.DragWindowPoints(
+            criteria,
+            ReadInt(arguments, "startX"),
+            ReadInt(arguments, "startY"),
+            ReadDouble(arguments, "startXRatio"),
+            ReadDouble(arguments, "startYRatio"),
+            ReadInt(arguments, "endX"),
+            ReadInt(arguments, "endY"),
+            ReadDouble(arguments, "endXRatio"),
+            ReadDouble(arguments, "endYRatio"),
+            ReadOptionalString(arguments, "button") ?? "left",
+            ReadInt(arguments, "stepDelayMs") ?? 0,
+            ReadBool(arguments, "activate"),
+            ReadBool(arguments, "clientArea"));
+    }
+
+    private static object CallScrollWindowPoint(JsonElement arguments) {
+        WindowSelectionCriteria criteria = ReadWindowCriteria(arguments, true);
+        string? targetName = ReadOptionalString(arguments, "targetName");
+        int delta = ReadInt(arguments, "delta") ?? throw new CommandLineException("Property 'delta' is required.");
+        if (!string.IsNullOrWhiteSpace(targetName)) {
+            return DesktopOperations.ScrollWindowTarget(
+                criteria,
+                targetName,
+                delta,
+                ReadBool(arguments, "activate"));
+        }
+
+        return DesktopOperations.ScrollWindowPoint(
+            criteria,
+            ReadInt(arguments, "x"),
+            ReadInt(arguments, "y"),
+            ReadDouble(arguments, "xRatio"),
+            ReadDouble(arguments, "yRatio"),
+            delta,
+            ReadBool(arguments, "activate"),
+            ReadBool(arguments, "clientArea"));
     }
 
     private static object CreateTool(string name, string title, string description, object inputSchema, bool readOnly, bool destructive = false, bool idempotent = false) {

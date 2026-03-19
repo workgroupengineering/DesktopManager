@@ -26,8 +26,8 @@ public sealed class CmdletInvokeDesktopControlClick : PSCmdlet {
     /// <inheritdoc />
     protected override void BeginProcessing() {
         if (ShouldProcess(Control.Text ?? Control.ClassName, $"Click {Button}")) {
-            var manager = new WindowManager();
-            manager.ClickControl(Control, Button);
+            var automation = new DesktopAutomationService();
+            automation.ClickControl(Control, Button);
         }
     }
 }

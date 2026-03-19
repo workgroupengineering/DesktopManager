@@ -70,6 +70,18 @@ public sealed class CmdletInvokeDesktopWindowDrag : PSCmdlet {
     public double? EndYRatio { get; set; }
 
     /// <summary>
+    /// <para type="description">Saved reusable starting target name to drag from instead of supplying starting coordinates directly.</para>
+    /// </summary>
+    [Parameter]
+    public string StartTargetName { get; set; }
+
+    /// <summary>
+    /// <para type="description">Saved reusable ending target name to drag to instead of supplying ending coordinates directly.</para>
+    /// </summary>
+    [Parameter]
+    public string EndTargetName { get; set; }
+
+    /// <summary>
     /// <para type="description">Mouse button to hold during the drag.</para>
     /// </summary>
     [Parameter]
@@ -105,10 +117,19 @@ public sealed class CmdletInvokeDesktopWindowDrag : PSCmdlet {
             IncludeEmptyTitles = ActiveWindow ? true : null
         };
 
-        string startText = StartX.HasValue && StartY.HasValue ? $"{StartX},{StartY}" : $"{StartXRatio},{StartYRatio}";
-        string endText = EndX.HasValue && EndY.HasValue ? $"{EndX},{EndY}" : $"{EndXRatio},{EndYRatio}";
+        bool useNamedTargets = !string.IsNullOrWhiteSpace(StartTargetName) || !string.IsNullOrWhiteSpace(EndTargetName);
+        if (useNamedTargets && (string.IsNullOrWhiteSpace(StartTargetName) || string.IsNullOrWhiteSpace(EndTargetName))) {
+            throw new PSArgumentException("Both StartTargetName and EndTargetName are required when using named targets.");
+        }
+
+        string startText = useNamedTargets ? $"target '{StartTargetName}'" : StartX.HasValue && StartY.HasValue ? $"{StartX},{StartY}" : $"{StartXRatio},{StartYRatio}";
+        string endText = useNamedTargets ? $"target '{EndTargetName}'" : EndX.HasValue && EndY.HasValue ? $"{EndX},{EndY}" : $"{EndXRatio},{EndYRatio}";
         if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Drag from {startText} to {endText}")) {
-            WriteObject(automation.DragWindowPoints(options, StartX, StartY, StartXRatio, StartYRatio, EndX, EndY, EndXRatio, EndYRatio, Button, StepDelayMilliseconds, Activate, ClientArea, all: false), true);
+            if (useNamedTargets) {
+                WriteObject(automation.DragWindowTargets(options, StartTargetName, EndTargetName, Button, StepDelayMilliseconds, Activate, all: false), true);
+            } else {
+                WriteObject(automation.DragWindowPoints(options, StartX, StartY, StartXRatio, StartYRatio, EndX, EndY, EndXRatio, EndYRatio, Button, StepDelayMilliseconds, Activate, ClientArea, all: false), true);
+            }
         }
     }
 }

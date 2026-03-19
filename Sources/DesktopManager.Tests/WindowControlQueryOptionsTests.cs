@@ -62,4 +62,28 @@ public class WindowControlQueryOptionsTests {
 
         Assert.IsTrue(options.RequiresUiAutomation());
     }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures background-click capability filters enable UI Automation.
+    /// </summary>
+    public void RequiresUiAutomation_BackgroundClickFilter_ReturnsTrue() {
+        var options = new WindowControlQueryOptions {
+            SupportsBackgroundClick = true
+        };
+
+        Assert.IsTrue(options.RequiresUiAutomation());
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures foreground-fallback capability filters enable UI Automation.
+    /// </summary>
+    public void RequiresUiAutomation_ForegroundFallbackFilter_ReturnsTrue() {
+        var options = new WindowControlQueryOptions {
+            SupportsForegroundInputFallback = true
+        };
+
+        Assert.IsTrue(options.RequiresUiAutomation());
+    }
 }

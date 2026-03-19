@@ -38,6 +38,24 @@ public static class DesktopStateStore {
     }
 
     /// <summary>
+    /// Gets the path for a named window target.
+    /// </summary>
+    /// <param name="name">Target name.</param>
+    /// <returns>The full target path.</returns>
+    public static string GetTargetPath(string name) {
+        return GetNamedPath("targets", name);
+    }
+
+    /// <summary>
+    /// Gets the path for a named control target.
+    /// </summary>
+    /// <param name="name">Control target name.</param>
+    /// <returns>The full target path.</returns>
+    public static string GetControlTargetPath(string name) {
+        return GetNamedPath("control-targets", name);
+    }
+
+    /// <summary>
     /// Lists stored names for a given category.
     /// </summary>
     /// <param name="category">Storage category.</param>

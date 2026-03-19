@@ -90,6 +90,7 @@ Additional operator-focused docs for the newer CLI and MCP surfaces:
 | Invoke-DesktopScreenshot | Capture monitor or region screenshots |
 | Get-DesktopWindow | Enumerate visible windows |
 | Get-DesktopWindowControl | Enumerate Win32 or UIA window controls |
+| Set-DesktopControlText | Write text directly to a specific control |
 | Set-DesktopWindow | Move, resize or control windows |
 | Set-DesktopWindowSnap | Snap window to common positions |
 | Set-DesktopWindowText | Paste or type text into a window |
@@ -137,6 +138,7 @@ The table below shows the most relevant API methods behind each PowerShell cmdle
 | Invoke-DesktopScreenshot | `ScreenshotService.CaptureScreen`, `ScreenshotService.CaptureRegion` |
 | Get-DesktopWindow | `WindowManager.GetWindows` / `GetWindowsForProcess` |
 | Get-DesktopWindowControl | `DesktopAutomationService.GetControls` |
+| Set-DesktopControlText | `WindowManager.SetControlText` |
 | Set-DesktopWindow | `WindowManager.SetWindowPosition`, `MoveWindowToMonitor`, etc. |
 | Set-DesktopWindowSnap | `WindowManager.SnapWindow` |
 | Set-DesktopWindowText | `WindowInputService` |

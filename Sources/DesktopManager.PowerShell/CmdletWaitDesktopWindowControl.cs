@@ -68,6 +68,12 @@ public sealed class CmdletWaitDesktopWindowControl : PSCmdlet {
     public string FrameworkId { get; set; } = "*";
 
     /// <summary>
+    /// <para type="description">Optional saved control target name to resolve instead of ad-hoc selectors.</para>
+    /// </summary>
+    [Parameter]
+    public string ControlTargetName { get; set; }
+
+    /// <summary>
     /// <para type="description">Require the control to be enabled.</para>
     /// </summary>
     [Parameter]
@@ -90,6 +96,30 @@ public sealed class CmdletWaitDesktopWindowControl : PSCmdlet {
     /// </summary>
     [Parameter]
     public SwitchParameter NotFocusable { get; set; }
+
+    /// <summary>
+    /// <para type="description">Require controls that support background-safe click or invoke actions.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter BackgroundClick { get; set; }
+
+    /// <summary>
+    /// <para type="description">Require controls that support background-safe text updates.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter BackgroundText { get; set; }
+
+    /// <summary>
+    /// <para type="description">Require controls that support background-safe key delivery.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter BackgroundKeys { get; set; }
+
+    /// <summary>
+    /// <para type="description">Require controls that support explicit foreground input fallback.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter ForegroundFallback { get; set; }
 
     /// <summary>
     /// <para type="description">Use UI Automation for control discovery.</para>
@@ -148,12 +178,18 @@ public sealed class CmdletWaitDesktopWindowControl : PSCmdlet {
             FrameworkIdPattern = FrameworkId,
             IsEnabled = Enabled ? true : Disabled ? false : null,
             IsKeyboardFocusable = Focusable ? true : NotFocusable ? false : null,
+            SupportsBackgroundClick = BackgroundClick ? true : null,
+            SupportsBackgroundText = BackgroundText ? true : null,
+            SupportsBackgroundKeys = BackgroundKeys ? true : null,
+            SupportsForegroundInputFallback = ForegroundFallback ? true : null,
             EnsureForegroundWindow = EnsureForeground,
             UseUiAutomation = UiAutomation,
             IncludeUiAutomation = IncludeUiAutomation
         };
 
-        DesktopControlWaitResult result = automation.WaitForControls(windowOptions, controlOptions, TimeoutMs, IntervalMs, allWindows: true, allControls: All);
+        DesktopControlWaitResult result = string.IsNullOrWhiteSpace(ControlTargetName)
+            ? automation.WaitForControls(windowOptions, controlOptions, TimeoutMs, IntervalMs, allWindows: true, allControls: All)
+            : automation.WaitForControlTarget(windowOptions, ControlTargetName, TimeoutMs, IntervalMs, allWindows: true, allControls: All);
         WriteObject(result.Controls.Select(target => target.Control), true);
     }
 }

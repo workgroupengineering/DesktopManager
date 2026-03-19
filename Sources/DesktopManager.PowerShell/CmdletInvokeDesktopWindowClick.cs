@@ -46,6 +46,12 @@ public sealed class CmdletInvokeDesktopWindowClick : PSCmdlet {
     public double? YRatio { get; set; }
 
     /// <summary>
+    /// <para type="description">Saved reusable target name to click instead of supplying coordinates directly.</para>
+    /// </summary>
+    [Parameter]
+    public string TargetName { get; set; }
+
+    /// <summary>
     /// <para type="description">Mouse button to use for the click.</para>
     /// </summary>
     [Parameter]
@@ -75,11 +81,17 @@ public sealed class CmdletInvokeDesktopWindowClick : PSCmdlet {
             IncludeEmptyTitles = ActiveWindow ? true : null
         };
 
-        string targetText = X.HasValue && Y.HasValue
-            ? $"{X},{Y}"
-            : $"{XRatio},{YRatio}";
+        string targetText = !string.IsNullOrWhiteSpace(TargetName)
+            ? $"target '{TargetName}'"
+            : X.HasValue && Y.HasValue
+                ? $"{X},{Y}"
+                : $"{XRatio},{YRatio}";
         if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Click point {targetText}")) {
-            WriteObject(automation.ClickWindowPoint(options, X, Y, XRatio, YRatio, Button, Activate, ClientArea, all: false), true);
+            if (!string.IsNullOrWhiteSpace(TargetName)) {
+                WriteObject(automation.ClickWindowTarget(options, TargetName, Button, Activate, all: false), true);
+            } else {
+                WriteObject(automation.ClickWindowPoint(options, X, Y, XRatio, YRatio, Button, Activate, ClientArea, all: false), true);
+            }
         }
     }
 }

@@ -50,6 +50,13 @@ internal static class DesktopOperations {
             new DesktopAutomationService().ClickWindowPoint(CreateWindowQuery(criteria), x, y, xRatio, yRatio, mouseButton, activate, clientArea, criteria.All)));
     }
 
+    public static WindowChangeResult ClickWindowTarget(WindowSelectionCriteria criteria, string targetName, string button, bool activate) {
+        MouseButton mouseButton = ParseMouseButton(button);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "click-target",
+            new DesktopAutomationService().ClickWindowTarget(CreateWindowQuery(criteria), targetName, mouseButton, activate, criteria.All)));
+    }
+
     public static WindowChangeResult DragWindowPoints(WindowSelectionCriteria criteria, int? startX, int? startY, double? startXRatio, double? startYRatio, int? endX, int? endY, double? endXRatio, double? endYRatio, string button, int stepDelayMilliseconds, bool activate, bool clientArea) {
         MouseButton mouseButton = ParseMouseButton(button);
         return ExecuteCore(() => BuildWindowChangeResult(
@@ -57,10 +64,23 @@ internal static class DesktopOperations {
             new DesktopAutomationService().DragWindowPoints(CreateWindowQuery(criteria), startX, startY, startXRatio, startYRatio, endX, endY, endXRatio, endYRatio, mouseButton, stepDelayMilliseconds, activate, clientArea, criteria.All)));
     }
 
+    public static WindowChangeResult DragWindowTargets(WindowSelectionCriteria criteria, string startTargetName, string endTargetName, string button, int stepDelayMilliseconds, bool activate) {
+        MouseButton mouseButton = ParseMouseButton(button);
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "drag-target",
+            new DesktopAutomationService().DragWindowTargets(CreateWindowQuery(criteria), startTargetName, endTargetName, mouseButton, stepDelayMilliseconds, activate, criteria.All)));
+    }
+
     public static WindowChangeResult ScrollWindowPoint(WindowSelectionCriteria criteria, int? x, int? y, double? xRatio, double? yRatio, int delta, bool activate, bool clientArea) {
         return ExecuteCore(() => BuildWindowChangeResult(
             "scroll-point",
             new DesktopAutomationService().ScrollWindowPoint(CreateWindowQuery(criteria), x, y, xRatio, yRatio, delta, activate, clientArea, criteria.All)));
+    }
+
+    public static WindowChangeResult ScrollWindowTarget(WindowSelectionCriteria criteria, string targetName, int delta, bool activate) {
+        return ExecuteCore(() => BuildWindowChangeResult(
+            "scroll-target",
+            new DesktopAutomationService().ScrollWindowTarget(CreateWindowQuery(criteria), targetName, delta, activate, criteria.All)));
     }
 
     public static WindowChangeResult MinimizeWindows(WindowSelectionCriteria criteria) {
@@ -115,6 +135,13 @@ internal static class DesktopOperations {
             .ToArray());
     }
 
+    public static IReadOnlyList<ControlResult> ListControlTargets(WindowSelectionCriteria windowCriteria, string targetName, bool allWindows, bool allControls) {
+        return ExecuteCore(() => new DesktopAutomationService()
+            .GetControlTargets(CreateWindowQuery(windowCriteria), targetName, allWindows, allControls)
+            .Select(MapControl)
+            .ToArray());
+    }
+
     public static ControlAssertionResult ControlExists(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
         return ExecuteCore(() => {
             IReadOnlyList<ControlResult> controls = new DesktopAutomationService()
@@ -130,9 +157,31 @@ internal static class DesktopOperations {
         });
     }
 
-    public static IReadOnlyList<ControlDiagnosticResult> DiagnoseControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows, int sampleLimit) {
+    public static ControlAssertionResult ControlTargetExists(WindowSelectionCriteria windowCriteria, string targetName, bool allWindows, bool allControls) {
+        return ExecuteCore(() => {
+            IReadOnlyList<ControlResult> controls = new DesktopAutomationService()
+                .GetControlTargets(CreateWindowQuery(windowCriteria), targetName, allWindows, allControls)
+                .Select(MapControl)
+                .ToArray();
+            return new ControlAssertionResult {
+                Assertion = "control-exists",
+                Matched = controls.Count > 0,
+                Count = controls.Count,
+                Controls = controls
+            };
+        });
+    }
+
+    public static IReadOnlyList<ControlDiagnosticResult> DiagnoseControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows, int sampleLimit, bool includeActionProbe) {
         return ExecuteCore(() => new DesktopAutomationService()
-            .GetControlDiagnostics(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), allWindows, sampleLimit)
+            .GetControlDiagnostics(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), allWindows, sampleLimit, includeActionProbe)
+            .Select(MapControlDiagnostics)
+            .ToArray());
+    }
+
+    public static IReadOnlyList<ControlDiagnosticResult> DiagnoseControlTargets(WindowSelectionCriteria windowCriteria, string targetName, bool allWindows, int sampleLimit, bool includeActionProbe) {
+        return ExecuteCore(() => new DesktopAutomationService()
+            .GetControlTargetDiagnostics(CreateWindowQuery(windowCriteria), targetName, allWindows, sampleLimit, includeActionProbe)
             .Select(MapControlDiagnostics)
             .ToArray());
     }
@@ -142,6 +191,13 @@ internal static class DesktopOperations {
         return ExecuteCore(() => BuildControlActionResult(
             "click-control",
             new DesktopAutomationService().ClickControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), mouseButton, allWindows, controlCriteria.All)));
+    }
+
+    public static ControlActionResult ClickControlTarget(WindowSelectionCriteria windowCriteria, string targetName, string button, bool allWindows, bool allControls) {
+        MouseButton mouseButton = ParseMouseButton(button);
+        return ExecuteCore(() => BuildControlActionResult(
+            "click-control",
+            new DesktopAutomationService().ClickControlTarget(CreateWindowQuery(windowCriteria), targetName, mouseButton, allWindows, allControls)));
     }
 
     public static ControlActionResult SetControlText(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string text, bool allWindows) {
@@ -154,6 +210,16 @@ internal static class DesktopOperations {
             new DesktopAutomationService().SetControlText(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), text, allWindows, controlCriteria.All)));
     }
 
+    public static ControlActionResult SetControlTargetText(WindowSelectionCriteria windowCriteria, string targetName, string text, bool ensureForegroundWindow, bool allowForegroundInputFallback, bool allWindows, bool allControls) {
+        if (text == null) {
+            throw new CommandLineException("Text is required.");
+        }
+
+        return ExecuteCore(() => BuildControlActionResult(
+            "set-control-text",
+            new DesktopAutomationService().SetControlTargetText(CreateWindowQuery(windowCriteria), targetName, text, ensureForegroundWindow, allowForegroundInputFallback, allWindows, allControls)));
+    }
+
     public static ControlActionResult SendControlKeys(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, IReadOnlyList<string> keys, bool allWindows) {
         VirtualKey[] virtualKeys = ParseVirtualKeys(keys);
         return ExecuteCore(() => BuildControlActionResult(
@@ -161,9 +227,27 @@ internal static class DesktopOperations {
             new DesktopAutomationService().SendControlKeys(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), virtualKeys, allWindows, controlCriteria.All)));
     }
 
+    public static ControlActionResult SendControlTargetKeys(WindowSelectionCriteria windowCriteria, string targetName, IReadOnlyList<string> keys, bool ensureForegroundWindow, bool allowForegroundInputFallback, bool allWindows, bool allControls) {
+        VirtualKey[] virtualKeys = ParseVirtualKeys(keys);
+        return ExecuteCore(() => BuildControlActionResult(
+            "send-control-keys",
+            new DesktopAutomationService().SendControlTargetKeys(CreateWindowQuery(windowCriteria), targetName, virtualKeys, ensureForegroundWindow, allowForegroundInputFallback, allWindows, allControls)));
+    }
+
     public static WaitForControlResult WaitForControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, int timeoutMilliseconds, int intervalMilliseconds, bool allWindows) {
         return ExecuteCore(() => {
             DesktopControlWaitResult result = new DesktopAutomationService().WaitForControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), timeoutMilliseconds, intervalMilliseconds, allWindows, controlCriteria.All);
+            return new WaitForControlResult {
+                ElapsedMilliseconds = result.ElapsedMilliseconds,
+                Count = result.Controls.Count,
+                Controls = result.Controls.Select(MapControl).ToArray()
+            };
+        });
+    }
+
+    public static WaitForControlResult WaitForControlTarget(WindowSelectionCriteria windowCriteria, string targetName, int timeoutMilliseconds, int intervalMilliseconds, bool allWindows, bool allControls) {
+        return ExecuteCore(() => {
+            DesktopControlWaitResult result = new DesktopAutomationService().WaitForControlTarget(CreateWindowQuery(windowCriteria), targetName, timeoutMilliseconds, intervalMilliseconds, allWindows, allControls);
             return new WaitForControlResult {
                 ElapsedMilliseconds = result.ElapsedMilliseconds,
                 Count = result.Controls.Count,
@@ -238,6 +322,86 @@ internal static class DesktopOperations {
         return ExecuteCore(() => DesktopStateStore.ListNames("snapshots"));
     }
 
+    public static WindowTargetResult SaveWindowTarget(string name, string? description, int? x, int? y, double? xRatio, double? yRatio, bool clientArea) {
+        return ExecuteCore(() => {
+            DesktopWindowTargetDefinition definition = new DesktopWindowTargetDefinition {
+                Description = description,
+                X = x,
+                Y = y,
+                XRatio = xRatio,
+                YRatio = yRatio,
+                ClientArea = clientArea
+            };
+
+            DesktopWindowTargetDefinition saved = new DesktopAutomationService().SaveWindowTarget(name, definition);
+            return BuildWindowTargetResult(name, DesktopStateStore.GetTargetPath(name), saved);
+        });
+    }
+
+    public static IReadOnlyList<string> ListWindowTargets() {
+        return ExecuteCore(() => new DesktopAutomationService().ListWindowTargets());
+    }
+
+    public static WindowTargetResult GetWindowTarget(string name) {
+        return ExecuteCore(() => BuildWindowTargetResult(
+            name,
+            DesktopStateStore.GetTargetPath(name),
+            new DesktopAutomationService().GetWindowTarget(name)));
+    }
+
+    public static IReadOnlyList<ResolvedWindowTargetResult> ResolveWindowTargets(WindowSelectionCriteria criteria, string name) {
+        return ExecuteCore(() => new DesktopAutomationService()
+            .ResolveWindowTargets(CreateWindowQuery(criteria), name, criteria.All)
+            .Select(MapResolvedWindowTarget)
+            .ToArray());
+    }
+
+    public static ControlTargetResult SaveControlTarget(string name, ControlSelectionCriteria criteria, string? description) {
+        return ExecuteCore(() => {
+            DesktopControlTargetDefinition definition = new DesktopControlTargetDefinition {
+                Description = description,
+                ClassNamePattern = criteria.ClassNamePattern,
+                TextPattern = criteria.TextPattern,
+                ValuePattern = criteria.ValuePattern,
+                Id = criteria.Id,
+                Handle = criteria.Handle,
+                AutomationIdPattern = criteria.AutomationIdPattern,
+                ControlTypePattern = criteria.ControlTypePattern,
+                FrameworkIdPattern = criteria.FrameworkIdPattern,
+                IsEnabled = criteria.IsEnabled,
+                IsKeyboardFocusable = criteria.IsKeyboardFocusable,
+                SupportsBackgroundClick = criteria.SupportsBackgroundClick,
+                SupportsBackgroundText = criteria.SupportsBackgroundText,
+                SupportsBackgroundKeys = criteria.SupportsBackgroundKeys,
+                SupportsForegroundInputFallback = criteria.SupportsForegroundInputFallback,
+                UseUiAutomation = criteria.UiAutomation,
+                IncludeUiAutomation = criteria.IncludeUiAutomation,
+                EnsureForegroundWindow = criteria.EnsureForegroundWindow
+            };
+
+            DesktopControlTargetDefinition saved = new DesktopAutomationService().SaveControlTarget(name, definition);
+            return BuildControlTargetResult(name, DesktopStateStore.GetControlTargetPath(name), saved);
+        });
+    }
+
+    public static IReadOnlyList<string> ListControlTargets() {
+        return ExecuteCore(() => new DesktopAutomationService().ListControlTargets());
+    }
+
+    public static ControlTargetResult GetControlTarget(string name) {
+        return ExecuteCore(() => BuildControlTargetResult(
+            name,
+            DesktopStateStore.GetControlTargetPath(name),
+            new DesktopAutomationService().GetControlTarget(name)));
+    }
+
+    public static IReadOnlyList<ResolvedControlTargetResult> ResolveControlTargets(WindowSelectionCriteria windowCriteria, string name, bool allControls = false) {
+        return ExecuteCore(() => new DesktopAutomationService()
+            .ResolveControlTargets(CreateWindowQuery(windowCriteria), name, windowCriteria.All, allControls)
+            .Select(MapResolvedControlTarget)
+            .ToArray());
+    }
+
     public static object GetCurrentSnapshotSummary() {
         return new {
             ActiveWindow = SafeGetActiveWindow(),
@@ -272,13 +436,18 @@ internal static class DesktopOperations {
         });
     }
 
-    public static ProcessLaunchResult LaunchProcess(string filePath, string? arguments, string? workingDirectory, int? waitForInputIdleMilliseconds) {
+    public static ProcessLaunchResult LaunchProcess(string filePath, string? arguments, string? workingDirectory, int? waitForInputIdleMilliseconds, int? waitForWindowMilliseconds, int? waitForWindowIntervalMilliseconds, string? windowTitlePattern, string? windowClassNamePattern, bool requireWindow) {
         return ExecuteCore(() => {
             DesktopProcessLaunchInfo result = new DesktopAutomationService().LaunchProcess(new DesktopProcessStartOptions {
                 FilePath = filePath,
                 Arguments = arguments,
                 WorkingDirectory = workingDirectory,
-                WaitForInputIdleMilliseconds = waitForInputIdleMilliseconds
+                WaitForInputIdleMilliseconds = waitForInputIdleMilliseconds,
+                WaitForWindowMilliseconds = waitForWindowMilliseconds,
+                WaitForWindowIntervalMilliseconds = waitForWindowIntervalMilliseconds,
+                WindowTitlePattern = windowTitlePattern,
+                WindowClassNamePattern = windowClassNamePattern,
+                RequireWindow = requireWindow
             });
 
             return new ProcessLaunchResult {
@@ -286,6 +455,7 @@ internal static class DesktopOperations {
                 Arguments = result.Arguments,
                 WorkingDirectory = result.WorkingDirectory,
                 ProcessId = result.ProcessId,
+                ResolvedProcessId = result.ResolvedProcessId,
                 HasExited = result.HasExited,
                 MainWindow = result.MainWindow == null ? null : MapWindow(result.MainWindow)
             };
@@ -404,6 +574,78 @@ internal static class DesktopOperations {
         };
     }
 
+    private static WindowTargetResult BuildWindowTargetResult(string name, string path, DesktopWindowTargetDefinition target) {
+        return new WindowTargetResult {
+            Name = name,
+            Path = path,
+            Target = MapWindowTargetDefinition(target)
+        };
+    }
+
+    private static ControlTargetResult BuildControlTargetResult(string name, string path, DesktopControlTargetDefinition target) {
+        return new ControlTargetResult {
+            Name = name,
+            Path = path,
+            Target = MapControlTargetDefinition(target)
+        };
+    }
+
+    private static WindowTargetDefinitionResult MapWindowTargetDefinition(DesktopWindowTargetDefinition target) {
+        return new WindowTargetDefinitionResult {
+            Description = target.Description,
+            X = target.X,
+            Y = target.Y,
+            XRatio = target.XRatio,
+            YRatio = target.YRatio,
+            ClientArea = target.ClientArea
+        };
+    }
+
+    private static ControlTargetDefinitionResult MapControlTargetDefinition(DesktopControlTargetDefinition target) {
+        return new ControlTargetDefinitionResult {
+            Description = target.Description,
+            ClassNamePattern = target.ClassNamePattern,
+            TextPattern = target.TextPattern,
+            ValuePattern = target.ValuePattern,
+            Id = target.Id,
+            Handle = target.Handle,
+            AutomationIdPattern = target.AutomationIdPattern,
+            ControlTypePattern = target.ControlTypePattern,
+            FrameworkIdPattern = target.FrameworkIdPattern,
+            IsEnabled = target.IsEnabled,
+            IsKeyboardFocusable = target.IsKeyboardFocusable,
+            SupportsBackgroundClick = target.SupportsBackgroundClick,
+            SupportsBackgroundText = target.SupportsBackgroundText,
+            SupportsBackgroundKeys = target.SupportsBackgroundKeys,
+            SupportsForegroundInputFallback = target.SupportsForegroundInputFallback,
+            UseUiAutomation = target.UseUiAutomation,
+            IncludeUiAutomation = target.IncludeUiAutomation,
+            EnsureForegroundWindow = target.EnsureForegroundWindow
+        };
+    }
+
+    private static ResolvedWindowTargetResult MapResolvedWindowTarget(DesktopResolvedWindowTarget target) {
+        return new ResolvedWindowTargetResult {
+            Name = target.Name,
+            Target = MapWindowTargetDefinition(target.Definition),
+            Window = MapWindow(target.Geometry.Window),
+            Geometry = MapWindowGeometry(target.Geometry),
+            RelativeX = target.RelativeX,
+            RelativeY = target.RelativeY,
+            ScreenX = target.ScreenX,
+            ScreenY = target.ScreenY
+        };
+    }
+
+    private static ResolvedControlTargetResult MapResolvedControlTarget(DesktopResolvedControlTarget target) {
+        return new ResolvedControlTargetResult {
+            Name = target.Name,
+            Target = MapControlTargetDefinition(target.Definition),
+            Window = MapWindow(target.Window),
+            Control = MapControl(target.Window, target.Control)
+        };
+    }
+
     private static ControlResult MapControl(WindowControlTargetInfo target) {
         return MapControl(target.Window, target.Control);
     }
@@ -421,6 +663,15 @@ internal static class DesktopOperations {
             FrameworkId = control.FrameworkId,
             IsKeyboardFocusable = control.IsKeyboardFocusable,
             IsEnabled = control.IsEnabled,
+            IsOffscreen = control.IsOffscreen,
+            SupportsBackgroundClick = control.SupportsBackgroundClick,
+            SupportsBackgroundText = control.SupportsBackgroundText,
+            SupportsBackgroundKeys = control.SupportsBackgroundKeys,
+            SupportsForegroundInputFallback = control.SupportsForegroundInputFallback,
+            Left = control.Left,
+            Top = control.Top,
+            Width = control.Width,
+            Height = control.Height,
             ParentWindow = MapWindow(window)
         };
     }
@@ -433,16 +684,43 @@ internal static class DesktopOperations {
             IncludeUiAutomation = diagnostics.IncludeUiAutomation,
             EnsureForegroundWindow = diagnostics.EnsureForegroundWindow,
             UiAutomationAvailable = diagnostics.UiAutomationAvailable,
+            ElapsedMilliseconds = diagnostics.ElapsedMilliseconds,
             PreparationAttempted = diagnostics.PreparationAttempted,
             PreparationSucceeded = diagnostics.PreparationSucceeded,
             UiAutomationFallbackRootCount = diagnostics.UiAutomationFallbackRootCount,
             UsedUiAutomationFallbackRoots = diagnostics.UsedUiAutomationFallbackRoots,
+            UsedCachedUiAutomationControls = diagnostics.UsedCachedUiAutomationControls,
+            UsedPreferredUiAutomationRoot = diagnostics.UsedPreferredUiAutomationRoot,
+            PreferredUiAutomationRootHandle = diagnostics.PreferredUiAutomationRootHandle == IntPtr.Zero ? string.Empty : $"0x{diagnostics.PreferredUiAutomationRootHandle.ToInt64():X}",
             EffectiveSource = diagnostics.EffectiveSource,
             Win32ControlCount = diagnostics.Win32ControlCount,
             UiAutomationControlCount = diagnostics.UiAutomationControlCount,
             EffectiveControlCount = diagnostics.EffectiveControlCount,
             MatchedControlCount = diagnostics.MatchedControlCount,
-            SampleControls = diagnostics.SampleControls.Select(control => MapControl(diagnostics.Window, control)).ToArray()
+            SampleControls = diagnostics.SampleControls.Select(control => MapControl(diagnostics.Window, control)).ToArray(),
+            UiAutomationRoots = diagnostics.UiAutomationRoots.Select(root => new UiAutomationRootDiagnosticResult {
+                Order = root.Order,
+                Handle = $"0x{root.Handle.ToInt64():X}",
+                ClassName = root.ClassName,
+                IsPrimaryRoot = root.IsPrimaryRoot,
+                IsPreferredRoot = root.IsPreferredRoot,
+                UsedCachedControls = root.UsedCachedControls,
+                IncludeRoot = root.IncludeRoot,
+                ElementResolved = root.ElementResolved,
+                ControlCount = root.ControlCount,
+                Error = root.Error,
+                SampleControls = root.SampleControls.Select(control => MapControl(diagnostics.Window, control)).ToArray()
+            }).ToArray(),
+            UiAutomationActionProbe = diagnostics.UiAutomationActionProbe == null ? null : new UiAutomationActionDiagnosticResult {
+                Attempted = diagnostics.UiAutomationActionProbe.Attempted,
+                Resolved = diagnostics.UiAutomationActionProbe.Resolved,
+                UsedCachedActionMatch = diagnostics.UiAutomationActionProbe.UsedCachedActionMatch,
+                UsedPreferredRoot = diagnostics.UiAutomationActionProbe.UsedPreferredRoot,
+                RootHandle = diagnostics.UiAutomationActionProbe.RootHandle == IntPtr.Zero ? string.Empty : $"0x{diagnostics.UiAutomationActionProbe.RootHandle.ToInt64():X}",
+                Score = diagnostics.UiAutomationActionProbe.Score,
+                SearchMode = diagnostics.UiAutomationActionProbe.SearchMode,
+                ElapsedMilliseconds = diagnostics.UiAutomationActionProbe.ElapsedMilliseconds
+            }
         };
     }
 
@@ -558,7 +836,12 @@ internal static class DesktopOperations {
             ValuePattern = criteria.ValuePattern,
             IsEnabled = criteria.IsEnabled,
             IsKeyboardFocusable = criteria.IsKeyboardFocusable,
+            SupportsBackgroundClick = criteria.SupportsBackgroundClick,
+            SupportsBackgroundText = criteria.SupportsBackgroundText,
+            SupportsBackgroundKeys = criteria.SupportsBackgroundKeys,
+            SupportsForegroundInputFallback = criteria.SupportsForegroundInputFallback,
             EnsureForegroundWindow = criteria.EnsureForegroundWindow,
+            AllowForegroundInputFallback = criteria.AllowForegroundInputFallback,
             UseUiAutomation = criteria.UiAutomation,
             IncludeUiAutomation = criteria.IncludeUiAutomation
         };

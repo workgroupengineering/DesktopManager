@@ -17,7 +17,10 @@ public class ControlEnumerator {
             WindowControlInfo info = new WindowControlInfo {
                 Handle = hWnd,
                 Id = MonitorNativeMethods.GetDlgCtrlID(hWnd),
-                Source = WindowControlSource.Win32
+                Source = WindowControlSource.Win32,
+                SupportsBackgroundClick = true,
+                SupportsBackgroundText = true,
+                SupportsBackgroundKeys = true
             };
 
             info.Text = WindowTextHelper.GetWindowText(hWnd);
@@ -26,10 +29,23 @@ public class ControlEnumerator {
             StringBuilder classSb = new StringBuilder(256);
             MonitorNativeMethods.GetClassName(hWnd, classSb, classSb.Capacity);
             info.ClassName = classSb.ToString();
+            PopulateBounds(info, hWnd);
 
             controls.Add(info);
             return true;
         }, IntPtr.Zero);
         return controls;
+    }
+
+    private static void PopulateBounds(WindowControlInfo control, IntPtr handle) {
+        if (!MonitorNativeMethods.GetWindowRect(handle, out RECT rect)) {
+            return;
+        }
+
+        control.Left = rect.Left;
+        control.Top = rect.Top;
+        control.Width = Math.Max(0, rect.Right - rect.Left);
+        control.Height = Math.Max(0, rect.Bottom - rect.Top);
+        control.IsOffscreen = false;
     }
 }

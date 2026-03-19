@@ -57,6 +57,26 @@ public sealed class WindowControlQueryOptions {
     public bool? IsKeyboardFocusable { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether matching controls must support background-safe click or invoke actions.
+    /// </summary>
+    public bool? SupportsBackgroundClick { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether matching controls must support background-safe text updates.
+    /// </summary>
+    public bool? SupportsBackgroundText { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether matching controls must support background-safe key delivery.
+    /// </summary>
+    public bool? SupportsBackgroundKeys { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether matching controls must support explicit foreground input fallback.
+    /// </summary>
+    public bool? SupportsForegroundInputFallback { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether UI Automation should be used for control discovery.
     /// </summary>
     public bool UseUiAutomation { get; set; }
@@ -72,6 +92,11 @@ public sealed class WindowControlQueryOptions {
     public bool EnsureForegroundWindow { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether shared foreground-based input fallback is allowed for zero-handle UI Automation controls.
+    /// </summary>
+    public bool AllowForegroundInputFallback { get; set; }
+
+    /// <summary>
     /// Determines whether the current query requires UI Automation metadata.
     /// </summary>
     /// <returns><c>true</c> when UI Automation should be used; otherwise <c>false</c>.</returns>
@@ -83,7 +108,11 @@ public sealed class WindowControlQueryOptions {
             !IsWildcard(FrameworkIdPattern) ||
             !IsWildcard(ValuePattern) ||
             IsEnabled.HasValue ||
-            IsKeyboardFocusable.HasValue;
+            IsKeyboardFocusable.HasValue ||
+            SupportsBackgroundClick.HasValue ||
+            SupportsBackgroundText.HasValue ||
+            SupportsBackgroundKeys.HasValue ||
+            SupportsForegroundInputFallback.HasValue;
     }
 
     private static bool IsWildcard(string? value) {

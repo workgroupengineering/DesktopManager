@@ -7,6 +7,9 @@ namespace DesktopManager.PowerShell;
 /// <example>
 ///   <code>Get-DesktopWindowControlDiagnostic -Name "*Codex*" -UiAutomation -EnsureForeground</code>
 /// </example>
+/// <example>
+///   <code>Get-DesktopWindowControlDiagnostic -Name "*Codex*" -ControlTargetName "codex-sidebar-toggle" -ActionProbe</code>
+/// </example>
 [Cmdlet(VerbsCommon.Get, "DesktopWindowControlDiagnostic")]
 public sealed class CmdletGetDesktopWindowControlDiagnostic : PSCmdlet {
     /// <summary>
@@ -94,10 +97,22 @@ public sealed class CmdletGetDesktopWindowControlDiagnostic : PSCmdlet {
     public SwitchParameter EnsureForeground { get; set; }
 
     /// <summary>
+    /// <para type="description">Use a saved control target definition instead of ad-hoc control selector parameters.</para>
+    /// </summary>
+    [Parameter]
+    public string ControlTargetName { get; set; }
+
+    /// <summary>
     /// <para type="description">Maximum number of sample controls to include in each diagnostic result.</para>
     /// </summary>
     [Parameter]
     public int SampleLimit { get; set; } = 10;
+
+    /// <summary>
+    /// <para type="description">Include a read-only UI Automation action-resolution probe for the first matched UIA control.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter ActionProbe { get; set; }
 
     /// <inheritdoc />
     protected override void BeginProcessing() {
@@ -125,6 +140,8 @@ public sealed class CmdletGetDesktopWindowControlDiagnostic : PSCmdlet {
             IncludeUiAutomation = IncludeUiAutomation
         };
 
-        WriteObject(automation.GetControlDiagnostics(windowOptions, controlOptions, allWindows: true, sampleLimit: SampleLimit), true);
+        WriteObject(string.IsNullOrWhiteSpace(ControlTargetName)
+            ? automation.GetControlDiagnostics(windowOptions, controlOptions, allWindows: true, sampleLimit: SampleLimit, includeActionProbe: ActionProbe)
+            : automation.GetControlTargetDiagnostics(windowOptions, ControlTargetName, allWindows: true, sampleLimit: SampleLimit, includeActionProbe: ActionProbe), true);
     }
 }

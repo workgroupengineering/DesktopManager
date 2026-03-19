@@ -102,6 +102,17 @@ internal static class WindowCommands {
     }
 
     private static int Click(CommandLineArguments arguments) {
+        string? targetName = arguments.GetOption("target");
+        if (!string.IsNullOrWhiteSpace(targetName)) {
+            return WriteWindowMutationResult(
+                arguments,
+                DesktopOperations.ClickWindowTarget(
+                    CreateCriteria(arguments, includeEmptyDefault: true),
+                    targetName,
+                    arguments.GetOption("button") ?? "left",
+                    arguments.GetBoolFlag("activate")));
+        }
+
         return WriteWindowMutationResult(
             arguments,
             DesktopOperations.ClickWindowPoint(
@@ -116,6 +127,24 @@ internal static class WindowCommands {
     }
 
     private static int Drag(CommandLineArguments arguments) {
+        string? startTargetName = arguments.GetOption("start-target");
+        string? endTargetName = arguments.GetOption("end-target");
+        if (!string.IsNullOrWhiteSpace(startTargetName) || !string.IsNullOrWhiteSpace(endTargetName)) {
+            if (string.IsNullOrWhiteSpace(startTargetName) || string.IsNullOrWhiteSpace(endTargetName)) {
+                throw new CommandLineException("Both '--start-target' and '--end-target' are required when using named targets.");
+            }
+
+            return WriteWindowMutationResult(
+                arguments,
+                DesktopOperations.DragWindowTargets(
+                    CreateCriteria(arguments, includeEmptyDefault: true),
+                    startTargetName,
+                    endTargetName,
+                    arguments.GetOption("button") ?? "left",
+                    arguments.GetIntOption("step-delay-ms") ?? 0,
+                    arguments.GetBoolFlag("activate")));
+        }
+
         return WriteWindowMutationResult(
             arguments,
                 DesktopOperations.DragWindowPoints(
@@ -135,6 +164,17 @@ internal static class WindowCommands {
     }
 
     private static int Scroll(CommandLineArguments arguments) {
+        string? targetName = arguments.GetOption("target");
+        if (!string.IsNullOrWhiteSpace(targetName)) {
+            return WriteWindowMutationResult(
+                arguments,
+                DesktopOperations.ScrollWindowTarget(
+                    CreateCriteria(arguments, includeEmptyDefault: true),
+                    targetName,
+                    arguments.GetRequiredIntOption("delta"),
+                    arguments.GetBoolFlag("activate")));
+        }
+
         return WriteWindowMutationResult(
             arguments,
                 DesktopOperations.ScrollWindowPoint(

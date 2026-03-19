@@ -46,6 +46,12 @@ public sealed class CmdletInvokeDesktopWindowScroll : PSCmdlet {
     public double? YRatio { get; set; }
 
     /// <summary>
+    /// <para type="description">Saved reusable target name to scroll at instead of supplying coordinates directly.</para>
+    /// </summary>
+    [Parameter]
+    public string TargetName { get; set; }
+
+    /// <summary>
     /// <para type="description">Scroll delta. Positive values scroll up.</para>
     /// </summary>
     [Parameter(Mandatory = true)]
@@ -75,9 +81,17 @@ public sealed class CmdletInvokeDesktopWindowScroll : PSCmdlet {
             IncludeEmptyTitles = ActiveWindow ? true : null
         };
 
-        string targetText = X.HasValue && Y.HasValue ? $"{X},{Y}" : $"{XRatio},{YRatio}";
+        string targetText = !string.IsNullOrWhiteSpace(TargetName)
+            ? $"target '{TargetName}'"
+            : X.HasValue && Y.HasValue
+                ? $"{X},{Y}"
+                : $"{XRatio},{YRatio}";
         if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Scroll {Delta} at {targetText}")) {
-            WriteObject(automation.ScrollWindowPoint(options, X, Y, XRatio, YRatio, Delta, Activate, ClientArea, all: false), true);
+            if (!string.IsNullOrWhiteSpace(TargetName)) {
+                WriteObject(automation.ScrollWindowTarget(options, TargetName, Delta, Activate, all: false), true);
+            } else {
+                WriteObject(automation.ScrollWindowPoint(options, X, Y, XRatio, YRatio, Delta, Activate, ClientArea, all: false), true);
+            }
         }
     }
 }

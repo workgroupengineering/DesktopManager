@@ -23,10 +23,23 @@ public sealed class CmdletSendDesktopControlKey : PSCmdlet {
     [Parameter(Mandatory = true, Position = 1)]
     public VirtualKey[] Keys { get; set; } = Array.Empty<VirtualKey>();
 
+    /// <summary>
+    /// <para type="description">Bring the parent window to the foreground before UI Automation key fallback.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter EnsureForeground { get; set; }
+
+    /// <summary>
+    /// <para type="description">Explicitly allow focused foreground input fallback for zero-handle UI Automation controls.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter AllowForegroundInput { get; set; }
+
     /// <inheritdoc />
     protected override void BeginProcessing() {
         if (ShouldProcess(Control.Text ?? Control.ClassName, "Send keys")) {
-            KeyboardInputService.SendToControl(Control, Keys);
+            var automation = new DesktopAutomationService();
+            automation.SendControlKeys(Control, Keys, EnsureForeground, AllowForegroundInput);
         }
     }
 }

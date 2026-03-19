@@ -102,10 +102,16 @@ public static class WindowInputService {
             TryActivateWindow(window.Handle, settings.ActivationRetryCount, settings.ActivationRetryDelayMilliseconds);
         }
 
+        bool targetOwnsForeground = MonitorNativeMethods.GetForegroundWindow() == window.Handle;
+        IntPtr targetHandle = ResolvePreferredTextHandle(window.Handle);
         if (settings.UseSendInput) {
-            SendInputText(text, settings);
+            if (targetOwnsForeground) {
+                SendInputText(text, settings);
+            } else {
+                SendMessageText(targetHandle, text, settings.KeyDelayMilliseconds);
+            }
         } else {
-            SendMessageText(window.Handle, text, settings.KeyDelayMilliseconds);
+            SendMessageText(targetHandle, text, settings.KeyDelayMilliseconds);
         }
 
         EnsureTextApplied(window, text);
@@ -227,6 +233,11 @@ public static class WindowInputService {
             ?? controls.Find(control => control.ClassName.Equals("NotepadTextBox", StringComparison.OrdinalIgnoreCase))
             ?? controls.Find(control => control.ClassName.IndexOf("RichEdit", StringComparison.OrdinalIgnoreCase) >= 0)
             ?? controls.Find(control => control.ClassName.IndexOf("Edit", StringComparison.OrdinalIgnoreCase) >= 0);
+    }
+
+    private static IntPtr ResolvePreferredTextHandle(IntPtr windowHandle) {
+        WindowControlInfo? editable = FindPreferredEditableControl(windowHandle);
+        return editable?.Handle ?? windowHandle;
     }
 }
 

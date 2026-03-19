@@ -15,7 +15,12 @@ internal static class ProcessCommands {
             arguments.GetRequiredCommandPart(2, "process path"),
             arguments.GetOption("arguments"),
             arguments.GetOption("working-directory"),
-            arguments.GetIntOption("wait-for-input-idle-ms"));
+            arguments.GetIntOption("wait-for-input-idle-ms"),
+            arguments.GetIntOption("wait-for-window-ms"),
+            arguments.GetIntOption("wait-for-window-interval-ms"),
+            arguments.GetOption("window-title"),
+            arguments.GetOption("window-class"),
+            arguments.GetBoolFlag("require-window"));
 
         if (arguments.GetBoolFlag("json")) {
             OutputFormatter.WriteJson(result);
@@ -23,6 +28,9 @@ internal static class ProcessCommands {
         }
 
         Console.WriteLine($"start: PID {result.ProcessId}");
+        if (result.ResolvedProcessId.HasValue && result.ResolvedProcessId.Value != result.ProcessId) {
+            Console.WriteLine($"- ResolvedPID: {result.ResolvedProcessId.Value}");
+        }
         Console.WriteLine($"- File: {result.FilePath}");
         if (!string.IsNullOrWhiteSpace(result.Arguments)) {
             Console.WriteLine($"- Arguments: {result.Arguments}");

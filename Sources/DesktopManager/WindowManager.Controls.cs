@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 
@@ -16,6 +17,24 @@ public partial class WindowManager {
     }
 
     /// <summary>
+    /// Sets text on the specified control.
+    /// </summary>
+    /// <param name="control">Control to modify.</param>
+    /// <param name="text">Text to apply.</param>
+    public void SetControlText(WindowControlInfo control, string text) {
+        WindowControlService.SetText(control, text);
+    }
+
+    /// <summary>
+    /// Sends key input directly to the specified control.
+    /// </summary>
+    /// <param name="control">Target control.</param>
+    /// <param name="keys">Keys to send.</param>
+    public void SendControlKeys(WindowControlInfo control, params VirtualKey[] keys) {
+        WindowControlService.SendKeys(control, keys);
+    }
+
+    /// <summary>
     /// Gets child controls for the specified window.
     /// </summary>
     /// <param name="window">Target window.</param>
@@ -27,6 +46,9 @@ public partial class WindowManager {
         WindowControlQueryOptions filter = options ?? new WindowControlQueryOptions();
         PrepareWindowForUiAutomation(window, filter);
         List<WindowControlInfo> controls = GetControlsInternal(window.Handle, filter);
+        foreach (WindowControlInfo control in controls) {
+            control.ParentWindowHandle = window.Handle;
+        }
 
         return controls.FindAll(control => MatchesControl(control, filter));
     }
@@ -37,20 +59,26 @@ public partial class WindowManager {
     /// <param name="window">Target window.</param>
     /// <param name="options">Optional control filter options.</param>
     /// <param name="sampleLimit">Maximum number of sample controls to include.</param>
+    /// <param name="includeActionProbe">Whether to include a read-only UI Automation action-resolution probe.</param>
     /// <returns>Discovery diagnostics for the supplied window.</returns>
-    public DesktopControlDiscoveryDiagnostics DiagnoseControls(WindowInfo window, WindowControlQueryOptions? options = null, int sampleLimit = 10) {
+    public DesktopControlDiscoveryDiagnostics DiagnoseControls(WindowInfo window, WindowControlQueryOptions? options = null, int sampleLimit = 10, bool includeActionProbe = false) {
         ValidateWindowInfo(window);
         if (sampleLimit < 0) {
             throw new ArgumentOutOfRangeException(nameof(sampleLimit), "sampleLimit must be zero or greater.");
         }
 
+        Stopwatch stopwatch = Stopwatch.StartNew();
         WindowControlQueryOptions filter = options ?? new WindowControlQueryOptions();
         UiAutomationPreparationResult preparation = PrepareWindowForUiAutomation(window, filter);
 
         var enumerator = new ControlEnumerator();
         List<WindowControlInfo> win32Controls = enumerator.EnumerateControls(window.Handle);
         IReadOnlyList<IntPtr> fallbackRootHandles = UiAutomationControlService.GetFallbackRootHandles(window.Handle, win32Controls);
+        IntPtr preferredRootHandle = UiAutomationControlService.GetPreferredSearchRootHandle(window.Handle, fallbackRootHandles);
         var uiAutomation = new UiAutomationControlService();
+        IReadOnlyList<DesktopUiAutomationRootDiagnostic> rootDiagnostics = filter.RequiresUiAutomation()
+            ? uiAutomation.DiagnoseRoots(window.Handle, fallbackRootHandles)
+            : Array.Empty<DesktopUiAutomationRootDiagnostic>();
         List<WindowControlInfo> primaryUiAutomationControls = filter.RequiresUiAutomation()
             ? uiAutomation.EnumerateControls(window.Handle)
             : new List<WindowControlInfo>();
@@ -61,6 +89,19 @@ public partial class WindowManager {
             : new List<WindowControlInfo>();
         List<WindowControlInfo> effectiveControls = SelectDiscoveredControls(filter, win32Controls, uiAutomationControls);
         List<WindowControlInfo> matchedControls = effectiveControls.FindAll(control => MatchesControl(control, filter));
+        DesktopUiAutomationActionDiagnostic? actionProbe = null;
+        if (includeActionProbe) {
+            WindowControlInfo? probeControl = matchedControls
+                .FirstOrDefault(control => control.Source == WindowControlSource.UiAutomation)
+                ?? effectiveControls.FirstOrDefault(control => control.Source == WindowControlSource.UiAutomation);
+            if (probeControl != null) {
+                Stopwatch actionProbeStopwatch = Stopwatch.StartNew();
+                actionProbe = uiAutomation.ProbeActionResolution(window, probeControl);
+                actionProbe.ElapsedMilliseconds = (int)actionProbeStopwatch.ElapsedMilliseconds;
+            }
+        }
+
+        stopwatch.Stop();
 
         return new DesktopControlDiscoveryDiagnostics {
             Window = window,
@@ -69,16 +110,22 @@ public partial class WindowManager {
             IncludeUiAutomation = filter.IncludeUiAutomation,
             EnsureForegroundWindow = filter.EnsureForegroundWindow,
             UiAutomationAvailable = uiAutomation.IsAvailable,
+            ElapsedMilliseconds = (int)stopwatch.ElapsedMilliseconds,
             PreparationAttempted = preparation.Attempted,
             PreparationSucceeded = preparation.Succeeded,
             UiAutomationFallbackRootCount = fallbackRootHandles.Count,
-            UsedUiAutomationFallbackRoots = filter.RequiresUiAutomation() && primaryUiAutomationControls.Count == 0 && uiAutomationControls.Count > 0 && fallbackRootHandles.Count > 0,
+            UsedUiAutomationFallbackRoots = filter.RequiresUiAutomation() && rootDiagnostics.Any(root => !root.IsPrimaryRoot && root.ControlCount > 0),
+            UsedCachedUiAutomationControls = filter.RequiresUiAutomation() && rootDiagnostics.Any(root => root.UsedCachedControls),
+            UsedPreferredUiAutomationRoot = filter.RequiresUiAutomation() && preferredRootHandle != IntPtr.Zero && rootDiagnostics.Any(root => root.IsPreferredRoot && root.ControlCount > 0),
+            PreferredUiAutomationRootHandle = preferredRootHandle,
             EffectiveSource = GetEffectiveSource(filter, uiAutomationControls),
             Win32ControlCount = win32Controls.Count,
             UiAutomationControlCount = uiAutomationControls.Count,
             EffectiveControlCount = effectiveControls.Count,
             MatchedControlCount = matchedControls.Count,
-            SampleControls = effectiveControls.Take(sampleLimit).ToArray()
+            SampleControls = effectiveControls.Take(sampleLimit).ToArray(),
+            UiAutomationRoots = rootDiagnostics,
+            UiAutomationActionProbe = actionProbe
         };
     }
 
@@ -143,20 +190,69 @@ public partial class WindowManager {
         merged.AddRange(win32Controls);
 
         foreach (WindowControlInfo uiAutomationControl in uiAutomationControls) {
-            bool alreadyPresent = merged.Any(existing =>
-                (existing.Handle != IntPtr.Zero &&
+            WindowControlInfo? existing = merged.FirstOrDefault(candidate =>
+                (candidate.Handle != IntPtr.Zero &&
                 uiAutomationControl.Handle != IntPtr.Zero &&
-                existing.Handle == uiAutomationControl.Handle) ||
-                (string.Equals(existing.AutomationId, uiAutomationControl.AutomationId, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(existing.ControlType, uiAutomationControl.ControlType, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(existing.Text, uiAutomationControl.Text, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(existing.ClassName, uiAutomationControl.ClassName, StringComparison.OrdinalIgnoreCase)));
-            if (!alreadyPresent) {
+                candidate.Handle == uiAutomationControl.Handle) ||
+                (string.Equals(candidate.AutomationId, uiAutomationControl.AutomationId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(candidate.ControlType, uiAutomationControl.ControlType, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(candidate.Text, uiAutomationControl.Text, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(candidate.ClassName, uiAutomationControl.ClassName, StringComparison.OrdinalIgnoreCase)));
+            if (existing == null) {
                 merged.Add(uiAutomationControl);
+                continue;
             }
+
+            MergeControlMetadata(existing, uiAutomationControl);
         }
 
         return merged;
+    }
+
+    private static void MergeControlMetadata(WindowControlInfo target, WindowControlInfo source) {
+        if (target == null || source == null) {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(target.AutomationId)) {
+            target.AutomationId = source.AutomationId;
+        }
+
+        if (string.IsNullOrWhiteSpace(target.ControlType)) {
+            target.ControlType = source.ControlType;
+        }
+
+        if (string.IsNullOrWhiteSpace(target.FrameworkId)) {
+            target.FrameworkId = source.FrameworkId;
+        }
+
+        if (!target.IsKeyboardFocusable.HasValue) {
+            target.IsKeyboardFocusable = source.IsKeyboardFocusable;
+        }
+
+        if (!target.IsEnabled.HasValue) {
+            target.IsEnabled = source.IsEnabled;
+        }
+
+        if (!target.IsOffscreen.HasValue) {
+            target.IsOffscreen = source.IsOffscreen;
+        }
+
+        if (string.IsNullOrWhiteSpace(target.Value)) {
+            target.Value = source.Value;
+        }
+
+        if (target.Width <= 0 || target.Height <= 0) {
+            target.Left = source.Left;
+            target.Top = source.Top;
+            target.Width = source.Width;
+            target.Height = source.Height;
+        }
+
+        target.SupportsBackgroundClick = target.SupportsBackgroundClick || source.SupportsBackgroundClick;
+        target.SupportsBackgroundText = target.SupportsBackgroundText || source.SupportsBackgroundText;
+        target.SupportsBackgroundKeys = target.SupportsBackgroundKeys || source.SupportsBackgroundKeys;
+        target.SupportsForegroundInputFallback = target.SupportsForegroundInputFallback || source.SupportsForegroundInputFallback;
     }
 
     private bool MatchesControl(WindowControlInfo control, WindowControlQueryOptions filter) {
@@ -218,6 +314,22 @@ public partial class WindowManager {
             if (!control.IsKeyboardFocusable.HasValue || control.IsKeyboardFocusable.Value != filter.IsKeyboardFocusable.Value) {
                 return false;
             }
+        }
+
+        if (filter.SupportsBackgroundClick.HasValue && control.SupportsBackgroundClick != filter.SupportsBackgroundClick.Value) {
+            return false;
+        }
+
+        if (filter.SupportsBackgroundText.HasValue && control.SupportsBackgroundText != filter.SupportsBackgroundText.Value) {
+            return false;
+        }
+
+        if (filter.SupportsBackgroundKeys.HasValue && control.SupportsBackgroundKeys != filter.SupportsBackgroundKeys.Value) {
+            return false;
+        }
+
+        if (filter.SupportsForegroundInputFallback.HasValue && control.SupportsForegroundInputFallback != filter.SupportsForegroundInputFallback.Value) {
+            return false;
         }
 
         return true;

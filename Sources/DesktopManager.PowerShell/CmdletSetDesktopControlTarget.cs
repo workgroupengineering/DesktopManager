@@ -2,72 +2,72 @@ using System.Management.Automation;
 
 namespace DesktopManager.PowerShell;
 
-/// <summary>Tests whether a desktop window control exists.</summary>
-/// <para type="synopsis">Tests control presence using Win32 or UI Automation selectors.</para>
+/// <summary>Saves or updates a reusable control target.</summary>
+/// <para type="synopsis">Persists a named DesktopManager control target.</para>
 /// <example>
-///   <code>Test-DesktopWindowControl -Name "*Notepad*" -ClassName "RichEditD2DPT"</code>
+///   <code>Set-DesktopControlTarget -Name "edge-address" -ControlType "Edit" -BackgroundText -UiAutomation</code>
 /// </example>
-[Cmdlet(VerbsDiagnostic.Test, "DesktopWindowControl")]
-public sealed class CmdletTestDesktopWindowControl : PSCmdlet {
+[Cmdlet(VerbsCommon.Set, "DesktopControlTarget", SupportsShouldProcess = true)]
+public sealed class CmdletSetDesktopControlTarget : PSCmdlet {
     /// <summary>
-    /// <para type="description">Title of the window to match. Supports wildcards.</para>
+    /// <para type="description">Saved control target name.</para>
     /// </summary>
-    [Parameter(Mandatory = true, Position = 0, ParameterSetName = "ByName")]
-    public string Name { get; set; } = "*";
+    [Parameter(Mandatory = true, Position = 0)]
+    public string Name { get; set; }
 
     /// <summary>
-    /// <para type="description">Use the current foreground window instead of matching by name.</para>
+    /// <para type="description">Optional target description.</para>
     /// </summary>
-    [Parameter(Mandatory = true, ParameterSetName = "ActiveWindow")]
-    public SwitchParameter ActiveWindow { get; set; }
+    [Parameter]
+    public string Description { get; set; }
 
     /// <summary>
-    /// <para type="description">Filter controls by class name. Supports wildcards.</para>
+    /// <para type="description">Control class filter. Supports wildcards.</para>
     /// </summary>
     [Parameter]
     public string ClassName { get; set; } = "*";
 
     /// <summary>
-    /// <para type="description">Filter controls by visible text. Supports wildcards.</para>
+    /// <para type="description">Control text filter. Supports wildcards.</para>
     /// </summary>
     [Parameter]
     public string TextPattern { get; set; } = "*";
 
     /// <summary>
-    /// <para type="description">Filter controls by current value. Supports wildcards.</para>
+    /// <para type="description">Control value filter. Supports wildcards.</para>
     /// </summary>
     [Parameter]
     public string ValuePattern { get; set; } = "*";
 
     /// <summary>
-    /// <para type="description">Filter controls by control identifier.</para>
+    /// <para type="description">Exact control identifier.</para>
     /// </summary>
     [Parameter]
     public int? Id { get; set; }
 
     /// <summary>
-    /// <para type="description">Filter UI Automation controls by automation identifier. Supports wildcards.</para>
+    /// <para type="description">Exact control handle in decimal or hexadecimal format.</para>
+    /// </summary>
+    [Parameter]
+    public string Handle { get; set; }
+
+    /// <summary>
+    /// <para type="description">UI Automation automation identifier filter. Supports wildcards.</para>
     /// </summary>
     [Parameter]
     public string AutomationId { get; set; } = "*";
 
     /// <summary>
-    /// <para type="description">Filter UI Automation controls by control type. Supports wildcards.</para>
+    /// <para type="description">UI Automation control type filter. Supports wildcards.</para>
     /// </summary>
     [Parameter]
     public string ControlType { get; set; } = "*";
 
     /// <summary>
-    /// <para type="description">Filter UI Automation controls by framework identifier. Supports wildcards.</para>
+    /// <para type="description">UI Automation framework identifier filter. Supports wildcards.</para>
     /// </summary>
     [Parameter]
     public string FrameworkId { get; set; } = "*";
-
-    /// <summary>
-    /// <para type="description">Optional saved control target name to resolve instead of ad-hoc selectors.</para>
-    /// </summary>
-    [Parameter]
-    public string ControlTargetName { get; set; }
 
     /// <summary>
     /// <para type="description">Require the control to be enabled.</para>
@@ -138,19 +138,13 @@ public sealed class CmdletTestDesktopWindowControl : PSCmdlet {
     /// <inheritdoc />
     protected override void BeginProcessing() {
         var automation = new DesktopAutomationService();
-        var windowOptions = new WindowQueryOptions {
-            TitlePattern = Name,
-            ActiveWindow = ActiveWindow,
-            IncludeHidden = true,
-            IncludeCloaked = true,
-            IncludeOwned = true,
-            IncludeEmptyTitles = ActiveWindow ? true : null
-        };
-        var controlOptions = new WindowControlQueryOptions {
+        var definition = new DesktopControlTargetDefinition {
+            Description = Description,
             ClassNamePattern = ClassName,
             TextPattern = TextPattern,
             ValuePattern = ValuePattern,
             Id = Id,
+            Handle = Handle,
             AutomationIdPattern = AutomationId,
             ControlTypePattern = ControlType,
             FrameworkIdPattern = FrameworkId,
@@ -160,13 +154,13 @@ public sealed class CmdletTestDesktopWindowControl : PSCmdlet {
             SupportsBackgroundText = BackgroundText ? true : null,
             SupportsBackgroundKeys = BackgroundKeys ? true : null,
             SupportsForegroundInputFallback = ForegroundFallback ? true : null,
-            EnsureForegroundWindow = EnsureForeground,
             UseUiAutomation = UiAutomation,
-            IncludeUiAutomation = IncludeUiAutomation
+            IncludeUiAutomation = IncludeUiAutomation,
+            EnsureForegroundWindow = EnsureForeground
         };
 
-        WriteObject(string.IsNullOrWhiteSpace(ControlTargetName)
-            ? automation.ControlExists(windowOptions, controlOptions, allWindows: true)
-            : automation.ControlTargetExists(windowOptions, ControlTargetName, allWindows: true));
+        if (ShouldProcess(Name, "Save reusable control target")) {
+            WriteObject(automation.SaveControlTarget(Name, definition));
+        }
     }
 }

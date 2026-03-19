@@ -28,6 +28,31 @@ public sealed class DesktopProcessStartOptions {
     /// Gets or sets the optional input-idle wait timeout in milliseconds.
     /// </summary>
     public int? WaitForInputIdleMilliseconds { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional time to wait for a launched window in milliseconds.
+    /// </summary>
+    public int? WaitForWindowMilliseconds { get; set; } = 2000;
+
+    /// <summary>
+    /// Gets or sets the polling interval used while waiting for a launched window.
+    /// </summary>
+    public int? WaitForWindowIntervalMilliseconds { get; set; } = 200;
+
+    /// <summary>
+    /// Gets or sets an optional launched-window title filter. Supports wildcards.
+    /// </summary>
+    public string? WindowTitlePattern { get; set; }
+
+    /// <summary>
+    /// Gets or sets an optional launched-window class filter. Supports wildcards.
+    /// </summary>
+    public string? WindowClassNamePattern { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether a launched window is required.
+    /// </summary>
+    public bool RequireWindow { get; set; }
 }
 
 /// <summary>
@@ -53,6 +78,11 @@ public sealed class DesktopProcessLaunchInfo {
     /// Gets or sets the process identifier.
     /// </summary>
     public int ProcessId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved main-window process identifier when it differs from the launcher process.
+    /// </summary>
+    public int? ResolvedProcessId { get; set; }
 
     /// <summary>
     /// Gets or sets whether the process has already exited.
@@ -130,6 +160,11 @@ public sealed class DesktopControlDiscoveryDiagnostics {
     public bool UiAutomationAvailable { get; set; }
 
     /// <summary>
+    /// Gets or sets the total elapsed time for this diagnostic pass in milliseconds.
+    /// </summary>
+    public int ElapsedMilliseconds { get; set; }
+
+    /// <summary>
     /// Gets or sets whether shared window preparation was attempted before UI Automation discovery.
     /// </summary>
     public bool PreparationAttempted { get; set; }
@@ -148,6 +183,21 @@ public sealed class DesktopControlDiscoveryDiagnostics {
     /// Gets or sets whether child-handle fallback roots were used for UI Automation discovery.
     /// </summary>
     public bool UsedUiAutomationFallbackRoots { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether cached UI Automation controls were reused during discovery.
+    /// </summary>
+    public bool UsedCachedUiAutomationControls { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether a previously learned preferred UI Automation root was reused.
+    /// </summary>
+    public bool UsedPreferredUiAutomationRoot { get; set; }
+
+    /// <summary>
+    /// Gets or sets the preferred UI Automation root handle when one is known.
+    /// </summary>
+    public IntPtr PreferredUiAutomationRootHandle { get; set; }
 
     /// <summary>
     /// Gets or sets the effective discovery mode used for the final control set.
@@ -178,6 +228,121 @@ public sealed class DesktopControlDiscoveryDiagnostics {
     /// Gets or sets a sample of discovered controls from the effective discovery set.
     /// </summary>
     public IReadOnlyList<WindowControlInfo> SampleControls { get; set; } = Array.Empty<WindowControlInfo>();
+
+    /// <summary>
+    /// Gets or sets per-root UI Automation probe results when UI Automation was requested.
+    /// </summary>
+    public IReadOnlyList<DesktopUiAutomationRootDiagnostic> UiAutomationRoots { get; set; } = Array.Empty<DesktopUiAutomationRootDiagnostic>();
+
+    /// <summary>
+    /// Gets or sets optional read-only action-resolution diagnostics for the first matched UI Automation control.
+    /// </summary>
+    public DesktopUiAutomationActionDiagnostic? UiAutomationActionProbe { get; set; }
+}
+
+/// <summary>
+/// Represents UI Automation probe details for a single root handle.
+/// </summary>
+public sealed class DesktopUiAutomationRootDiagnostic {
+    /// <summary>
+    /// Gets or sets the probe order, starting with the primary window root.
+    /// </summary>
+    public int Order { get; set; }
+
+    /// <summary>
+    /// Gets or sets the root handle that was probed.
+    /// </summary>
+    public IntPtr Handle { get; set; }
+
+    /// <summary>
+    /// Gets or sets the root class name when available.
+    /// </summary>
+    public string ClassName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets whether this probe represents the top-level window root.
+    /// </summary>
+    public bool IsPrimaryRoot { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether this root was the preferred probe root reused from a previous successful lookup.
+    /// </summary>
+    public bool IsPreferredRoot { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether this root reused cached controls instead of re-enumerating UI Automation elements.
+    /// </summary>
+    public bool UsedCachedControls { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the root element itself was included in the enumeration scope.
+    /// </summary>
+    public bool IncludeRoot { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether UI Automation resolved an AutomationElement for this root.
+    /// </summary>
+    public bool ElementResolved { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of controls discovered from this root before filtering.
+    /// </summary>
+    public int ControlCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets a sample of controls discovered from this root.
+    /// </summary>
+    public IReadOnlyList<WindowControlInfo> SampleControls { get; set; } = Array.Empty<WindowControlInfo>();
+
+    /// <summary>
+    /// Gets or sets the probe error when a root could not be inspected cleanly.
+    /// </summary>
+    public string? Error { get; set; }
+}
+
+/// <summary>
+/// Represents a read-only probe of UI Automation action resolution for a specific control.
+/// </summary>
+public sealed class DesktopUiAutomationActionDiagnostic {
+    /// <summary>
+    /// Gets or sets whether a probe was attempted.
+    /// </summary>
+    public bool Attempted { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the action target could be resolved.
+    /// </summary>
+    public bool Resolved { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether a cached action match was reused.
+    /// </summary>
+    public bool UsedCachedActionMatch { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether a preferred UI Automation root was reused.
+    /// </summary>
+    public bool UsedPreferredRoot { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved root handle when one was found.
+    /// </summary>
+    public IntPtr RootHandle { get; set; }
+
+    /// <summary>
+    /// Gets or sets the final match score.
+    /// </summary>
+    public int Score { get; set; }
+
+    /// <summary>
+    /// Gets or sets the search mode used during resolution.
+    /// </summary>
+    public string SearchMode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the elapsed time for the read-only action probe in milliseconds.
+    /// </summary>
+    public int ElapsedMilliseconds { get; set; }
 }
 
 /// <summary>
@@ -238,6 +403,201 @@ public sealed class DesktopWindowGeometry {
     /// Gets or sets the client-area top offset relative to the outer window.
     /// </summary>
     public int ClientOffsetTop { get; set; }
+}
+
+/// <summary>
+/// Defines a reusable window-relative target.
+/// </summary>
+public sealed class DesktopWindowTargetDefinition {
+    /// <summary>
+    /// Gets or sets an optional description for the target.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// Gets or sets the horizontal pixel coordinate relative to the target bounds.
+    /// </summary>
+    public int? X { get; set; }
+
+    /// <summary>
+    /// Gets or sets the vertical pixel coordinate relative to the target bounds.
+    /// </summary>
+    public int? Y { get; set; }
+
+    /// <summary>
+    /// Gets or sets the horizontal normalized ratio from 0 to 1.
+    /// </summary>
+    public double? XRatio { get; set; }
+
+    /// <summary>
+    /// Gets or sets the vertical normalized ratio from 0 to 1.
+    /// </summary>
+    public double? YRatio { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the target is relative to the client area.
+    /// </summary>
+    public bool ClientArea { get; set; }
+}
+
+/// <summary>
+/// Defines a reusable control-selection target.
+/// </summary>
+public sealed class DesktopControlTargetDefinition {
+    /// <summary>
+    /// Gets or sets an optional description for the target.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// Gets or sets the control class name filter.
+    /// </summary>
+    public string ClassNamePattern { get; set; } = "*";
+
+    /// <summary>
+    /// Gets or sets the control text filter.
+    /// </summary>
+    public string TextPattern { get; set; } = "*";
+
+    /// <summary>
+    /// Gets or sets the control value filter.
+    /// </summary>
+    public string ValuePattern { get; set; } = "*";
+
+    /// <summary>
+    /// Gets or sets the optional control identifier.
+    /// </summary>
+    public int? Id { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional control handle in decimal or hexadecimal string form.
+    /// </summary>
+    public string? Handle { get; set; }
+
+    /// <summary>
+    /// Gets or sets the UI Automation automation identifier filter.
+    /// </summary>
+    public string AutomationIdPattern { get; set; } = "*";
+
+    /// <summary>
+    /// Gets or sets the UI Automation control type filter.
+    /// </summary>
+    public string ControlTypePattern { get; set; } = "*";
+
+    /// <summary>
+    /// Gets or sets the UI Automation framework identifier filter.
+    /// </summary>
+    public string FrameworkIdPattern { get; set; } = "*";
+
+    /// <summary>
+    /// Gets or sets whether matching controls must be enabled.
+    /// </summary>
+    public bool? IsEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether matching controls must be keyboard focusable.
+    /// </summary>
+    public bool? IsKeyboardFocusable { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether matching controls must support background-safe click or invoke actions.
+    /// </summary>
+    public bool? SupportsBackgroundClick { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether matching controls must support background-safe text updates.
+    /// </summary>
+    public bool? SupportsBackgroundText { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether matching controls must support background-safe key delivery.
+    /// </summary>
+    public bool? SupportsBackgroundKeys { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether matching controls must support explicit foreground input fallback.
+    /// </summary>
+    public bool? SupportsForegroundInputFallback { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether UI Automation should be used while resolving the target.
+    /// </summary>
+    public bool UseUiAutomation { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether Win32 and UI Automation results should be combined while resolving the target.
+    /// </summary>
+    public bool IncludeUiAutomation { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the target window should be prepared for UI Automation discovery before resolving the target.
+    /// </summary>
+    public bool EnsureForegroundWindow { get; set; }
+}
+
+/// <summary>
+/// Represents a named target resolved against a live window.
+/// </summary>
+public sealed class DesktopResolvedWindowTarget {
+    /// <summary>
+    /// Gets or sets the target name.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the target definition.
+    /// </summary>
+    public DesktopWindowTargetDefinition Definition { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the resolved window geometry.
+    /// </summary>
+    public DesktopWindowGeometry Geometry { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the resolved X coordinate relative to the selected bounds.
+    /// </summary>
+    public int RelativeX { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved Y coordinate relative to the selected bounds.
+    /// </summary>
+    public int RelativeY { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved screen-space X coordinate.
+    /// </summary>
+    public int ScreenX { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved screen-space Y coordinate.
+    /// </summary>
+    public int ScreenY { get; set; }
+}
+
+/// <summary>
+/// Represents a named control target resolved against a live window and control.
+/// </summary>
+public sealed class DesktopResolvedControlTarget {
+    /// <summary>
+    /// Gets or sets the target name.
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the target definition.
+    /// </summary>
+    public DesktopControlTargetDefinition Definition { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the resolved window.
+    /// </summary>
+    public WindowInfo Window { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the resolved control.
+    /// </summary>
+    public WindowControlInfo Control { get; set; } = null!;
 }
 
 /// <summary>
