@@ -24,14 +24,26 @@ public sealed class CmdletInvokeDesktopWindowScroll : PSCmdlet {
     /// <summary>
     /// <para type="description">Horizontal coordinate relative to the target window.</para>
     /// </summary>
-    [Parameter(Mandatory = true)]
-    public int X { get; set; }
+    [Parameter]
+    public int? X { get; set; }
 
     /// <summary>
     /// <para type="description">Vertical coordinate relative to the target window.</para>
     /// </summary>
-    [Parameter(Mandatory = true)]
-    public int Y { get; set; }
+    [Parameter]
+    public int? Y { get; set; }
+
+    /// <summary>
+    /// <para type="description">Horizontal coordinate ratio from 0 to 1 relative to the target bounds.</para>
+    /// </summary>
+    [Parameter]
+    public double? XRatio { get; set; }
+
+    /// <summary>
+    /// <para type="description">Vertical coordinate ratio from 0 to 1 relative to the target bounds.</para>
+    /// </summary>
+    [Parameter]
+    public double? YRatio { get; set; }
 
     /// <summary>
     /// <para type="description">Scroll delta. Positive values scroll up.</para>
@@ -63,8 +75,9 @@ public sealed class CmdletInvokeDesktopWindowScroll : PSCmdlet {
             IncludeEmptyTitles = ActiveWindow ? true : null
         };
 
-        if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Scroll {Delta} at {X},{Y}")) {
-            WriteObject(automation.ScrollWindowPoint(options, X, Y, Delta, Activate, ClientArea, all: false), true);
+        string targetText = X.HasValue && Y.HasValue ? $"{X},{Y}" : $"{XRatio},{YRatio}";
+        if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Scroll {Delta} at {targetText}")) {
+            WriteObject(automation.ScrollWindowPoint(options, X, Y, XRatio, YRatio, Delta, Activate, ClientArea, all: false), true);
         }
     }
 }

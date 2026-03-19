@@ -24,26 +24,50 @@ public sealed class CmdletInvokeDesktopWindowDrag : PSCmdlet {
     /// <summary>
     /// <para type="description">Horizontal starting coordinate relative to the target window.</para>
     /// </summary>
-    [Parameter(Mandatory = true)]
-    public int StartX { get; set; }
+    [Parameter]
+    public int? StartX { get; set; }
 
     /// <summary>
     /// <para type="description">Vertical starting coordinate relative to the target window.</para>
     /// </summary>
-    [Parameter(Mandatory = true)]
-    public int StartY { get; set; }
+    [Parameter]
+    public int? StartY { get; set; }
 
     /// <summary>
     /// <para type="description">Horizontal ending coordinate relative to the target window.</para>
     /// </summary>
-    [Parameter(Mandatory = true)]
-    public int EndX { get; set; }
+    [Parameter]
+    public int? EndX { get; set; }
 
     /// <summary>
     /// <para type="description">Vertical ending coordinate relative to the target window.</para>
     /// </summary>
-    [Parameter(Mandatory = true)]
-    public int EndY { get; set; }
+    [Parameter]
+    public int? EndY { get; set; }
+
+    /// <summary>
+    /// <para type="description">Horizontal starting coordinate ratio from 0 to 1 relative to the target bounds.</para>
+    /// </summary>
+    [Parameter]
+    public double? StartXRatio { get; set; }
+
+    /// <summary>
+    /// <para type="description">Vertical starting coordinate ratio from 0 to 1 relative to the target bounds.</para>
+    /// </summary>
+    [Parameter]
+    public double? StartYRatio { get; set; }
+
+    /// <summary>
+    /// <para type="description">Horizontal ending coordinate ratio from 0 to 1 relative to the target bounds.</para>
+    /// </summary>
+    [Parameter]
+    public double? EndXRatio { get; set; }
+
+    /// <summary>
+    /// <para type="description">Vertical ending coordinate ratio from 0 to 1 relative to the target bounds.</para>
+    /// </summary>
+    [Parameter]
+    public double? EndYRatio { get; set; }
 
     /// <summary>
     /// <para type="description">Mouse button to hold during the drag.</para>
@@ -81,8 +105,10 @@ public sealed class CmdletInvokeDesktopWindowDrag : PSCmdlet {
             IncludeEmptyTitles = ActiveWindow ? true : null
         };
 
-        if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Drag from {StartX},{StartY} to {EndX},{EndY}")) {
-            WriteObject(automation.DragWindowPoints(options, StartX, StartY, EndX, EndY, Button, StepDelayMilliseconds, Activate, ClientArea, all: false), true);
+        string startText = StartX.HasValue && StartY.HasValue ? $"{StartX},{StartY}" : $"{StartXRatio},{StartYRatio}";
+        string endText = EndX.HasValue && EndY.HasValue ? $"{EndX},{EndY}" : $"{EndXRatio},{EndYRatio}";
+        if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Drag from {startText} to {endText}")) {
+            WriteObject(automation.DragWindowPoints(options, StartX, StartY, StartXRatio, StartYRatio, EndX, EndY, EndXRatio, EndYRatio, Button, StepDelayMilliseconds, Activate, ClientArea, all: false), true);
         }
     }
 }

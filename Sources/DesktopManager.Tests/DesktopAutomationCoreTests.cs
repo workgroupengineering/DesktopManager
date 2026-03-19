@@ -147,4 +147,24 @@ public class DesktopAutomationCoreTests {
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.DragWindowPoints(new WindowQueryOptions { TitlePattern = "*" }, 0, 0, 1, 1, MouseButton.Left, -1, activate: false, clientArea: false));
     }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures normalized clicks reject ratios outside the 0..1 range.
+    /// </summary>
+    public void DesktopAutomationService_ClickWindowPoint_InvalidRatio_ThrowsArgumentOutOfRangeException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.ClickWindowPoint(new WindowQueryOptions { TitlePattern = "*" }, null, null, 1.5, 0.5, MouseButton.Left, activate: false, clientArea: false));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window geometry rejects a missing selector.
+    /// </summary>
+    public void DesktopAutomationService_GetWindowGeometry_NullOptions_ThrowsArgumentNullException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentNullException>(() => automation.GetWindowGeometry(null!));
+    }
 }

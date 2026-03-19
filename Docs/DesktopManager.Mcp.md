@@ -13,6 +13,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 
 - `get_active_window`
 - `list_windows`
+- `get_window_geometry`
 - `window_exists`
 - `active_window_matches`
 - `wait_for_window`
@@ -63,6 +64,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
    - Use `get_active_window` when focus matters.
    - Use `window_exists` or `active_window_matches` when you want a structured assertion before acting.
    - Use `screenshot_desktop` or `screenshot_window` when visual confirmation is needed.
+   - Use `get_window_geometry` when you need outer-window and client-area bounds before a coordinate-based action.
    - When multiple windows match, prefer an exact `handle` over a broad process selector.
 2. Launch when needed.
    - Use `launch_process` for the app under test.
@@ -73,7 +75,8 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
    - Use `control_exists` or `wait_for_control` when the target control can appear asynchronously or when you want a structured assertion before clicking.
    - When modern controls expose state through UI Automation, filter by current value, enabled state, or keyboard focusability instead of guessing from text alone.
    - If a UIA-heavy query is host-sensitive, opt into foreground assistance before falling back to brittle retries.
-   - If structure discovery still fails, use `screenshot_window` plus `click_window_point`, `drag_window_points`, or `scroll_window_point` as the shared coordinate-based fallback.
+   - If structure discovery still fails, use `screenshot_window` plus `get_window_geometry`, then target `click_window_point`, `drag_window_points`, or `scroll_window_point`.
+   - Prefer ratio-based targeting with `clientArea=true` when you want the action to scale with different window sizes.
    - Prefer `type_window_text` for whole-window text entry.
    - Prefer `click_control`, `set_control_text`, and `send_control_keys` for control-level interactions.
 4. Prefer named state when available.
@@ -98,10 +101,14 @@ desktopmanager window list
 desktopmanager window exists --title "Codex"
 desktopmanager window active-matches --title "Codex"
 desktopmanager window wait --process notepad --timeout-ms 5000
+desktopmanager window geometry --handle 0xFF1802 --json
 desktopmanager window list --process notepad --json
 desktopmanager window click --handle 0xFF1802 --x 200 --y 200
+desktopmanager window click --handle 0xFF1802 --x-ratio 0.5 --y-ratio 0.5 --client-area
 desktopmanager window drag --handle 0xFF1802 --start-x 200 --start-y 200 --end-x 400 --end-y 220 --client-area
+desktopmanager window drag --handle 0xFF1802 --start-x-ratio 0.2 --start-y-ratio 0.2 --end-x-ratio 0.6 --end-y-ratio 0.2 --client-area
 desktopmanager window scroll --handle 0xFF1802 --x 200 --y 200 --delta -120 --client-area
+desktopmanager window scroll --handle 0xFF1802 --x-ratio 0.5 --y-ratio 0.5 --delta -120 --client-area
 desktopmanager window type --handle 0x30A263C --text "Hello world"
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
@@ -140,6 +147,8 @@ desktopmanager mcp serve
 - Control diagnostics are available on the same shared selector model and help explain Win32 versus UIA discovery gaps.
 - Window-relative clicking, dragging, and scrolling are available as shared fallbacks for apps that do not expose stable controls.
 - Coordinate fallbacks can target the client area, which is usually more reliable for browser/editor content than raw outer-window coordinates.
+- Ratio-based coordinate fallbacks are available, which makes screenshot-assisted targeting more portable across different window sizes.
+- Window screenshots now return geometry metadata in JSON so agents can align the image with client-area coordinates.
 - The shared control selector model now supports value, enabled, and keyboard-focusable checks.
 - The shared control selector model also supports an opt-in foreground hint for UIA discovery when a target window needs focus.
 - Prefer minimizing distractions instead of closing applications.

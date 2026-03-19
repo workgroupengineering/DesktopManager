@@ -55,6 +55,20 @@ internal sealed class WindowChangeResult {
     public IReadOnlyList<WindowResult> Windows { get; set; } = new List<WindowResult>();
 }
 
+internal sealed class WindowGeometryResult {
+    public WindowResult Window { get; set; } = new WindowResult();
+    public int WindowLeft { get; set; }
+    public int WindowTop { get; set; }
+    public int WindowWidth { get; set; }
+    public int WindowHeight { get; set; }
+    public int ClientLeft { get; set; }
+    public int ClientTop { get; set; }
+    public int ClientWidth { get; set; }
+    public int ClientHeight { get; set; }
+    public int ClientOffsetLeft { get; set; }
+    public int ClientOffsetTop { get; set; }
+}
+
 internal sealed class ControlResult {
     public string Handle { get; set; } = string.Empty;
     public string ClassName { get; set; } = string.Empty;
@@ -132,6 +146,7 @@ internal sealed class ScreenshotResult {
     public int? MonitorIndex { get; set; }
     public string? MonitorDeviceName { get; set; }
     public WindowResult? Window { get; set; }
+    public WindowGeometryResult? Geometry { get; set; }
 }
 
 internal sealed class ProcessLaunchResult {

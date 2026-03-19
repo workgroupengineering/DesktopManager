@@ -153,6 +153,19 @@ public sealed class DesktopAutomationService {
     }
 
     /// <summary>
+    /// Gets window and client-area geometry for one or more matching windows.
+    /// </summary>
+    public IReadOnlyList<DesktopWindowGeometry> GetWindowGeometry(WindowQueryOptions options, bool all = false) {
+        if (options == null) {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        return ResolveWindows(options, all)
+            .Select(DescribeWindowGeometry)
+            .ToArray();
+    }
+
+    /// <summary>
     /// Sends text to matching windows.
     /// </summary>
     public IReadOnlyList<WindowInfo> TypeWindowText(WindowQueryOptions options, string text, bool paste, int delayMilliseconds, bool all = false) {
@@ -176,26 +189,20 @@ public sealed class DesktopAutomationService {
     /// Clicks a point relative to each matching window.
     /// </summary>
     public IReadOnlyList<WindowInfo> ClickWindowPoint(WindowQueryOptions options, int x, int y, MouseButton button, bool activate, bool all = false) {
-        IReadOnlyList<WindowInfo> windows = ResolveWindows(options, all);
-        foreach (WindowInfo window in windows) {
-            if (activate) {
-                _windowManager.ActivateWindow(window);
-                Thread.Sleep(100);
-            }
-
-            (int screenX, int screenY) = ResolveWindowPoint(window, x, y, clientArea: false);
-            Thread.Sleep(50);
-            _windowManager.MoveMouse(screenX, screenY);
-            _windowManager.ClickMouse(button);
-        }
-
-        return RefreshWindows(windows);
+        return ClickWindowPoint(options, x, y, null, null, button, activate, clientArea: false, all);
     }
 
     /// <summary>
     /// Clicks a point relative to each matching window.
     /// </summary>
     public IReadOnlyList<WindowInfo> ClickWindowPoint(WindowQueryOptions options, int x, int y, MouseButton button, bool activate, bool clientArea, bool all = false) {
+        return ClickWindowPoint(options, x, y, null, null, button, activate, clientArea, all);
+    }
+
+    /// <summary>
+    /// Clicks a point relative to each matching window using either pixels or normalized ratios.
+    /// </summary>
+    public IReadOnlyList<WindowInfo> ClickWindowPoint(WindowQueryOptions options, int? x, int? y, double? xRatio, double? yRatio, MouseButton button, bool activate, bool clientArea, bool all = false) {
         IReadOnlyList<WindowInfo> windows = ResolveWindows(options, all);
         foreach (WindowInfo window in windows) {
             if (activate) {
@@ -203,7 +210,7 @@ public sealed class DesktopAutomationService {
                 Thread.Sleep(100);
             }
 
-            (int screenX, int screenY) = ResolveWindowPoint(window, x, y, clientArea);
+            (int screenX, int screenY) = ResolveWindowPoint(window, x, y, xRatio, yRatio, clientArea);
             Thread.Sleep(50);
             _windowManager.MoveMouse(screenX, screenY);
             _windowManager.ClickMouse(button);
@@ -216,6 +223,13 @@ public sealed class DesktopAutomationService {
     /// Drags between two points relative to each matching window.
     /// </summary>
     public IReadOnlyList<WindowInfo> DragWindowPoints(WindowQueryOptions options, int startX, int startY, int endX, int endY, MouseButton button, int stepDelayMilliseconds, bool activate, bool clientArea, bool all = false) {
+        return DragWindowPoints(options, startX, startY, null, null, endX, endY, null, null, button, stepDelayMilliseconds, activate, clientArea, all);
+    }
+
+    /// <summary>
+    /// Drags between two points relative to each matching window using either pixels or normalized ratios.
+    /// </summary>
+    public IReadOnlyList<WindowInfo> DragWindowPoints(WindowQueryOptions options, int? startX, int? startY, double? startXRatio, double? startYRatio, int? endX, int? endY, double? endXRatio, double? endYRatio, MouseButton button, int stepDelayMilliseconds, bool activate, bool clientArea, bool all = false) {
         if (stepDelayMilliseconds < 0) {
             throw new ArgumentOutOfRangeException(nameof(stepDelayMilliseconds), "stepDelayMilliseconds must be zero or greater.");
         }
@@ -227,8 +241,8 @@ public sealed class DesktopAutomationService {
                 Thread.Sleep(100);
             }
 
-            (int startScreenX, int startScreenY) = ResolveWindowPoint(window, startX, startY, clientArea);
-            (int endScreenX, int endScreenY) = ResolveWindowPoint(window, endX, endY, clientArea);
+            (int startScreenX, int startScreenY) = ResolveWindowPoint(window, startX, startY, startXRatio, startYRatio, clientArea);
+            (int endScreenX, int endScreenY) = ResolveWindowPoint(window, endX, endY, endXRatio, endYRatio, clientArea);
             _windowManager.DragMouse(button, startScreenX, startScreenY, endScreenX, endScreenY, stepDelayMilliseconds);
         }
 
@@ -239,6 +253,13 @@ public sealed class DesktopAutomationService {
     /// Scrolls the mouse wheel at a point relative to each matching window.
     /// </summary>
     public IReadOnlyList<WindowInfo> ScrollWindowPoint(WindowQueryOptions options, int x, int y, int delta, bool activate, bool clientArea, bool all = false) {
+        return ScrollWindowPoint(options, x, y, null, null, delta, activate, clientArea, all);
+    }
+
+    /// <summary>
+    /// Scrolls the mouse wheel at a point relative to each matching window using either pixels or normalized ratios.
+    /// </summary>
+    public IReadOnlyList<WindowInfo> ScrollWindowPoint(WindowQueryOptions options, int? x, int? y, double? xRatio, double? yRatio, int delta, bool activate, bool clientArea, bool all = false) {
         IReadOnlyList<WindowInfo> windows = ResolveWindows(options, all);
         foreach (WindowInfo window in windows) {
             if (activate) {
@@ -246,7 +267,7 @@ public sealed class DesktopAutomationService {
                 Thread.Sleep(100);
             }
 
-            (int screenX, int screenY) = ResolveWindowPoint(window, x, y, clientArea);
+            (int screenX, int screenY) = ResolveWindowPoint(window, x, y, xRatio, yRatio, clientArea);
             Thread.Sleep(50);
             _windowManager.MoveMouse(screenX, screenY);
             _windowManager.ScrollMouse(delta);
@@ -519,7 +540,8 @@ public sealed class DesktopAutomationService {
         return new DesktopCapture {
             Kind = "window",
             Bitmap = ScreenshotService.CaptureWindow(window.Handle),
-            Window = window
+            Window = window,
+            Geometry = DescribeWindowGeometry(window)
         };
     }
 
@@ -611,27 +633,86 @@ public sealed class DesktopAutomationService {
             ?? windows.FirstOrDefault();
     }
 
-    private static (int X, int Y) ResolveWindowPoint(WindowInfo window, int x, int y, bool clientArea) {
-        if (x < 0) {
-            throw new ArgumentOutOfRangeException(nameof(x), "x must be zero or greater.");
-        }
-
-        if (y < 0) {
-            throw new ArgumentOutOfRangeException(nameof(y), "y must be zero or greater.");
-        }
+    private static (int X, int Y) ResolveWindowPoint(WindowInfo window, int? x, int? y, double? xRatio, double? yRatio, bool clientArea) {
+        DesktopWindowGeometry geometry = DescribeWindowGeometry(window);
+        (int resolvedX, int resolvedY) = ResolveRelativePoint(geometry, x, y, xRatio, yRatio, clientArea);
 
         if (!clientArea) {
-            return (window.Left + x, window.Top + y);
+            return (geometry.WindowLeft + resolvedX, geometry.WindowTop + resolvedY);
         }
 
-        var point = new MonitorNativeMethods.POINT {
-            x = x,
-            y = y
+        return (geometry.ClientLeft + resolvedX, geometry.ClientTop + resolvedY);
+    }
+
+    private static DesktopWindowGeometry DescribeWindowGeometry(WindowInfo window) {
+        if (window == null) {
+            throw new ArgumentNullException(nameof(window));
+        }
+
+        int clientLeft = window.Left;
+        int clientTop = window.Top;
+        int clientWidth = window.Width;
+        int clientHeight = window.Height;
+
+        if (MonitorNativeMethods.GetClientRect(window.Handle, out RECT clientRect)) {
+            var clientOrigin = new MonitorNativeMethods.POINT {
+                x = 0,
+                y = 0
+            };
+            if (MonitorNativeMethods.ClientToScreen(window.Handle, ref clientOrigin)) {
+                clientLeft = clientOrigin.x;
+                clientTop = clientOrigin.y;
+                clientWidth = Math.Max(0, clientRect.Right - clientRect.Left);
+                clientHeight = Math.Max(0, clientRect.Bottom - clientRect.Top);
+            }
+        }
+
+        return new DesktopWindowGeometry {
+            Window = window,
+            WindowLeft = window.Left,
+            WindowTop = window.Top,
+            WindowWidth = window.Width,
+            WindowHeight = window.Height,
+            ClientLeft = clientLeft,
+            ClientTop = clientTop,
+            ClientWidth = clientWidth,
+            ClientHeight = clientHeight,
+            ClientOffsetLeft = clientLeft - window.Left,
+            ClientOffsetTop = clientTop - window.Top
         };
-        if (!MonitorNativeMethods.ClientToScreen(window.Handle, ref point)) {
-            throw new InvalidOperationException("Failed to convert client coordinates to screen coordinates.");
+    }
+
+    private static (int X, int Y) ResolveRelativePoint(DesktopWindowGeometry geometry, int? x, int? y, double? xRatio, double? yRatio, bool clientArea) {
+        int width = clientArea ? geometry.ClientWidth : geometry.WindowWidth;
+        int height = clientArea ? geometry.ClientHeight : geometry.WindowHeight;
+
+        return (ResolveAxisCoordinate(x, xRatio, width, nameof(x), nameof(xRatio)), ResolveAxisCoordinate(y, yRatio, height, nameof(y), nameof(yRatio)));
+    }
+
+    private static int ResolveAxisCoordinate(int? coordinate, double? ratio, int size, string coordinateName, string ratioName) {
+        bool hasCoordinate = coordinate.HasValue;
+        bool hasRatio = ratio.HasValue;
+        if (hasCoordinate == hasRatio) {
+            throw new ArgumentException($"Provide either {coordinateName} or {ratioName}, but not both.");
         }
 
-        return (point.x, point.y);
+        if (hasCoordinate) {
+            if (coordinate!.Value < 0) {
+                throw new ArgumentOutOfRangeException(coordinateName, $"{coordinateName} must be zero or greater.");
+            }
+
+            return coordinate.Value;
+        }
+
+        double ratioValue = ratio!.Value;
+        if (ratioValue < 0 || ratioValue > 1) {
+            throw new ArgumentOutOfRangeException(ratioName, $"{ratioName} must be between 0 and 1.");
+        }
+
+        if (size <= 0) {
+            throw new InvalidOperationException("The target bounds do not expose a usable size.");
+        }
+
+        return (int)Math.Round((size - 1) * ratioValue, MidpointRounding.AwayFromZero);
     }
 }

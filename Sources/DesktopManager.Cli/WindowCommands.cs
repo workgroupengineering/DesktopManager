@@ -8,6 +8,7 @@ internal static class WindowCommands {
     public static int Run(string action, CommandLineArguments arguments) {
         return action switch {
             "list" => List(arguments),
+            "geometry" => Geometry(arguments),
             "exists" => Exists(arguments),
             "active-matches" => ActiveMatches(arguments),
             "move" => Move(arguments),
@@ -58,6 +59,27 @@ internal static class WindowCommands {
         return WriteAssertionResult(arguments, result, "Matching window found.", "No matching windows found.");
     }
 
+    private static int Geometry(CommandLineArguments arguments) {
+        IReadOnlyList<WindowGeometryResult> geometries = DesktopOperations.GetWindowGeometry(CreateCriteria(arguments, includeEmptyDefault: true));
+        if (arguments.GetBoolFlag("json")) {
+            OutputFormatter.WriteJson(geometries);
+            return 0;
+        }
+
+        if (geometries.Count == 0) {
+            Console.WriteLine("No matching windows found.");
+            return 0;
+        }
+
+        foreach (WindowGeometryResult geometry in geometries) {
+            Console.WriteLine($"window: {geometry.Window.Title} ({geometry.Window.Handle})");
+            Console.WriteLine($"- Window: {geometry.WindowLeft},{geometry.WindowTop} {geometry.WindowWidth}x{geometry.WindowHeight}");
+            Console.WriteLine($"- Client: {geometry.ClientLeft},{geometry.ClientTop} {geometry.ClientWidth}x{geometry.ClientHeight}");
+            Console.WriteLine($"- ClientOffset: {geometry.ClientOffsetLeft},{geometry.ClientOffsetTop}");
+        }
+        return 0;
+    }
+
     private static int ActiveMatches(CommandLineArguments arguments) {
         WindowAssertionResult result = DesktopOperations.ActiveWindowMatches(CreateCriteria(arguments, includeEmptyDefault: true));
         return WriteAssertionResult(arguments, result, "Active window matches.", "Active window does not match.");
@@ -84,8 +106,10 @@ internal static class WindowCommands {
             arguments,
             DesktopOperations.ClickWindowPoint(
                 CreateCriteria(arguments, includeEmptyDefault: true),
-                arguments.GetRequiredIntOption("x"),
-                arguments.GetRequiredIntOption("y"),
+                arguments.GetIntOption("x"),
+                arguments.GetIntOption("y"),
+                arguments.GetDoubleOption("x-ratio"),
+                arguments.GetDoubleOption("y-ratio"),
                 arguments.GetOption("button") ?? "left",
                 arguments.GetBoolFlag("activate"),
                 arguments.GetBoolFlag("client-area")));
@@ -94,12 +118,16 @@ internal static class WindowCommands {
     private static int Drag(CommandLineArguments arguments) {
         return WriteWindowMutationResult(
             arguments,
-            DesktopOperations.DragWindowPoints(
+                DesktopOperations.DragWindowPoints(
                 CreateCriteria(arguments, includeEmptyDefault: true),
-                arguments.GetRequiredIntOption("start-x"),
-                arguments.GetRequiredIntOption("start-y"),
-                arguments.GetRequiredIntOption("end-x"),
-                arguments.GetRequiredIntOption("end-y"),
+                arguments.GetIntOption("start-x"),
+                arguments.GetIntOption("start-y"),
+                arguments.GetDoubleOption("start-x-ratio"),
+                arguments.GetDoubleOption("start-y-ratio"),
+                arguments.GetIntOption("end-x"),
+                arguments.GetIntOption("end-y"),
+                arguments.GetDoubleOption("end-x-ratio"),
+                arguments.GetDoubleOption("end-y-ratio"),
                 arguments.GetOption("button") ?? "left",
                 arguments.GetIntOption("step-delay-ms") ?? 0,
                 arguments.GetBoolFlag("activate"),
@@ -109,10 +137,12 @@ internal static class WindowCommands {
     private static int Scroll(CommandLineArguments arguments) {
         return WriteWindowMutationResult(
             arguments,
-            DesktopOperations.ScrollWindowPoint(
+                DesktopOperations.ScrollWindowPoint(
                 CreateCriteria(arguments, includeEmptyDefault: true),
-                arguments.GetRequiredIntOption("x"),
-                arguments.GetRequiredIntOption("y"),
+                arguments.GetIntOption("x"),
+                arguments.GetIntOption("y"),
+                arguments.GetDoubleOption("x-ratio"),
+                arguments.GetDoubleOption("y-ratio"),
                 arguments.GetRequiredIntOption("delta"),
                 arguments.GetBoolFlag("activate"),
                 arguments.GetBoolFlag("client-area")));

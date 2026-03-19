@@ -24,6 +24,13 @@ internal static class DesktopOperations {
         });
     }
 
+    public static IReadOnlyList<WindowGeometryResult> GetWindowGeometry(WindowSelectionCriteria criteria) {
+        return ExecuteCore(() => new DesktopAutomationService()
+            .GetWindowGeometry(CreateWindowQuery(criteria), criteria.All)
+            .Select(MapWindowGeometry)
+            .ToArray());
+    }
+
     public static WindowChangeResult MoveWindow(WindowSelectionCriteria criteria, int? monitorIndex, int? x, int? y, int? width, int? height, bool activate) {
         return ExecuteCore(() => BuildWindowChangeResult(
             "move",
@@ -36,31 +43,24 @@ internal static class DesktopOperations {
             new DesktopAutomationService().FocusWindows(CreateWindowQuery(criteria), criteria.All)));
     }
 
-    public static WindowChangeResult ClickWindowPoint(WindowSelectionCriteria criteria, int x, int y, string button, bool activate) {
+    public static WindowChangeResult ClickWindowPoint(WindowSelectionCriteria criteria, int? x, int? y, double? xRatio, double? yRatio, string button, bool activate, bool clientArea) {
         MouseButton mouseButton = ParseMouseButton(button);
         return ExecuteCore(() => BuildWindowChangeResult(
             "click-point",
-            new DesktopAutomationService().ClickWindowPoint(CreateWindowQuery(criteria), x, y, mouseButton, activate, clientArea: false, criteria.All)));
+            new DesktopAutomationService().ClickWindowPoint(CreateWindowQuery(criteria), x, y, xRatio, yRatio, mouseButton, activate, clientArea, criteria.All)));
     }
 
-    public static WindowChangeResult ClickWindowPoint(WindowSelectionCriteria criteria, int x, int y, string button, bool activate, bool clientArea) {
-        MouseButton mouseButton = ParseMouseButton(button);
-        return ExecuteCore(() => BuildWindowChangeResult(
-            "click-point",
-            new DesktopAutomationService().ClickWindowPoint(CreateWindowQuery(criteria), x, y, mouseButton, activate, clientArea, criteria.All)));
-    }
-
-    public static WindowChangeResult DragWindowPoints(WindowSelectionCriteria criteria, int startX, int startY, int endX, int endY, string button, int stepDelayMilliseconds, bool activate, bool clientArea) {
+    public static WindowChangeResult DragWindowPoints(WindowSelectionCriteria criteria, int? startX, int? startY, double? startXRatio, double? startYRatio, int? endX, int? endY, double? endXRatio, double? endYRatio, string button, int stepDelayMilliseconds, bool activate, bool clientArea) {
         MouseButton mouseButton = ParseMouseButton(button);
         return ExecuteCore(() => BuildWindowChangeResult(
             "drag-point",
-            new DesktopAutomationService().DragWindowPoints(CreateWindowQuery(criteria), startX, startY, endX, endY, mouseButton, stepDelayMilliseconds, activate, clientArea, criteria.All)));
+            new DesktopAutomationService().DragWindowPoints(CreateWindowQuery(criteria), startX, startY, startXRatio, startYRatio, endX, endY, endXRatio, endYRatio, mouseButton, stepDelayMilliseconds, activate, clientArea, criteria.All)));
     }
 
-    public static WindowChangeResult ScrollWindowPoint(WindowSelectionCriteria criteria, int x, int y, int delta, bool activate, bool clientArea) {
+    public static WindowChangeResult ScrollWindowPoint(WindowSelectionCriteria criteria, int? x, int? y, double? xRatio, double? yRatio, int delta, bool activate, bool clientArea) {
         return ExecuteCore(() => BuildWindowChangeResult(
             "scroll-point",
-            new DesktopAutomationService().ScrollWindowPoint(CreateWindowQuery(criteria), x, y, delta, activate, clientArea, criteria.All)));
+            new DesktopAutomationService().ScrollWindowPoint(CreateWindowQuery(criteria), x, y, xRatio, yRatio, delta, activate, clientArea, criteria.All)));
     }
 
     public static WindowChangeResult MinimizeWindows(WindowSelectionCriteria criteria) {
@@ -388,6 +388,22 @@ internal static class DesktopOperations {
         };
     }
 
+    private static WindowGeometryResult MapWindowGeometry(DesktopWindowGeometry geometry) {
+        return new WindowGeometryResult {
+            Window = MapWindow(geometry.Window),
+            WindowLeft = geometry.WindowLeft,
+            WindowTop = geometry.WindowTop,
+            WindowWidth = geometry.WindowWidth,
+            WindowHeight = geometry.WindowHeight,
+            ClientLeft = geometry.ClientLeft,
+            ClientTop = geometry.ClientTop,
+            ClientWidth = geometry.ClientWidth,
+            ClientHeight = geometry.ClientHeight,
+            ClientOffsetLeft = geometry.ClientOffsetLeft,
+            ClientOffsetTop = geometry.ClientOffsetTop
+        };
+    }
+
     private static ControlResult MapControl(WindowControlTargetInfo target) {
         return MapControl(target.Window, target.Control);
     }
@@ -501,7 +517,8 @@ internal static class DesktopOperations {
             Height = capture.Bitmap.Height,
             MonitorIndex = capture.MonitorIndex,
             MonitorDeviceName = capture.MonitorDeviceName,
-            Window = capture.Window == null ? null : MapWindow(capture.Window)
+            Window = capture.Window == null ? null : MapWindow(capture.Window),
+            Geometry = capture.Geometry == null ? null : MapWindowGeometry(capture.Geometry)
         };
     }
 

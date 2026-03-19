@@ -101,6 +101,19 @@ internal sealed class CommandLineArguments {
         return GetIntOption(name) ?? throw new CommandLineException($"Missing required option '--{name}'.");
     }
 
+    public double? GetDoubleOption(string name) {
+        string? value = GetOption(name);
+        if (string.IsNullOrEmpty(value)) {
+            return null;
+        }
+
+        if (double.TryParse(value, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsed)) {
+            return parsed;
+        }
+
+        throw new CommandLineException($"Option '--{name}' expects a numeric value.");
+    }
+
     public bool GetBoolFlag(string name) {
         return HasFlag(name);
     }

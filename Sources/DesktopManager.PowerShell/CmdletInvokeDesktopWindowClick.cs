@@ -24,14 +24,26 @@ public sealed class CmdletInvokeDesktopWindowClick : PSCmdlet {
     /// <summary>
     /// <para type="description">Horizontal coordinate relative to the window bounds.</para>
     /// </summary>
-    [Parameter(Mandatory = true)]
-    public int X { get; set; }
+    [Parameter]
+    public int? X { get; set; }
 
     /// <summary>
     /// <para type="description">Vertical coordinate relative to the window bounds.</para>
     /// </summary>
-    [Parameter(Mandatory = true)]
-    public int Y { get; set; }
+    [Parameter]
+    public int? Y { get; set; }
+
+    /// <summary>
+    /// <para type="description">Horizontal coordinate ratio from 0 to 1 relative to the target bounds.</para>
+    /// </summary>
+    [Parameter]
+    public double? XRatio { get; set; }
+
+    /// <summary>
+    /// <para type="description">Vertical coordinate ratio from 0 to 1 relative to the target bounds.</para>
+    /// </summary>
+    [Parameter]
+    public double? YRatio { get; set; }
 
     /// <summary>
     /// <para type="description">Mouse button to use for the click.</para>
@@ -45,6 +57,12 @@ public sealed class CmdletInvokeDesktopWindowClick : PSCmdlet {
     [Parameter]
     public SwitchParameter Activate { get; set; }
 
+    /// <summary>
+    /// <para type="description">Interpret the supplied coordinates relative to the client area instead of the outer window bounds.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter ClientArea { get; set; }
+
     /// <inheritdoc />
     protected override void BeginProcessing() {
         var automation = new DesktopAutomationService();
@@ -57,8 +75,11 @@ public sealed class CmdletInvokeDesktopWindowClick : PSCmdlet {
             IncludeEmptyTitles = ActiveWindow ? true : null
         };
 
-        if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Click point {X},{Y}")) {
-            WriteObject(automation.ClickWindowPoint(options, X, Y, Button, Activate, all: false), true);
+        string targetText = X.HasValue && Y.HasValue
+            ? $"{X},{Y}"
+            : $"{XRatio},{YRatio}";
+        if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Click point {targetText}")) {
+            WriteObject(automation.ClickWindowPoint(options, X, Y, XRatio, YRatio, Button, Activate, ClientArea, all: false), true);
         }
     }
 }

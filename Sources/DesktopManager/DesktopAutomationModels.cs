@@ -181,6 +181,66 @@ public sealed class DesktopControlDiscoveryDiagnostics {
 }
 
 /// <summary>
+/// Describes a window and its client-area geometry.
+/// </summary>
+public sealed class DesktopWindowGeometry {
+    /// <summary>
+    /// Gets or sets the target window.
+    /// </summary>
+    public WindowInfo Window { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the window bounds left coordinate in screen space.
+    /// </summary>
+    public int WindowLeft { get; set; }
+
+    /// <summary>
+    /// Gets or sets the window bounds top coordinate in screen space.
+    /// </summary>
+    public int WindowTop { get; set; }
+
+    /// <summary>
+    /// Gets or sets the window width in pixels.
+    /// </summary>
+    public int WindowWidth { get; set; }
+
+    /// <summary>
+    /// Gets or sets the window height in pixels.
+    /// </summary>
+    public int WindowHeight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the client-area left coordinate in screen space.
+    /// </summary>
+    public int ClientLeft { get; set; }
+
+    /// <summary>
+    /// Gets or sets the client-area top coordinate in screen space.
+    /// </summary>
+    public int ClientTop { get; set; }
+
+    /// <summary>
+    /// Gets or sets the client-area width in pixels.
+    /// </summary>
+    public int ClientWidth { get; set; }
+
+    /// <summary>
+    /// Gets or sets the client-area height in pixels.
+    /// </summary>
+    public int ClientHeight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the client-area left offset relative to the outer window.
+    /// </summary>
+    public int ClientOffsetLeft { get; set; }
+
+    /// <summary>
+    /// Gets or sets the client-area top offset relative to the outer window.
+    /// </summary>
+    public int ClientOffsetTop { get; set; }
+}
+
+/// <summary>
 /// Represents a screenshot capture produced by DesktopManager.
 /// </summary>
 public sealed class DesktopCapture : IDisposable {
@@ -198,6 +258,11 @@ public sealed class DesktopCapture : IDisposable {
     /// Gets or sets the captured window when applicable.
     /// </summary>
     public WindowInfo? Window { get; set; }
+
+    /// <summary>
+    /// Gets or sets the captured window geometry when applicable.
+    /// </summary>
+    public DesktopWindowGeometry? Geometry { get; set; }
 
     /// <summary>
     /// Gets or sets the captured monitor index when applicable.

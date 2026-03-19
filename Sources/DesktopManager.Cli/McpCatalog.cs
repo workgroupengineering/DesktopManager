@@ -9,6 +9,7 @@ internal static class McpCatalog {
         return new object[] {
             CreateTool("get_active_window", "Get Active Window", "Return information about the currently focused window.", CreateObjectSchema(), readOnly: true),
             CreateTool("list_windows", "List Windows", "List visible desktop windows with optional filtering.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
+            CreateTool("get_window_geometry", "Get Window Geometry", "Return outer-window and client-area geometry for matching windows.", CreateWindowSelectorSchema(includeAll: true, includeEmpty: true), readOnly: true),
             CreateTool("window_exists", "Window Exists", "Check whether a matching window currently exists.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
             CreateTool("active_window_matches", "Active Window Matches", "Check whether the current foreground window matches the selector.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
             CreateTool("wait_for_window", "Wait For Window", "Wait for a matching window to appear.", CreateObjectSchema(
@@ -228,11 +229,13 @@ internal static class McpCatalog {
                     ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
                     ["x"] = CreateIntegerSchema("Horizontal coordinate relative to the window bounds."),
                     ["y"] = CreateIntegerSchema("Vertical coordinate relative to the window bounds."),
+                    ["xRatio"] = CreateNumberSchema("Horizontal coordinate ratio from 0 to 1."),
+                    ["yRatio"] = CreateNumberSchema("Vertical coordinate ratio from 0 to 1."),
                     ["button"] = CreateStringSchema("Mouse button: left or right."),
                     ["activate"] = CreateBooleanSchema("Activate the window before clicking."),
                     ["clientArea"] = CreateBooleanSchema("Interpret coordinates relative to the window client area."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
-                }, new[] { "x", "y" }), readOnly: false, destructive: false, idempotent: false),
+                }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("drag_window_points", "Drag Window Points", "Drag between two points relative to a matching window.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -243,14 +246,18 @@ internal static class McpCatalog {
                     ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
                     ["startX"] = CreateIntegerSchema("Horizontal starting coordinate relative to the window bounds."),
                     ["startY"] = CreateIntegerSchema("Vertical starting coordinate relative to the window bounds."),
+                    ["startXRatio"] = CreateNumberSchema("Horizontal starting coordinate ratio from 0 to 1."),
+                    ["startYRatio"] = CreateNumberSchema("Vertical starting coordinate ratio from 0 to 1."),
                     ["endX"] = CreateIntegerSchema("Horizontal ending coordinate relative to the window bounds."),
                     ["endY"] = CreateIntegerSchema("Vertical ending coordinate relative to the window bounds."),
+                    ["endXRatio"] = CreateNumberSchema("Horizontal ending coordinate ratio from 0 to 1."),
+                    ["endYRatio"] = CreateNumberSchema("Vertical ending coordinate ratio from 0 to 1."),
                     ["button"] = CreateStringSchema("Mouse button: left or right."),
                     ["stepDelayMs"] = CreateIntegerSchema("Delay in milliseconds between drag steps."),
                     ["activate"] = CreateBooleanSchema("Activate the window before dragging."),
                     ["clientArea"] = CreateBooleanSchema("Interpret coordinates relative to the window client area."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
-                }, new[] { "startX", "startY", "endX", "endY" }), readOnly: false, destructive: false, idempotent: false),
+                }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("scroll_window_point", "Scroll Window Point", "Scroll the mouse wheel at a point relative to a matching window.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -261,11 +268,13 @@ internal static class McpCatalog {
                     ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
                     ["x"] = CreateIntegerSchema("Horizontal coordinate relative to the window bounds."),
                     ["y"] = CreateIntegerSchema("Vertical coordinate relative to the window bounds."),
+                    ["xRatio"] = CreateNumberSchema("Horizontal coordinate ratio from 0 to 1."),
+                    ["yRatio"] = CreateNumberSchema("Vertical coordinate ratio from 0 to 1."),
                     ["delta"] = CreateIntegerSchema("Scroll delta. Positive scrolls up."),
                     ["activate"] = CreateBooleanSchema("Activate the window before scrolling."),
                     ["clientArea"] = CreateBooleanSchema("Interpret coordinates relative to the window client area."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
-                }, new[] { "x", "y", "delta" }), readOnly: false, destructive: false, idempotent: false),
+                }, new[] { "delta" }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("type_window_text", "Type Window Text", "Type or paste text into a matching window.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -429,6 +438,7 @@ internal static class McpCatalog {
             result = name switch {
                 "get_active_window" => DesktopOperations.GetActiveWindow(),
                 "list_windows" => DesktopOperations.ListWindows(ReadWindowCriteria(arguments, false)),
+                "get_window_geometry" => DesktopOperations.GetWindowGeometry(ReadWindowCriteria(arguments, true)),
                 "window_exists" => DesktopOperations.WindowExists(ReadWindowCriteria(arguments, true)),
                 "active_window_matches" => DesktopOperations.ActiveWindowMatches(ReadWindowCriteria(arguments, true)),
                 "wait_for_window" => DesktopOperations.WaitForWindow(
@@ -445,25 +455,33 @@ internal static class McpCatalog {
                     ReadBool(arguments, "activate")),
                 "click_window_point" => DesktopOperations.ClickWindowPoint(
                     ReadWindowCriteria(arguments, true),
-                    ReadInt(arguments, "x") ?? throw new CommandLineException("Property 'x' is required."),
-                    ReadInt(arguments, "y") ?? throw new CommandLineException("Property 'y' is required."),
+                    ReadInt(arguments, "x"),
+                    ReadInt(arguments, "y"),
+                    ReadDouble(arguments, "xRatio"),
+                    ReadDouble(arguments, "yRatio"),
                     ReadOptionalString(arguments, "button") ?? "left",
                     ReadBool(arguments, "activate"),
                     ReadBool(arguments, "clientArea")),
                 "drag_window_points" => DesktopOperations.DragWindowPoints(
                     ReadWindowCriteria(arguments, true),
-                    ReadInt(arguments, "startX") ?? throw new CommandLineException("Property 'startX' is required."),
-                    ReadInt(arguments, "startY") ?? throw new CommandLineException("Property 'startY' is required."),
-                    ReadInt(arguments, "endX") ?? throw new CommandLineException("Property 'endX' is required."),
-                    ReadInt(arguments, "endY") ?? throw new CommandLineException("Property 'endY' is required."),
+                    ReadInt(arguments, "startX"),
+                    ReadInt(arguments, "startY"),
+                    ReadDouble(arguments, "startXRatio"),
+                    ReadDouble(arguments, "startYRatio"),
+                    ReadInt(arguments, "endX"),
+                    ReadInt(arguments, "endY"),
+                    ReadDouble(arguments, "endXRatio"),
+                    ReadDouble(arguments, "endYRatio"),
                     ReadOptionalString(arguments, "button") ?? "left",
                     ReadInt(arguments, "stepDelayMs") ?? 0,
                     ReadBool(arguments, "activate"),
                     ReadBool(arguments, "clientArea")),
                 "scroll_window_point" => DesktopOperations.ScrollWindowPoint(
                     ReadWindowCriteria(arguments, true),
-                    ReadInt(arguments, "x") ?? throw new CommandLineException("Property 'x' is required."),
-                    ReadInt(arguments, "y") ?? throw new CommandLineException("Property 'y' is required."),
+                    ReadInt(arguments, "x"),
+                    ReadInt(arguments, "y"),
+                    ReadDouble(arguments, "xRatio"),
+                    ReadDouble(arguments, "yRatio"),
                     ReadInt(arguments, "delta") ?? throw new CommandLineException("Property 'delta' is required."),
                     ReadBool(arguments, "activate"),
                     ReadBool(arguments, "clientArea")),
@@ -680,6 +698,13 @@ internal static class McpCatalog {
         };
     }
 
+    private static object CreateNumberSchema(string description) {
+        return new {
+            type = "number",
+            description
+        };
+    }
+
     private static object CreateBooleanSchema(string description) {
         return new {
             type = "boolean",
@@ -735,6 +760,22 @@ internal static class McpCatalog {
         }
 
         throw new CommandLineException($"Property '{propertyName}' expects an integer value.");
+    }
+
+    private static double? ReadDouble(JsonElement element, string propertyName) {
+        if (!element.TryGetProperty(propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
+            return null;
+        }
+
+        if (property.ValueKind == JsonValueKind.Number && property.TryGetDouble(out double numericValue)) {
+            return numericValue;
+        }
+
+        if (property.ValueKind == JsonValueKind.String && double.TryParse(property.GetString(), out double textValue)) {
+            return textValue;
+        }
+
+        throw new CommandLineException($"Property '{propertyName}' expects a numeric value.");
     }
 
     private static bool ReadBool(JsonElement element, string propertyName) {

@@ -12,6 +12,7 @@ The repository now includes a `DesktopManager.Cli` project that exposes a small,
 
 ```text
 desktopmanager window list
+desktopmanager window geometry
 desktopmanager window exists
 desktopmanager window active-matches
 desktopmanager window wait
@@ -68,6 +69,8 @@ desktopmanager mcp serve
 - `window type` sends text to the target window, either by simulated typing or clipboard paste.
 - `window click`, `window drag`, and `window scroll` provide shared window-relative fallbacks for modern apps when structural control discovery is unavailable.
 - `window` commands support exact handle targeting and active-window targeting for safer selection when multiple windows match.
+- `window geometry` returns both outer-window and client-area bounds, which makes screenshot-assisted targeting much easier.
+- `window click`, `window drag`, and `window scroll` now also support normalized ratios from `0` to `1` for less brittle targeting.
 - `screenshot window` now prefers real window rendering before falling back to screen pixels, which improves captures for covered windows.
 - `mcp serve` hosts a stdio MCP server.
 
@@ -78,6 +81,7 @@ desktopmanager mcp serve
 - `control` and `window type` add the first direct interaction layer for classic desktop controls.
 - `window click`, `window drag`, and `window scroll` give CLI, MCP, and PowerShell the same coordinate-based fallback path when UIA-heavy apps stay opaque.
 - those fallbacks now also support client-area coordinates, which are usually a better fit for browser and editor content than raw outer-window coordinates.
+- screenshot JSON now includes window geometry metadata for window captures, so agents can map screenshots to client-area coordinates without extra probing.
 - the CLI mirrors existing concepts already present in the library and PowerShell module.
 - the CLI and MCP server reuse the same desktop operations and storage conventions.
 - window selection and text-entry reliability now live in the shared C# library so CLI, MCP, and PowerShell stay aligned.
@@ -87,3 +91,4 @@ desktopmanager mcp serve
 - Child-window targeting is still the simplest path for classic Win32 controls.
 - UIA discovery and action fallback now work through the shared library, but selector validation is still wise before unattended runs.
 - `control diagnose` is the fastest way to understand why a modern app did or did not expose controls through the shared library.
+- For opaque modern apps, the most reliable fallback flow is now: `screenshot window --json`, inspect `Geometry`, then use ratio-based `window click`, `window drag`, or `window scroll` with `--client-area`.

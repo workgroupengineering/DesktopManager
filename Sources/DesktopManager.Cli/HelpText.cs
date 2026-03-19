@@ -48,12 +48,13 @@ Use:
         return """
 Window commands:
   desktopmanager window list [--title <pattern>] [--process <pattern>] [--class <pattern>] [--pid <id>] [--handle <value>] [--active] [--include-empty] [--include-hidden] [--exclude-cloaked] [--exclude-owned] [--json]
+  desktopmanager window geometry [selector] [--all] [--json]
   desktopmanager window exists [selector] [--json]
   desktopmanager window active-matches [selector] [--json]
   desktopmanager window move [selector] [--monitor <index>] [--x <value>] [--y <value>] [--width <value>] [--height <value>] [--activate] [--all] [--json]
-  desktopmanager window click [selector] --x <value> --y <value> [--button <left|right>] [--activate] [--client-area] [--all] [--json]
-  desktopmanager window drag [selector] --start-x <value> --start-y <value> --end-x <value> --end-y <value> [--button <left|right>] [--step-delay-ms <value>] [--activate] [--client-area] [--all] [--json]
-  desktopmanager window scroll [selector] --x <value> --y <value> --delta <value> [--activate] [--client-area] [--all] [--json]
+  desktopmanager window click [selector] (--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) [--button <left|right>] [--activate] [--client-area] [--all] [--json]
+  desktopmanager window drag [selector] ((--start-x <value> --start-y <value>) | (--start-x-ratio <value> --start-y-ratio <value>)) ((--end-x <value> --end-y <value>) | (--end-x-ratio <value> --end-y-ratio <value>)) [--button <left|right>] [--step-delay-ms <value>] [--activate] [--client-area] [--all] [--json]
+  desktopmanager window scroll [selector] (--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) --delta <value> [--activate] [--client-area] [--all] [--json]
   desktopmanager window focus [selector] [--all] [--json]
   desktopmanager window minimize [selector] [--all] [--json]
   desktopmanager window snap [selector] --position <left|right|top-left|top-right|bottom-left|bottom-right> [--all] [--json]
@@ -71,11 +72,15 @@ Selectors:
 
 Examples:
   desktopmanager window list --title "*Notepad*" --json
+  desktopmanager window geometry --handle 0xFF1802 --json
   desktopmanager window exists --process notepad
   desktopmanager window active-matches --title "Codex"
   desktopmanager window click --process notepad --x 200 --y 200 --client-area
+  desktopmanager window click --process notepad --x-ratio 0.5 --y-ratio 0.5 --client-area
   desktopmanager window drag --process notepad --start-x 200 --start-y 200 --end-x 500 --end-y 200 --client-area
+  desktopmanager window drag --process notepad --start-x-ratio 0.2 --start-y-ratio 0.2 --end-x-ratio 0.6 --end-y-ratio 0.2 --client-area
   desktopmanager window scroll --process notepad --x 200 --y 200 --delta -120 --client-area
+  desktopmanager window scroll --process notepad --x-ratio 0.5 --y-ratio 0.5 --delta -120 --client-area
   desktopmanager window type --active --text "Hello world"
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --activate
   desktopmanager window snap --process notepad --position left

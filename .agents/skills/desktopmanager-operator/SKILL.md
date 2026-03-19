@@ -19,6 +19,7 @@ Use this skill to operate the Windows desktop through DesktopManager.
    - Use `get_active_window` when focus matters.
    - Use `window_exists` or `active_window_matches` when you need an explicit assertion first.
    - Use `screenshot_desktop` or `screenshot_window` when visual confirmation is needed.
+   - Use `get_window_geometry` when you need exact outer-window and client-area bounds before a coordinate-based action.
    - When more than one window matches, switch to an exact handle before mutating anything.
 3. Launch and wait when the target app is not ready yet.
    - Use `launch_process` to start the app.
@@ -30,7 +31,8 @@ Use this skill to operate the Windows desktop through DesktopManager.
    - Use `control_exists` or `wait_for_control` when the control can appear asynchronously or when you want an explicit precondition before clicking.
    - When available, prefer value, enabled, or focusable checks over brittle text-only guesses.
    - If UIA discovery is flaky on a background window, retry with the shared foreground hint before inventing wrapper-specific workarounds.
-   - If the app still stays structurally opaque, switch to the shared coordinate-based fallback: capture the window, pick relative points, and use `click_window_point`, `drag_window_points`, or `scroll_window_point`.
+   - If the app still stays structurally opaque, switch to the shared coordinate-based fallback: capture the window, inspect its geometry, then use `click_window_point`, `drag_window_points`, or `scroll_window_point`.
+   - Prefer ratio-based client-area targeting when the same workflow must survive different window sizes.
    - Use `type_window_text` for whole-window entry.
    - Use `click_control`, `set_control_text`, or `send_control_keys` for control-level work.
 5. Prefer named state over one-off moves.
@@ -50,6 +52,7 @@ Tools:
 
 - `get_active_window`
 - `list_windows`
+- `get_window_geometry`
 - `window_exists`
 - `active_window_matches`
 - `wait_for_window`
@@ -100,9 +103,13 @@ desktopmanager window list
 desktopmanager window exists --title "Codex"
 desktopmanager window active-matches --title "Codex"
 desktopmanager window wait --process notepad --timeout-ms 5000
+desktopmanager window geometry --handle 0xFF1802 --json
 desktopmanager window click --handle 0xFF1802 --x 200 --y 200
+desktopmanager window click --handle 0xFF1802 --x-ratio 0.5 --y-ratio 0.5 --client-area
 desktopmanager window drag --handle 0xFF1802 --start-x 200 --start-y 200 --end-x 400 --end-y 220 --client-area
+desktopmanager window drag --handle 0xFF1802 --start-x-ratio 0.2 --start-y-ratio 0.2 --end-x-ratio 0.6 --end-y-ratio 0.2 --client-area
 desktopmanager window scroll --handle 0xFF1802 --x 200 --y 200 --delta -120 --client-area
+desktopmanager window scroll --handle 0xFF1802 --x-ratio 0.5 --y-ratio 0.5 --delta -120 --client-area
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
 desktopmanager control diagnose --window-title "*Codex*" --uia --ensure-foreground --sample-limit 5 --json
@@ -137,6 +144,7 @@ desktopmanager snapshot restore before-meeting
 - Prefer `diagnose_window_controls` when Chromium-style apps or background windows are not returning expected controls.
 - Prefer `click_window_point`, `drag_window_points`, or `scroll_window_point` over inventing wrapper-specific mouse hacks when screenshots give you a reliable target and the app exposes no usable controls.
 - Prefer client-area coordinates for browser/editor content, and outer-window coordinates when you intentionally want chrome like tabs, sidebars, or title-bar buttons.
+- Prefer ratio-based coordinates when you expect the target window size to vary between runs or machines.
 - Prefer window-level typing when control-level targeting is uncertain.
 - Prefer named layouts and snapshots over repeated manual window placement.
 - Prefer minimizing distracting windows over closing them.

@@ -54,6 +54,9 @@ internal static class ScreenshotCommands {
         if (result.Window != null) {
             Console.WriteLine($"- Window: {result.Window.Title}");
         }
+        if (result.Geometry != null) {
+            Console.WriteLine($"- Client: {result.Geometry.ClientWidth}x{result.Geometry.ClientHeight} at offset {result.Geometry.ClientOffsetLeft},{result.Geometry.ClientOffsetTop}");
+        }
         if (result.MonitorIndex.HasValue) {
             Console.WriteLine($"- Monitor: {result.MonitorIndex}");
         }
