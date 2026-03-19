@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading;
@@ -52,6 +53,7 @@ public static class WindowInputService {
         }
 
         SendPaste(window.Handle, settings.InputRetryCount, settings.ActivationRetryDelayMilliseconds);
+        EnsureTextApplied(window, text);
 
         if (settings.RestoreFocus && previousForeground != IntPtr.Zero && previousForeground != window.Handle) {
             MonitorNativeMethods.SetForegroundWindow(previousForeground);
@@ -100,11 +102,19 @@ public static class WindowInputService {
             TryActivateWindow(window.Handle, settings.ActivationRetryCount, settings.ActivationRetryDelayMilliseconds);
         }
 
+        bool targetOwnsForeground = MonitorNativeMethods.GetForegroundWindow() == window.Handle;
+        IntPtr targetHandle = ResolvePreferredTextHandle(window.Handle);
         if (settings.UseSendInput) {
-            SendInputText(text, settings);
+            if (targetOwnsForeground) {
+                SendInputText(text, settings);
+            } else {
+                SendMessageText(targetHandle, text, settings.KeyDelayMilliseconds);
+            }
         } else {
-            SendMessageText(window.Handle, text, settings.KeyDelayMilliseconds);
+            SendMessageText(targetHandle, text, settings.KeyDelayMilliseconds);
         }
+
+        EnsureTextApplied(window, text);
 
         if (settings.RestoreFocus && previousForeground != IntPtr.Zero && previousForeground != window.Handle) {
             MonitorNativeMethods.SetForegroundWindow(previousForeground);
@@ -142,15 +152,7 @@ public static class WindowInputService {
     }
 
     private static void TryActivateWindow(IntPtr handle, int retryCount, int retryDelayMilliseconds) {
-        for (int attempt = 0; attempt < retryCount; attempt++) {
-            if (MonitorNativeMethods.SetForegroundWindow(handle)) {
-                return;
-            }
-
-            if (attempt < retryCount - 1 && retryDelayMilliseconds > 0) {
-                Thread.Sleep(retryDelayMilliseconds);
-            }
-        }
+        WindowActivationService.TryActivateWindow(handle, retryCount, retryDelayMilliseconds);
     }
 
     private static void SendPaste(IntPtr handle, int retryCount, int retryDelayMilliseconds) {
@@ -207,6 +209,35 @@ public static class WindowInputService {
                 Thread.Sleep(options.KeyDelayMilliseconds);
             }
         }
+    }
+
+    private static void EnsureTextApplied(WindowInfo window, string text) {
+        WindowControlInfo? editable = FindPreferredEditableControl(window.Handle);
+        if (editable == null) {
+            return;
+        }
+
+        string current = WindowTextHelper.GetWindowText(editable.Handle);
+        if (string.Equals(current, text, StringComparison.Ordinal)) {
+            return;
+        }
+
+        MonitorNativeMethods.SendMessage(editable.Handle, MonitorNativeMethods.WM_SETTEXT, IntPtr.Zero, text);
+    }
+
+    private static WindowControlInfo? FindPreferredEditableControl(IntPtr windowHandle) {
+        var enumerator = new ControlEnumerator();
+        List<WindowControlInfo> controls = enumerator.EnumerateControls(windowHandle);
+
+        return controls.Find(control => control.ClassName.Equals("RichEditD2DPT", StringComparison.OrdinalIgnoreCase))
+            ?? controls.Find(control => control.ClassName.Equals("NotepadTextBox", StringComparison.OrdinalIgnoreCase))
+            ?? controls.Find(control => control.ClassName.IndexOf("RichEdit", StringComparison.OrdinalIgnoreCase) >= 0)
+            ?? controls.Find(control => control.ClassName.IndexOf("Edit", StringComparison.OrdinalIgnoreCase) >= 0);
+    }
+
+    private static IntPtr ResolvePreferredTextHandle(IntPtr windowHandle) {
+        WindowControlInfo? editable = FindPreferredEditableControl(windowHandle);
+        return editable?.Handle ?? windowHandle;
     }
 }
 

@@ -1,0 +1,134 @@
+# DesktopManager CLI MVP
+
+The repository now includes a `DesktopManager.Cli` project that exposes a small, noun-based command tree over the existing `DesktopManager` C# library.
+
+## Goals
+
+- Keep the CLI aligned with the current C# surface area.
+- Provide a stable foundation for MCP hosting.
+- Reuse existing window, monitor, and layout APIs rather than duplicating desktop logic.
+
+## Command groups
+
+```text
+desktopmanager window list
+desktopmanager window geometry
+desktopmanager window exists
+desktopmanager window active-matches
+desktopmanager window wait
+desktopmanager window type
+desktopmanager window move
+desktopmanager window click
+desktopmanager window drag
+desktopmanager window scroll
+desktopmanager window focus
+desktopmanager window minimize
+desktopmanager window snap
+
+desktopmanager control list
+desktopmanager control diagnose
+desktopmanager control exists
+desktopmanager control wait
+desktopmanager control click
+desktopmanager control set-text
+desktopmanager control send-keys
+
+desktopmanager monitor list
+
+desktopmanager process start
+
+desktopmanager screenshot desktop
+desktopmanager screenshot window
+
+desktopmanager target save
+desktopmanager target get
+desktopmanager target list
+desktopmanager target resolve
+
+desktopmanager control-target save
+desktopmanager control-target get
+desktopmanager control-target list
+desktopmanager control-target resolve
+
+desktopmanager layout save
+desktopmanager layout apply
+desktopmanager layout list
+
+desktopmanager snapshot save
+desktopmanager snapshot restore
+desktopmanager snapshot list
+
+desktopmanager mcp serve
+```
+
+## Current behavior
+
+- `layout` stores named JSON files under `%AppData%\DesktopManager\layouts`.
+- `snapshot` stores named JSON files under `%AppData%\DesktopManager\snapshots`.
+- `screenshot` stores generated PNG files under `%AppData%\DesktopManager\captures` when `--output` is not provided.
+- `target` stores reusable JSON target definitions under `%AppData%\DesktopManager\targets`.
+- `control-target` stores reusable JSON control selector definitions under `%AppData%\DesktopManager\control-targets`.
+- `monitor list` reports the desktop-coordinate bounds used by monitor screenshots.
+- snapshots currently reuse the window layout format and are therefore windows-only for now.
+- `process start` launches a desktop application and can optionally wait for input idle and for a launched window to appear.
+- `process start` can now also validate the launched window by title or class and optionally require that a real matching window be found before returning.
+- `window wait` polls for a matching window and returns when one appears.
+- `window exists` and `window active-matches` provide non-mutating verification commands.
+- `control exists` and `control wait` provide the same inspect-first verification model for controls.
+- `control diagnose` explains which discovery path was used, how many Win32 and UIA controls were actually found, and what each probed UIA root returned.
+- `control diagnose` can now also take `--target <name>`, so saved control targets and ad-hoc selectors share the same diagnostics path.
+- `control diagnose --action-probe` adds a read-only UIA action-resolution probe for the first matched UIA control, so you can verify cached action-match reuse without clicking anything.
+- `control diagnose` now includes elapsed times for the overall diagnostic pass, and `--action-probe` adds a separate elapsed time for the read-only action-resolution probe.
+- `control` works with child window controls and can also use UI Automation-oriented selectors.
+- `control list` now returns shared control bounds metadata, which makes control discovery more actionable for follow-up clicks or diagnostics.
+- `control list` also returns shared capability metadata so you can tell whether a control supports background-safe click, text, or key actions before invoking it.
+- control selectors can now match `value`, `enabled`, and `focusable` state through the shared library.
+- control selectors can now also match capability flags such as `background-click`, `background-text`, `background-keys`, and `foreground-fallback`.
+- `--ensure-foreground` provides a shared opt-in reliability hint for UIA-heavy control queries.
+- `control set-text` and handle-backed `control send-keys` now use shared direct-to-control message routing instead of relying on foreground focus.
+- UIA control actions now reuse the same shared fallback-root search strategy as UIA discovery, which reduces “listed but not actionable” mismatches when modern apps expose controls under Chromium-style child roots.
+- zero-handle UIA text and key fallback paths are now shared too, but they are intentionally opt-in because they rely on focused foreground input for modern apps.
+- `window type` sends text to the target window, either by simulated typing or clipboard paste.
+- `window click`, `window drag`, and `window scroll` provide shared window-relative fallbacks for modern apps when structural control discovery is unavailable.
+- `window` commands support exact handle targeting and active-window targeting for safer selection when multiple windows match.
+- `window geometry` returns both outer-window and client-area bounds, which makes screenshot-assisted targeting much easier.
+- `window click`, `window drag`, and `window scroll` now also support normalized ratios from `0` to `1` for less brittle targeting.
+- `target save` lets you persist a reusable client-area or window-relative point once and reuse it from `window click`, `window drag`, and `window scroll`.
+- `target resolve` shows the exact screen-space point a named target maps to for a live window.
+- `control-target save` lets you persist a reusable control selector and capability profile once, then resolve it later against live windows.
+- `control-target resolve` shows which live control a saved target matches, including its current capabilities and parent window.
+- `control click`, `control set-text`, and `control send-keys` can now reuse a saved control target via `--target`.
+- `control list`, `control exists`, and `control wait` can also reuse a saved control target via `--target`, which makes repeated modern-app inspection much less repetitive.
+- the shared UIA layer now remembers a preferred root inside the current process after a successful modern-app lookup, and `control diagnose` exposes whether that preferred root was reused.
+- the shared UIA layer now also keeps a very short-lived in-process cache of enumerated root controls, which helps repeated modern-app control reads and diagnostics in long-lived sessions.
+- repeated UIA actions in the same long-lived process now also try a cached exact-match lookup before they fall back to a broader root walk.
+- the shared control wait path now prefers already-seen matching window handles inside the same process before it falls back to broad rediscovery, which is safer for stable modern-app windows.
+- `screenshot window` now prefers real window rendering before falling back to screen pixels, which improves captures for covered windows.
+- `window type` now falls back to direct message-based delivery when Windows refuses to foreground the target window, which avoids leaking `SendInput` text into whatever app currently owns focus.
+- `process start` now prefers windows from the launched process and then newer post-launch window handles for the target app, which is safer than binding to any older matching window.
+- `process start --require-window` is now a useful shared primitive for unattended workflows that need a validated target window instead of a best-effort launcher result.
+- `mcp serve` hosts a stdio MCP server.
+
+## Why this shape
+
+- `window`, `monitor`, `layout`, and `snapshot` scale better than flat verbs.
+- `process` and `screenshot` add the first inspect-launch-wait loop needed for desktop automation.
+- `control` and `window type` add the first direct interaction layer for classic desktop controls.
+- `window click`, `window drag`, and `window scroll` give CLI, MCP, and PowerShell the same coordinate-based fallback path when UIA-heavy apps stay opaque.
+- `target` turns screenshot-assisted coordinate fallback into reusable state instead of one-off manual ratios.
+- `control-target` turns modern-app control discovery into reusable state instead of repeating long UIA selector sets each time.
+- when a saved control target points at a modern Chromium-style app, the first resolution can still take a couple of seconds because shared UIA discovery is the expensive part of the workflow.
+- those fallbacks now also support client-area coordinates, which are usually a better fit for browser and editor content than raw outer-window coordinates.
+- screenshot JSON now includes window geometry metadata for window captures, so agents can map screenshots to client-area coordinates without extra probing.
+- the CLI mirrors existing concepts already present in the library and PowerShell module.
+- the CLI and MCP server reuse the same desktop operations and storage conventions.
+- window selection, control geometry, and text-entry reliability now live in the shared C# library so CLI, MCP, and PowerShell stay aligned.
+
+## Current Limits
+
+- Child-window targeting is still the simplest path for classic Win32 controls.
+- UIA discovery and action fallback now work through the shared library, but selector validation is still wise before unattended runs.
+- `control diagnose` is the fastest way to understand why a modern app did or did not expose controls through the shared library, because it now shows per-root UIA probe details instead of only a single aggregate count.
+- preferred UIA root reuse only helps inside a long-lived process like MCP or an in-process wait loop. Separate one-shot CLI invocations still start fresh.
+- the short-lived UIA control cache is also process-local, so it mainly helps MCP, in-process waits, and repeated diagnostics inside the same host session.
+- For opaque modern apps, the most reliable fallback flow is now: `screenshot window --json`, inspect `Geometry`, then use ratio-based `window click`, `window drag`, or `window scroll` with `--client-area`.

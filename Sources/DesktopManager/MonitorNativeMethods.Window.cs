@@ -139,6 +139,17 @@ public static partial class MonitorNativeMethods
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     /// <summary>
+    /// Copies a visual representation of the specified window into the provided device context.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <param name="hdcBlt">Destination device context.</param>
+    /// <param name="nFlags">Rendering flags.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
+
+    /// <summary>
     /// Gets the client rectangle of a window.
     /// </summary>
     /// <param name="hWnd">The window handle.</param>
@@ -146,6 +157,25 @@ public static partial class MonitorNativeMethods
     /// <returns>True if successful.</returns>
     [DllImport("user32.dll")]
     public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+    /// <summary>
+    /// Converts a client-area point to screen coordinates.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <param name="lpPoint">Point to convert.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll")]
+    public static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+
+    /// <summary>
+    /// PrintWindow flag to capture only the client area.
+    /// </summary>
+    public const uint PW_CLIENTONLY = 0x00000001;
+
+    /// <summary>
+    /// PrintWindow flag to request full content rendering where supported.
+    /// </summary>
+    public const uint PW_RENDERFULLCONTENT = 0x00000002;
 
     /// <summary>
     /// Sets the window position.
@@ -170,11 +200,27 @@ public static partial class MonitorNativeMethods
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     /// <summary>
+    /// Brings the specified window to the top of the Z order.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll")]
+    public static extern bool BringWindowToTop(IntPtr hWnd);
+
+    /// <summary>
     /// Gets the handle of the foreground window.
     /// </summary>
     /// <returns>The foreground window handle.</returns>
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
+
+    /// <summary>
+    /// Determines whether a window is minimized.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <returns>True when minimized; otherwise false.</returns>
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
 
     /// <summary>
     /// Sets the transparency attributes of a layered window.

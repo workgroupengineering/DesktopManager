@@ -46,6 +46,8 @@ public static partial class MonitorNativeMethods {
     public const int SW_HIDE = 0;
     /// <summary>Show window command.</summary>
     public const int SW_SHOW = 5;
+    /// <summary>Restore window command.</summary>
+    public const int SW_RESTORE = 9;
 
     /// <summary>Appbar message to set position.</summary>
     public const uint ABM_SETPOS = 0x00000003;

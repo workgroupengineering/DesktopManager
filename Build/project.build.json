@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/EvotecIT/PSPublishModule/main/Schemas/project.build.schema.json",
+  "RootPath": "..",
+  "ExpectedVersion": "3.6.X",
+  "IncludeProjects": [
+    "DesktopManager"
+  ],
+  "ExcludeDirectories": [
+    "Artefacts"
+  ],
+  "NugetSource": [],
+  "IncludePrerelease": false,
+  "Configuration": "Release",
+  "OutputPath": null,
+  "ReleaseZipOutputPath": "Artefacts/ProjectBuild/ReleaseZip",
+  "StagingPath": "Artefacts/ProjectBuild",
+  "CleanStaging": true,
+  "PlanOnly": false,
+  "PlanOutputPath": null,
+  "UpdateVersions": true,
+  "Build": true,
+  "PublishNuget": false,
+  "PublishGitHub": false,
+  "CreateReleaseZip": true,
+  "CertificateThumbprint": "483292C9E317AA13B07BB7A96AE9D1A5ED9E7703",
+  "CertificateStore": "CurrentUser",
+  "TimeStampServer": "http://timestamp.digicert.com",
+  "PublishSource": "https://api.nuget.org/v3/index.json",
+  "PublishApiKeyFilePath": "C:\\Support\\Important\\NugetOrgEvotec.txt",
+  "SkipDuplicate": true,
+  "PublishFailFast": true,
+  "GitHubAccessTokenFilePath": "C:\\Support\\Important\\GithubAPI.txt",
+  "GitHubUsername": "EvotecIT",
+  "GitHubRepositoryName": "DesktopManager",
+  "GitHubReleaseMode": "Single",
+  "GitHubPrimaryProject": "DesktopManager",
+  "GitHubTagTemplate": "{Repo}-v{PrimaryVersion}",
+  "GitHubTagConflictPolicy": "Fail",
+  "GitHubIsPreRelease": false,
+  "GitHubIncludeProjectNameInTag": false,
+  "GitHubGenerateReleaseNotes": true,
+  "GitHubReleaseName": "{Repo} {PrimaryVersion}"
+}

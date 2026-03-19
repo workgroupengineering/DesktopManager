@@ -46,6 +46,12 @@ namespace DesktopManager.PowerShell {
         public int ProcessId { get; set; } = 0;
 
         /// <summary>
+        /// <para type="description">Return only the current foreground window.</para>
+        /// </summary>
+        [Parameter]
+        public SwitchParameter ActiveWindow { get; set; }
+
+        /// <summary>
         /// <para type="description">Include hidden windows in the results.</para>
         /// </summary>
         [Parameter]
@@ -97,23 +103,25 @@ namespace DesktopManager.PowerShell {
         /// Retrieves and outputs matching windows.
         /// </summary>
         protected override void BeginProcessing() {
-            var manager = new WindowManager();
+            var automation = new DesktopAutomationService();
             var options = new WindowQueryOptions {
                 TitlePattern = Name,
                 ProcessNamePattern = ProcessName,
                 ClassNamePattern = ClassName,
                 TitleRegex = Regex,
+                ActiveWindow = ActiveWindow,
                 ProcessId = ProcessId,
                 IncludeHidden = IncludeHidden,
                 IncludeCloaked = IncludeCloaked,
                 IncludeOwned = IncludeOwned,
+                IncludeEmptyTitles = ActiveWindow ? true : null,
                 IsVisible = IsVisible,
                 State = State,
                 IsTopMost = IsTopMost,
                 ZOrderMin = ZOrderMin,
                 ZOrderMax = ZOrderMax
             };
-            var windows = manager.GetWindows(options);
+            var windows = automation.GetWindows(options);
             WriteObject(windows, true);
         }
     }

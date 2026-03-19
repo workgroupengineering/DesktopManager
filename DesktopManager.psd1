@@ -13,11 +13,14 @@
     PowerShellVersion      = '5.1'
     PrivateData            = @{
         PSData = @{
-            IconUri                  = 'https://evotec.xyz/wp-content/uploads/2022/12/DesktopManager.png'
-            ProjectUri               = 'https://github.com/EvotecIT/DesktopManager'
-            RequireLicenseAcceptance = $false
-            Tags                     = @('windows', 'image', 'wallpaper', 'monitor')
+            IconUri                    = 'https://evotec.xyz/wp-content/uploads/2022/12/DesktopManager.png'
+            ProjectUri                 = 'https://github.com/EvotecIT/DesktopManager'
+            RequireLicenseAcceptance   = $false
+            Tags                       = @('windows', 'image', 'wallpaper', 'monitor')
+            ExternalModuleDependencies = @()
         }
     }
     RootModule             = 'DesktopManager.psm1'
+    RequiredModules        = @()
+    ScriptsToProcess       = @()
 }

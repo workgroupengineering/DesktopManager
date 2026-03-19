@@ -25,9 +25,11 @@ public sealed class CmdletWaitDesktopWindow : PSCmdlet {
 
     /// <inheritdoc/>
     protected override void BeginProcessing() {
-        var manager = new WindowManager();
-        var window = manager.WaitWindow(Name, TimeoutMs);
-        WriteObject(window);
+        var automation = new DesktopAutomationService();
+        var result = automation.WaitForWindows(new WindowQueryOptions {
+            TitlePattern = Name
+        }, TimeoutMs, 100, all: false);
+        WriteObject(result.Windows, true);
     }
 }
 

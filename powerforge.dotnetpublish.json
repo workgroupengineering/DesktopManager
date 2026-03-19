@@ -1,0 +1,50 @@
+{
+  "$schema": "https://raw.githubusercontent.com/EvotecIT/PSPublishModule/main/Schemas/powerforge.dotnetpublish.schema.json",
+  "SchemaVersion": 1,
+  "DotNet": {
+    "ProjectRoot": ".",
+    "SolutionPath": "Sources/DesktopManager.sln",
+    "Configuration": "Release",
+    "Restore": true,
+    "Clean": false,
+    "Build": true,
+    "NoRestoreInPublish": true,
+    "NoBuildInPublish": true,
+    "Runtimes": [
+      "win-x64"
+    ],
+    "MsBuildProperties": {
+      "ErrorOnDuplicatePublishOutputFiles": "false",
+      "GenerateDocumentationFile": "false",
+      "CopyDocumentationFiles": "false",
+      "ExcludeSymbolsFromSingleFile": "true"
+    }
+  },
+  "Targets": [
+    {
+      "Name": "DesktopManager.Cli",
+      "Kind": "Cli",
+      "ProjectPath": "Sources/DesktopManager.Cli/DesktopManager.Cli.csproj",
+      "Publish": {
+        "Style": "PortableCompat",
+        "Framework": "net8.0-windows",
+        "OutputPath": "Artefacts/PowerForge/DesktopManager/{rid}/{framework}/{style}",
+        "UseStaging": true,
+        "ClearOutput": true,
+        "Slim": true,
+        "KeepSymbols": false,
+        "KeepDocs": false,
+        "PruneReferences": true,
+        "RenameTo": "desktopmanager.exe",
+        "Zip": true,
+        "ZipNameTemplate": "desktopmanager-{rid}-{framework}-{style}.zip"
+      }
+    }
+  ],
+  "Outputs": {
+    "ManifestJsonPath": "Artefacts/PowerForge/DesktopManager/manifest.json",
+    "ManifestTextPath": "Artefacts/PowerForge/DesktopManager/manifest.txt",
+    "ChecksumsPath": "Artefacts/PowerForge/DesktopManager/SHA256SUMS.txt",
+    "RunReportPath": "Artefacts/PowerForge/DesktopManager/run-report.json"
+  }
+}

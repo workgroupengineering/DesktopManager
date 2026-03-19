@@ -269,6 +269,56 @@ public class WindowManagerFilterTests {
 
     [TestMethod]
     /// <summary>
+    /// Ensures filtering by exact handle returns the matching window.
+    /// </summary>
+    public void GetWindows_HandleFilter_ReturnsWindow() {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+            Assert.Inconclusive("Test requires Windows");
+        }
+
+        var manager = new WindowManager();
+        var window = manager.GetWindows(includeHidden: true).FirstOrDefault();
+        if (window == null) {
+            Assert.Inconclusive("No windows found to test");
+        }
+
+        var filtered = manager.GetWindows(new WindowQueryOptions {
+            Handle = window.Handle,
+            IncludeHidden = true,
+            IncludeCloaked = true,
+            IncludeOwned = true,
+            IncludeEmptyTitles = true
+        });
+
+        Assert.AreEqual(1, filtered.Count, "Expected an exact handle filter to return a single window.");
+        Assert.AreEqual(window.Handle, filtered[0].Handle, "Expected the filtered window to match the requested handle.");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures the active window helper resolves the current foreground window.
+    /// </summary>
+    public void GetActiveWindow_ReturnsForegroundWindow() {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+            Assert.Inconclusive("Test requires Windows");
+        }
+
+        IntPtr foreground = MonitorNativeMethods.GetForegroundWindow();
+        if (foreground == IntPtr.Zero) {
+            Assert.Inconclusive("No foreground window found to test");
+        }
+
+        var manager = new WindowManager();
+        WindowInfo? window = manager.GetActiveWindow();
+        if (window == null) {
+            Assert.Inconclusive("The active window could not be resolved from enumeration");
+        }
+
+        Assert.AreEqual(foreground, window.Handle, "Expected GetActiveWindow to resolve the current foreground window.");
+    }
+
+    [TestMethod]
+    /// <summary>
     /// Ensures Z-order filtering returns a subset within the specified range.
     /// </summary>
     public void GetWindows_OptionsZOrderFilter_ReturnsSubset() {

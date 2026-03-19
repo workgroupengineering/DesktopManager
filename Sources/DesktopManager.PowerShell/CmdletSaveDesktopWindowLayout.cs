@@ -16,9 +16,9 @@ public sealed class CmdletSaveDesktopWindowLayout : PSCmdlet {
     /// Begin processing.
     /// </summary>
     protected override void BeginProcessing() {
-        var manager = new WindowManager();
+        var automation = new DesktopAutomationService();
         if (ShouldProcess($"Layout file '{Path}'", "Save desktop window layout")) {
-            manager.SaveLayout(Path);
+            automation.SaveLayout(Path);
             WriteObject(Path);
         }
     }
