@@ -63,6 +63,7 @@ public partial class WindowManager {
             var handles = new List<IntPtr>();
             var shellWindowhWnd = MonitorNativeMethods.GetShellWindow();
             bool includeHidden = options.IncludeHidden || options.IsVisible == false;
+            IntPtr activeWindowHandle = options.ActiveWindow ? MonitorNativeMethods.GetForegroundWindow() : IntPtr.Zero;
 
             if (!MonitorNativeMethods.EnumWindows(
                 (handle, lParam) => {
@@ -79,6 +80,14 @@ public partial class WindowManager {
             var windows = new List<WindowInfo>();
             for (int index = 0; index < handles.Count; index++) {
                 var handle = handles[index];
+                if (options.ActiveWindow && handle != activeWindowHandle) {
+                    continue;
+                }
+
+                if (options.Handle.HasValue && handle != options.Handle.Value) {
+                    continue;
+                }
+
                 var title = WindowTextHelper.GetWindowText(handle);
                 var ownerHandle = MonitorNativeMethods.GetWindow(handle, MonitorNativeMethods.GW_OWNER);
                 if (!options.IncludeOwned && ownerHandle != IntPtr.Zero) {
@@ -98,9 +107,9 @@ public partial class WindowManager {
 
                 // For process-specific queries, include windows even with empty titles
                 // For name-based queries, skip empty titles unless using wildcard "*"
-                bool shouldInclude = options.ProcessId > 0 ||
-                                    (options.TitlePattern == "*" && options.ProcessNamePattern == "*" && options.ClassNamePattern == "*" && options.TitleRegex == null) ||
-                                    !string.IsNullOrEmpty(title);
+                bool includeEmptyTitles = options.IncludeEmptyTitles ?? (options.ProcessId > 0 ||
+                    (options.TitlePattern == "*" && options.ProcessNamePattern == "*" && options.ClassNamePattern == "*" && options.TitleRegex == null));
+                bool shouldInclude = includeEmptyTitles || !string.IsNullOrEmpty(title);
 
                 if (!shouldInclude) {
                     continue;

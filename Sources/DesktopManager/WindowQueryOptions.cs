@@ -32,6 +32,22 @@ public sealed class WindowQueryOptions {
     public int ProcessId { get; set; }
 
     /// <summary>
+    /// Gets or sets the exact window handle to match.
+    /// </summary>
+    public IntPtr? Handle { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether only the current foreground window should be returned.
+    /// </summary>
+    public bool ActiveWindow { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether windows with empty titles should be included.
+    /// When null, legacy behavior is preserved.
+    /// </summary>
+    public bool? IncludeEmptyTitles { get; set; }
+
+    /// <summary>
     /// Gets or sets whether hidden windows should be included.
     /// </summary>
     public bool IncludeHidden { get; set; }

@@ -16,19 +16,8 @@ internal static class DesktopOperations {
     }
 
     public static WindowResult GetActiveWindow() {
-        IntPtr handle = MonitorNativeMethods.GetForegroundWindow();
-        if (handle == IntPtr.Zero) {
-            throw new CommandLineException("No active window was detected.");
-        }
-
-        var criteria = new WindowSelectionCriteria {
-            IncludeHidden = true,
-            IncludeCloaked = true,
-            IncludeOwned = true,
-            Handle = $"0x{handle.ToInt64():X}"
-        };
-
-        var window = SelectWindows(criteria).FirstOrDefault();
+        var manager = new WindowManager();
+        WindowInfo? window = manager.GetActiveWindow(includeHidden: true, includeCloaked: true, includeOwned: true, includeEmptyTitles: true);
         if (window == null) {
             throw new CommandLineException("The active window could not be resolved.");
         }
@@ -409,25 +398,16 @@ internal static class DesktopOperations {
             TitlePattern = criteria.TitlePattern,
             ProcessNamePattern = criteria.ProcessNamePattern,
             ClassNamePattern = criteria.ClassNamePattern,
+            Handle = string.IsNullOrWhiteSpace(criteria.Handle) ? null : ParseHandle(criteria.Handle),
+            ActiveWindow = criteria.Active,
             IncludeHidden = criteria.IncludeHidden,
             IncludeCloaked = criteria.IncludeCloaked,
             IncludeOwned = criteria.IncludeOwned,
+            IncludeEmptyTitles = criteria.IncludeEmptyTitles ? true : HasExplicitSelector(criteria) ? null : false,
             ProcessId = criteria.ProcessId ?? 0
         };
 
-        var manager = new WindowManager();
-        var windows = manager.GetWindows(query);
-
-        if (!string.IsNullOrWhiteSpace(criteria.Handle)) {
-            IntPtr handle = ParseHandle(criteria.Handle);
-            windows = windows.Where(window => window.Handle == handle).ToList();
-        }
-
-        if (!criteria.IncludeEmptyTitles && !HasExplicitSelector(criteria)) {
-            windows = windows.Where(window => !string.IsNullOrWhiteSpace(window.Title)).ToList();
-        }
-
-        return windows;
+        return new WindowManager().GetWindows(query);
     }
 
     private static WindowChangeResult BuildWindowChangeResult(WindowManager manager, string action, IReadOnlyList<WindowInfo> windows) {
@@ -687,6 +667,7 @@ internal static class DesktopOperations {
             !string.IsNullOrWhiteSpace(criteria.ProcessNamePattern) && criteria.ProcessNamePattern != "*" ||
             !string.IsNullOrWhiteSpace(criteria.ClassNamePattern) && criteria.ClassNamePattern != "*" ||
             criteria.ProcessId.HasValue ||
+            criteria.Active ||
             !string.IsNullOrWhiteSpace(criteria.Handle);
     }
 

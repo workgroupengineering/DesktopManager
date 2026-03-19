@@ -18,6 +18,7 @@ Use this skill to operate the Windows desktop through DesktopManager.
      `desktop://monitors`
    - Use `get_active_window` when focus matters.
    - Use `screenshot_desktop` or `screenshot_window` when visual confirmation is needed.
+   - When more than one window matches, switch to an exact handle before mutating anything.
 3. Launch and wait when the target app is not ready yet.
    - Use `launch_process` to start the app.
    - Use `wait_for_window` before moving, focusing, or capturing it.
@@ -112,6 +113,8 @@ desktopmanager snapshot restore before-meeting
 - Prefer minimizing distracting windows over closing them.
 - Use specific selectors when possible:
   title, process, class, pid, or handle.
+- Prefer `handle` over `process` when multiple windows from the same app are open.
+- Remember that `activeWindow` means the current foreground window and may resolve to Codex or the terminal if they have focus.
 - Be careful with `all`; verify the target set first.
 - Remember that snapshots are windows-only for now.
 - Remember that current control targeting is child-window based, not full UIA.

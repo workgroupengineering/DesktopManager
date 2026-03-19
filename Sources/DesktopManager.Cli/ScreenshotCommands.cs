@@ -32,6 +32,7 @@ internal static class ScreenshotCommands {
                 ClassNamePattern = arguments.GetOption("class") ?? "*",
                 ProcessId = arguments.GetIntOption("pid"),
                 Handle = arguments.GetOption("handle"),
+                Active = arguments.GetBoolFlag("active"),
                 IncludeHidden = true,
                 IncludeCloaked = true,
                 IncludeOwned = true,

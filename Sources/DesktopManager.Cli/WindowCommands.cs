@@ -122,6 +122,7 @@ internal static class WindowCommands {
             ClassNamePattern = arguments.GetOption("class") ?? "*",
             ProcessId = arguments.GetIntOption("pid"),
             Handle = arguments.GetOption("handle"),
+            Active = arguments.GetBoolFlag("active"),
             IncludeHidden = arguments.GetBoolFlag("include-hidden"),
             IncludeCloaked = !arguments.GetBoolFlag("exclude-cloaked"),
             IncludeOwned = !arguments.GetBoolFlag("exclude-owned"),

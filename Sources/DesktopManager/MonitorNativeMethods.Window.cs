@@ -139,6 +139,17 @@ public static partial class MonitorNativeMethods
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     /// <summary>
+    /// Copies a visual representation of the specified window into the provided device context.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <param name="hdcBlt">Destination device context.</param>
+    /// <param name="nFlags">Rendering flags.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
+
+    /// <summary>
     /// Gets the client rectangle of a window.
     /// </summary>
     /// <param name="hWnd">The window handle.</param>
@@ -146,6 +157,16 @@ public static partial class MonitorNativeMethods
     /// <returns>True if successful.</returns>
     [DllImport("user32.dll")]
     public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+    /// <summary>
+    /// PrintWindow flag to capture only the client area.
+    /// </summary>
+    public const uint PW_CLIENTONLY = 0x00000001;
+
+    /// <summary>
+    /// PrintWindow flag to request full content rendering where supported.
+    /// </summary>
+    public const uint PW_RENDERFULLCONTENT = 0x00000002;
 
     /// <summary>
     /// Sets the window position.

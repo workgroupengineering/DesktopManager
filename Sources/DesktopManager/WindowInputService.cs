@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading;
@@ -52,6 +53,7 @@ public static class WindowInputService {
         }
 
         SendPaste(window.Handle, settings.InputRetryCount, settings.ActivationRetryDelayMilliseconds);
+        EnsureTextApplied(window, text);
 
         if (settings.RestoreFocus && previousForeground != IntPtr.Zero && previousForeground != window.Handle) {
             MonitorNativeMethods.SetForegroundWindow(previousForeground);
@@ -105,6 +107,8 @@ public static class WindowInputService {
         } else {
             SendMessageText(window.Handle, text, settings.KeyDelayMilliseconds);
         }
+
+        EnsureTextApplied(window, text);
 
         if (settings.RestoreFocus && previousForeground != IntPtr.Zero && previousForeground != window.Handle) {
             MonitorNativeMethods.SetForegroundWindow(previousForeground);
@@ -207,6 +211,30 @@ public static class WindowInputService {
                 Thread.Sleep(options.KeyDelayMilliseconds);
             }
         }
+    }
+
+    private static void EnsureTextApplied(WindowInfo window, string text) {
+        WindowControlInfo? editable = FindPreferredEditableControl(window.Handle);
+        if (editable == null) {
+            return;
+        }
+
+        string current = WindowTextHelper.GetWindowText(editable.Handle);
+        if (string.Equals(current, text, StringComparison.Ordinal)) {
+            return;
+        }
+
+        MonitorNativeMethods.SendMessage(editable.Handle, MonitorNativeMethods.WM_SETTEXT, IntPtr.Zero, text);
+    }
+
+    private static WindowControlInfo? FindPreferredEditableControl(IntPtr windowHandle) {
+        var enumerator = new ControlEnumerator();
+        List<WindowControlInfo> controls = enumerator.EnumerateControls(windowHandle);
+
+        return controls.Find(control => control.ClassName.Equals("RichEditD2DPT", StringComparison.OrdinalIgnoreCase))
+            ?? controls.Find(control => control.ClassName.Equals("NotepadTextBox", StringComparison.OrdinalIgnoreCase))
+            ?? controls.Find(control => control.ClassName.IndexOf("RichEdit", StringComparison.OrdinalIgnoreCase) >= 0)
+            ?? controls.Find(control => control.ClassName.IndexOf("Edit", StringComparison.OrdinalIgnoreCase) >= 0);
     }
 }
 

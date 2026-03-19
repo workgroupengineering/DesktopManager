@@ -130,7 +130,18 @@ public static class ScreenshotService {
             throw new InvalidOperationException("Failed to get window bounds");
         }
 
-        return CaptureRegion(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
+        int width = rect.Right - rect.Left;
+        int height = rect.Bottom - rect.Top;
+        if (width <= 0 || height <= 0) {
+            throw new InvalidOperationException("The target window does not have a visible size.");
+        }
+
+        Bitmap? bitmap = TryPrintWindow(hwnd, width, height);
+        if (bitmap != null) {
+            return bitmap;
+        }
+
+        return CaptureRegion(rect.Left, rect.Top, width, height);
     }
 
     /// <summary>
@@ -151,4 +162,22 @@ public static class ScreenshotService {
         return new Rectangle(left, top, width, height);
     }
 #endif
+
+    private static Bitmap? TryPrintWindow(IntPtr hwnd, int width, int height) {
+        Bitmap bitmap = new Bitmap(width, height);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        IntPtr hdc = graphics.GetHdc();
+        try {
+            if (MonitorNativeMethods.PrintWindow(hwnd, hdc, MonitorNativeMethods.PW_RENDERFULLCONTENT) ||
+                MonitorNativeMethods.PrintWindow(hwnd, hdc, 0)) {
+                return bitmap;
+            }
+        } finally {
+            graphics.ReleaseHdc(hdc);
+        }
+
+        bitmap.Dispose();
+        return null;
+    }
 }

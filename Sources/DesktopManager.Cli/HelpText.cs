@@ -47,7 +47,7 @@ Use:
     public static string GetWindowHelp() {
         return """
 Window commands:
-  desktopmanager window list [--title <pattern>] [--process <pattern>] [--class <pattern>] [--pid <id>] [--handle <value>] [--include-empty] [--include-hidden] [--exclude-cloaked] [--exclude-owned] [--json]
+  desktopmanager window list [--title <pattern>] [--process <pattern>] [--class <pattern>] [--pid <id>] [--handle <value>] [--active] [--include-empty] [--include-hidden] [--exclude-cloaked] [--exclude-owned] [--json]
   desktopmanager window move [selector] [--monitor <index>] [--x <value>] [--y <value>] [--width <value>] [--height <value>] [--activate] [--all] [--json]
   desktopmanager window focus [selector] [--all] [--json]
   desktopmanager window minimize [selector] [--all] [--json]
@@ -61,10 +61,12 @@ Selectors:
   --class <pattern>
   --pid <id>
   --handle <value>
+  --active
   --include-empty
 
 Examples:
   desktopmanager window list --title "*Notepad*" --json
+  desktopmanager window type --active --text "Hello world"
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --activate
   desktopmanager window snap --process notepad --position left
   desktopmanager window type --process notepad --text "Hello world"
@@ -86,6 +88,7 @@ Window selectors:
   --window-pid <id>
   --window-class <pattern>
   --window-handle <value>
+  --window-active
 
 Control selectors:
   --class <pattern>
@@ -95,6 +98,7 @@ Control selectors:
 
 Examples:
   desktopmanager control list --window-process notepad --json
+  desktopmanager control set-text --window-active --class RichEditD2DPT --text "Hello world"
   desktopmanager control click --window-process notepad --class Edit
   desktopmanager control set-text --window-process notepad --class Edit --text "Hello world"
   desktopmanager control send-keys --window-process notepad --class Edit --keys VK_CONTROL,VK_A
@@ -128,11 +132,12 @@ Examples:
         return """
 Screenshot commands:
   desktopmanager screenshot desktop [--monitor <index>] [--device-id <value>] [--device-name <value>] [--left <value> --top <value> --width <value> --height <value>] [--output <path>] [--json]
-  desktopmanager screenshot window [selector] [--output <path>] [--json]
+  desktopmanager screenshot window [selector] [--active] [--output <path>] [--json]
 
 Examples:
   desktopmanager screenshot desktop
   desktopmanager screenshot desktop --monitor 0 --output .\monitor0.png
+  desktopmanager screenshot window --active --output .\active-window.png
   desktopmanager screenshot window --process notepad --output .\notepad.png
 """;
     }

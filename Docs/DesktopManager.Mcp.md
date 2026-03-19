@@ -54,6 +54,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
    - Read `desktop://windows/visible`, `desktop://windows/active`, and `desktop://monitors`.
    - Use `get_active_window` when focus matters.
    - Use `screenshot_desktop` or `screenshot_window` when visual confirmation is needed.
+   - When multiple windows match, prefer an exact `handle` over a broad process selector.
 2. Launch when needed.
    - Use `launch_process` for the app under test.
    - Use `wait_for_window` before trying to move, focus, or capture the window.
@@ -72,6 +73,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 7. Avoid assumptions.
    - Match windows by title, process, class, pid, or handle.
    - Start with specific selectors when possible.
+   - Remember that `activeWindow` means the current foreground window, which may be the agent host if it has focus.
 
 ## CLI Fallback Patterns
 
@@ -80,6 +82,8 @@ Use the CLI when MCP is unavailable or when validating the same operation outsid
 ```text
 desktopmanager window list
 desktopmanager window wait --process notepad --timeout-ms 5000
+desktopmanager window list --process notepad --json
+desktopmanager window type --handle 0x30A263C --text "Hello world"
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
 desktopmanager control click --window-process notepad --class RichEditD2DPT
@@ -104,6 +108,7 @@ desktopmanager mcp serve
 
 - DesktopManager currently focuses on non-destructive window and layout operations.
 - Screenshots are written to PNG files and returned as file paths.
+- Window screenshots prefer native window rendering and fall back to screen capture when that is unavailable.
 - Snapshots are windows-only for now.
 - Control discovery currently uses child-window enumeration, not full UIA selectors.
 - Prefer minimizing distractions instead of closing applications.

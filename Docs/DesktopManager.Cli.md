@@ -52,6 +52,8 @@ desktopmanager mcp serve
 - `window wait` polls for a matching window and returns when one appears.
 - `control` works with child window controls discovered from the target window.
 - `window type` sends text to the target window, either by simulated typing or clipboard paste.
+- `window` commands support exact handle targeting and active-window targeting for safer selection when multiple windows match.
+- `screenshot window` now prefers real window rendering before falling back to screen pixels, which improves captures for covered windows.
 - `mcp serve` hosts a stdio MCP server.
 
 ## Why this shape
@@ -61,6 +63,7 @@ desktopmanager mcp serve
 - `control` and `window type` add the first direct interaction layer for classic desktop controls.
 - the CLI mirrors existing concepts already present in the library and PowerShell module.
 - the CLI and MCP server reuse the same desktop operations and storage conventions.
+- window selection and text-entry reliability now live in the shared C# library so CLI, MCP, and PowerShell stay aligned.
 
 ## Current Limits
 

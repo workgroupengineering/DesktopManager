@@ -98,6 +98,7 @@ internal static class ControlCommands {
             ClassNamePattern = arguments.GetOption("window-class") ?? "*",
             ProcessId = arguments.GetIntOption("window-pid") ?? arguments.GetIntOption("pid"),
             Handle = arguments.GetOption("window-handle"),
+            Active = arguments.GetBoolFlag("window-active") || arguments.GetBoolFlag("active"),
             IncludeHidden = true,
             IncludeCloaked = true,
             IncludeOwned = true,

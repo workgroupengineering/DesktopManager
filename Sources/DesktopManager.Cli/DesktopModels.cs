@@ -8,6 +8,7 @@ internal sealed class WindowSelectionCriteria {
     public string ClassNamePattern { get; set; } = "*";
     public int? ProcessId { get; set; }
     public string? Handle { get; set; }
+    public bool Active { get; set; }
     public bool IncludeHidden { get; set; }
     public bool IncludeCloaked { get; set; } = true;
     public bool IncludeOwned { get; set; } = true;
