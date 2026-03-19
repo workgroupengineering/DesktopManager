@@ -82,6 +82,7 @@ Examples:
         return """
 Control commands:
   desktopmanager control list [window-selector] [--class <pattern>] [--text-pattern <pattern>] [--value-pattern <pattern>] [--id <value>] [--handle <value>] [--automation-id <pattern>] [--control-type <pattern>] [--framework-id <pattern>] [--enabled|--disabled] [--focusable|--not-focusable] [--uia] [--include-uia] [--ensure-foreground] [--all-windows] [--json]
+  desktopmanager control diagnose [window-selector] [control-selector] [--sample-limit <value>] [--all-windows] [--json]
   desktopmanager control exists [window-selector] [control-selector] [--all-windows] [--json]
   desktopmanager control wait [window-selector] [control-selector] [--timeout-ms <value>] [--interval-ms <value>] [--all-windows] [--json]
   desktopmanager control click [window-selector] [control-selector] [--button <left|right>] [--all] [--all-windows] [--json]
@@ -115,6 +116,7 @@ Control selectors:
 
 Examples:
   desktopmanager control list --window-process notepad --json
+  desktopmanager control diagnose --window-title "*Codex*" --uia --ensure-foreground --sample-limit 5 --json
   desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar" --enabled --focusable --ensure-foreground
   desktopmanager control wait --window-active --uia --control-type Button --text-pattern "Show sidebar" --enabled --ensure-foreground --timeout-ms 3000
   desktopmanager control list --window-active --uia --control-type Edit --json

@@ -103,6 +103,13 @@ internal static class DesktopOperations {
         });
     }
 
+    public static IReadOnlyList<ControlDiagnosticResult> DiagnoseControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows, int sampleLimit) {
+        return ExecuteCore(() => new DesktopAutomationService()
+            .GetControlDiagnostics(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), allWindows, sampleLimit)
+            .Select(MapControlDiagnostics)
+            .ToArray());
+    }
+
     public static ControlActionResult ClickControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string button, bool allWindows) {
         MouseButton mouseButton = ParseMouseButton(button);
         return ExecuteCore(() => BuildControlActionResult(
@@ -355,19 +362,42 @@ internal static class DesktopOperations {
     }
 
     private static ControlResult MapControl(WindowControlTargetInfo target) {
+        return MapControl(target.Window, target.Control);
+    }
+
+    private static ControlResult MapControl(WindowInfo window, WindowControlInfo control) {
         return new ControlResult {
-            Handle = $"0x{target.Control.Handle.ToInt64():X}",
-            ClassName = target.Control.ClassName,
-            Id = target.Control.Id,
-            Text = !string.IsNullOrWhiteSpace(target.Control.Text) ? target.Control.Text : target.Control.Handle != IntPtr.Zero ? WindowTextHelper.GetWindowText(target.Control.Handle) : string.Empty,
-            Value = !string.IsNullOrWhiteSpace(target.Control.Value) ? target.Control.Value : !string.IsNullOrWhiteSpace(target.Control.Text) ? target.Control.Text : target.Control.Handle != IntPtr.Zero ? WindowTextHelper.GetWindowText(target.Control.Handle) : string.Empty,
-            Source = target.Control.Source.ToString(),
-            AutomationId = target.Control.AutomationId,
-            ControlType = target.Control.ControlType,
-            FrameworkId = target.Control.FrameworkId,
-            IsKeyboardFocusable = target.Control.IsKeyboardFocusable,
-            IsEnabled = target.Control.IsEnabled,
-            ParentWindow = MapWindow(target.Window)
+            Handle = $"0x{control.Handle.ToInt64():X}",
+            ClassName = control.ClassName,
+            Id = control.Id,
+            Text = !string.IsNullOrWhiteSpace(control.Text) ? control.Text : control.Handle != IntPtr.Zero ? WindowTextHelper.GetWindowText(control.Handle) : string.Empty,
+            Value = !string.IsNullOrWhiteSpace(control.Value) ? control.Value : !string.IsNullOrWhiteSpace(control.Text) ? control.Text : control.Handle != IntPtr.Zero ? WindowTextHelper.GetWindowText(control.Handle) : string.Empty,
+            Source = control.Source.ToString(),
+            AutomationId = control.AutomationId,
+            ControlType = control.ControlType,
+            FrameworkId = control.FrameworkId,
+            IsKeyboardFocusable = control.IsKeyboardFocusable,
+            IsEnabled = control.IsEnabled,
+            ParentWindow = MapWindow(window)
+        };
+    }
+
+    private static ControlDiagnosticResult MapControlDiagnostics(DesktopControlDiscoveryDiagnostics diagnostics) {
+        return new ControlDiagnosticResult {
+            Window = MapWindow(diagnostics.Window),
+            RequiresUiAutomation = diagnostics.RequiresUiAutomation,
+            UseUiAutomation = diagnostics.UseUiAutomation,
+            IncludeUiAutomation = diagnostics.IncludeUiAutomation,
+            EnsureForegroundWindow = diagnostics.EnsureForegroundWindow,
+            UiAutomationAvailable = diagnostics.UiAutomationAvailable,
+            PreparationAttempted = diagnostics.PreparationAttempted,
+            PreparationSucceeded = diagnostics.PreparationSucceeded,
+            EffectiveSource = diagnostics.EffectiveSource,
+            Win32ControlCount = diagnostics.Win32ControlCount,
+            UiAutomationControlCount = diagnostics.UiAutomationControlCount,
+            EffectiveControlCount = diagnostics.EffectiveControlCount,
+            MatchedControlCount = diagnostics.MatchedControlCount,
+            SampleControls = diagnostics.SampleControls.Select(control => MapControl(diagnostics.Window, control)).ToArray()
         };
     }
 

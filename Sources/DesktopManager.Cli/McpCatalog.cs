@@ -50,6 +50,30 @@ internal static class McpCatalog {
                     ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
                 }), readOnly: true),
+            CreateTool("diagnose_window_controls", "Diagnose Window Controls", "Collect discovery diagnostics for matching window controls.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["windowClassName"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Window process identifier."),
+                    ["windowHandle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["controlClassName"] = CreateStringSchema("Control class filter."),
+                    ["controlText"] = CreateStringSchema("Control text filter."),
+                    ["controlValue"] = CreateStringSchema("Control value filter."),
+                    ["controlId"] = CreateIntegerSchema("Control identifier."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["controlAutomationId"] = CreateStringSchema("UI Automation automation identifier filter."),
+                    ["controlType"] = CreateStringSchema("UI Automation control type filter."),
+                    ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
+                    ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
+                    ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
+                    ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
+                    ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows."),
+                    ["sampleLimit"] = CreateIntegerSchema("Maximum number of sample controls to include in each diagnostic result.")
+                }), readOnly: true),
             CreateTool("control_exists", "Control Exists", "Check whether a matching control currently exists.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -394,6 +418,11 @@ internal static class McpCatalog {
                     ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
                     ReadControlCriteria(arguments),
                     ReadBool(arguments, "allWindows")),
+                "diagnose_window_controls" => DesktopOperations.DiagnoseControls(
+                    ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                    ReadControlCriteria(arguments),
+                    ReadBool(arguments, "allWindows"),
+                    ReadInt(arguments, "sampleLimit") ?? 10),
                 "control_exists" => DesktopOperations.ControlExists(
                     ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
                     ReadControlCriteria(arguments),

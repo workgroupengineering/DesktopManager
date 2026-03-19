@@ -97,4 +97,24 @@ public class DesktopAutomationCoreTests {
 
         Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.WaitForControls(new WindowQueryOptions { TitlePattern = "*" }, null, 1000, 0));
     }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures control diagnostics reject a missing window selector.
+    /// </summary>
+    public void DesktopAutomationService_GetControlDiagnostics_NullWindowOptions_ThrowsArgumentNullException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentNullException>(() => automation.GetControlDiagnostics(null!));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures control diagnostics reject negative sample sizes.
+    /// </summary>
+    public void DesktopAutomationService_GetControlDiagnostics_NegativeSampleLimit_ThrowsArgumentOutOfRangeException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.GetControlDiagnostics(new WindowQueryOptions { TitlePattern = "*" }, sampleLimit: -1));
+    }
 }

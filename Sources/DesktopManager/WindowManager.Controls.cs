@@ -31,14 +31,60 @@ public partial class WindowManager {
         return controls.FindAll(control => MatchesControl(control, filter));
     }
 
-    private void PrepareWindowForUiAutomation(WindowInfo window, WindowControlQueryOptions filter) {
+    /// <summary>
+    /// Collects shared diagnostics for control discovery against a single window.
+    /// </summary>
+    /// <param name="window">Target window.</param>
+    /// <param name="options">Optional control filter options.</param>
+    /// <param name="sampleLimit">Maximum number of sample controls to include.</param>
+    /// <returns>Discovery diagnostics for the supplied window.</returns>
+    public DesktopControlDiscoveryDiagnostics DiagnoseControls(WindowInfo window, WindowControlQueryOptions? options = null, int sampleLimit = 10) {
+        ValidateWindowInfo(window);
+        if (sampleLimit < 0) {
+            throw new ArgumentOutOfRangeException(nameof(sampleLimit), "sampleLimit must be zero or greater.");
+        }
+
+        WindowControlQueryOptions filter = options ?? new WindowControlQueryOptions();
+        UiAutomationPreparationResult preparation = PrepareWindowForUiAutomation(window, filter);
+
+        var enumerator = new ControlEnumerator();
+        List<WindowControlInfo> win32Controls = enumerator.EnumerateControls(window.Handle);
+        var uiAutomation = new UiAutomationControlService();
+        List<WindowControlInfo> uiAutomationControls = filter.RequiresUiAutomation()
+            ? uiAutomation.EnumerateControls(window.Handle)
+            : new List<WindowControlInfo>();
+        List<WindowControlInfo> effectiveControls = SelectDiscoveredControls(filter, win32Controls, uiAutomationControls);
+        List<WindowControlInfo> matchedControls = effectiveControls.FindAll(control => MatchesControl(control, filter));
+
+        return new DesktopControlDiscoveryDiagnostics {
+            Window = window,
+            RequiresUiAutomation = filter.RequiresUiAutomation(),
+            UseUiAutomation = filter.UseUiAutomation,
+            IncludeUiAutomation = filter.IncludeUiAutomation,
+            EnsureForegroundWindow = filter.EnsureForegroundWindow,
+            UiAutomationAvailable = uiAutomation.IsAvailable,
+            PreparationAttempted = preparation.Attempted,
+            PreparationSucceeded = preparation.Succeeded,
+            EffectiveSource = GetEffectiveSource(filter, uiAutomationControls),
+            Win32ControlCount = win32Controls.Count,
+            UiAutomationControlCount = uiAutomationControls.Count,
+            EffectiveControlCount = effectiveControls.Count,
+            MatchedControlCount = matchedControls.Count,
+            SampleControls = effectiveControls.Take(sampleLimit).ToArray()
+        };
+    }
+
+    private UiAutomationPreparationResult PrepareWindowForUiAutomation(WindowInfo window, WindowControlQueryOptions filter) {
         if (!filter.RequiresUiAutomation() || !filter.EnsureForegroundWindow) {
-            return;
+            return UiAutomationPreparationResult.None;
         }
 
         if (WindowActivationService.TryPrepareWindowForAutomation(window.Handle)) {
             Thread.Sleep(200);
+            return UiAutomationPreparationResult.Success;
         }
+
+        return UiAutomationPreparationResult.Failed;
     }
 
     private List<WindowControlInfo> GetControlsInternal(IntPtr windowHandle, WindowControlQueryOptions filter) {
@@ -52,6 +98,10 @@ public partial class WindowManager {
         var uiAutomation = new UiAutomationControlService();
         List<WindowControlInfo> uiAutomationControls = uiAutomation.EnumerateControls(windowHandle);
 
+        return SelectDiscoveredControls(filter, win32Controls, uiAutomationControls);
+    }
+
+    private static List<WindowControlInfo> SelectDiscoveredControls(WindowControlQueryOptions filter, List<WindowControlInfo> win32Controls, List<WindowControlInfo> uiAutomationControls) {
         if (filter.UseUiAutomation && !filter.IncludeUiAutomation) {
             return uiAutomationControls;
         }
@@ -61,6 +111,22 @@ public partial class WindowManager {
         }
 
         return MergeControls(win32Controls, uiAutomationControls);
+    }
+
+    private static string GetEffectiveSource(WindowControlQueryOptions filter, List<WindowControlInfo> uiAutomationControls) {
+        if (!filter.RequiresUiAutomation()) {
+            return "Win32";
+        }
+
+        if (filter.UseUiAutomation && !filter.IncludeUiAutomation) {
+            return "UiAutomation";
+        }
+
+        if (filter.IncludeUiAutomation) {
+            return "Merged";
+        }
+
+        return uiAutomationControls.Count > 0 ? "UiAutomationFallback" : "Win32Fallback";
     }
 
     private static List<WindowControlInfo> MergeControls(List<WindowControlInfo> win32Controls, List<WindowControlInfo> uiAutomationControls) {
@@ -177,5 +243,19 @@ public partial class WindowManager {
         }
 
         return results;
+    }
+
+    private readonly struct UiAutomationPreparationResult {
+        public static UiAutomationPreparationResult None => new(false, false);
+        public static UiAutomationPreparationResult Success => new(true, true);
+        public static UiAutomationPreparationResult Failed => new(true, false);
+
+        public UiAutomationPreparationResult(bool attempted, bool succeeded) {
+            Attempted = attempted;
+            Succeeded = succeeded;
+        }
+
+        public bool Attempted { get; }
+        public bool Succeeded { get; }
     }
 }

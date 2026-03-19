@@ -17,6 +17,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 - `active_window_matches`
 - `wait_for_window`
 - `list_window_controls`
+- `diagnose_window_controls`
 - `control_exists`
 - `wait_for_control`
 - `move_window`
@@ -65,6 +66,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
    - Use `wait_for_window` before trying to move, focus, or capture the window.
 3. Inspect controls before trying to interact.
    - Use `list_window_controls` to discover target handles, classes, visible text, automation ids, and control types.
+   - Use `diagnose_window_controls` when a modern app is not exposing the controls you expect. It will tell you whether Win32 or UIA discovery produced results and whether foreground preparation succeeded.
    - Use `control_exists` or `wait_for_control` when the target control can appear asynchronously or when you want a structured assertion before clicking.
    - When modern controls expose state through UI Automation, filter by current value, enabled state, or keyboard focusability instead of guessing from text alone.
    - If a UIA-heavy query is host-sensitive, opt into foreground assistance before falling back to brittle retries.
@@ -96,6 +98,7 @@ desktopmanager window list --process notepad --json
 desktopmanager window type --handle 0x30A263C --text "Hello world"
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
+desktopmanager control diagnose --window-title "*Codex*" --uia --ensure-foreground --sample-limit 5 --json
 desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar"
 desktopmanager control wait --window-active --uia --control-type Button --text-pattern "Show sidebar" --timeout-ms 5000
 desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar" --enabled --focusable
@@ -127,6 +130,7 @@ desktopmanager mcp serve
 - Snapshots are windows-only for now.
 - Control discovery supports both child-window selectors and UIA-oriented selectors.
 - Control assertions and waits are available on the same shared selector model as list/click/set-text.
+- Control diagnostics are available on the same shared selector model and help explain Win32 versus UIA discovery gaps.
 - The shared control selector model now supports value, enabled, and keyboard-focusable checks.
 - The shared control selector model also supports an opt-in foreground hint for UIA discovery when a target window needs focus.
 - Prefer minimizing distractions instead of closing applications.

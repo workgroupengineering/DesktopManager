@@ -96,6 +96,81 @@ public sealed class DesktopControlWaitResult {
 }
 
 /// <summary>
+/// Represents diagnostics for control discovery against a single window.
+/// </summary>
+public sealed class DesktopControlDiscoveryDiagnostics {
+    /// <summary>
+    /// Gets or sets the window being inspected.
+    /// </summary>
+    public WindowInfo Window { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets whether the query requires UI Automation.
+    /// </summary>
+    public bool RequiresUiAutomation { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the query explicitly requests UI Automation only.
+    /// </summary>
+    public bool UseUiAutomation { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the query combines Win32 and UI Automation discovery.
+    /// </summary>
+    public bool IncludeUiAutomation { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the query requested foreground preparation.
+    /// </summary>
+    public bool EnsureForegroundWindow { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether UI Automation assemblies were available.
+    /// </summary>
+    public bool UiAutomationAvailable { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether shared window preparation was attempted before UI Automation discovery.
+    /// </summary>
+    public bool PreparationAttempted { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether shared window preparation succeeded.
+    /// </summary>
+    public bool PreparationSucceeded { get; set; }
+
+    /// <summary>
+    /// Gets or sets the effective discovery mode used for the final control set.
+    /// </summary>
+    public string EffectiveSource { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the number of Win32 controls discovered before filtering.
+    /// </summary>
+    public int Win32ControlCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of UI Automation controls discovered before filtering.
+    /// </summary>
+    public int UiAutomationControlCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of controls in the effective discovery set before filtering.
+    /// </summary>
+    public int EffectiveControlCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of controls that matched the supplied control filter.
+    /// </summary>
+    public int MatchedControlCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets a sample of discovered controls from the effective discovery set.
+    /// </summary>
+    public IReadOnlyList<WindowControlInfo> SampleControls { get; set; } = Array.Empty<WindowControlInfo>();
+}
+
+/// <summary>
 /// Represents a screenshot capture produced by DesktopManager.
 /// </summary>
 public sealed class DesktopCapture : IDisposable {

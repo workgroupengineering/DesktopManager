@@ -25,6 +25,7 @@ Use this skill to operate the Windows desktop through DesktopManager.
    - Use `wait_for_window` before moving, focusing, or capturing it.
 4. Inspect controls before interacting.
    - Use `list_window_controls` to discover control handles, classes, text, automation ids, and control types.
+   - Use `diagnose_window_controls` when a modern app is not exposing the controls you expected. It will show whether Win32 or UIA discovery produced anything and whether foreground preparation helped.
    - Use UIA-oriented selectors when modern apps do not expose useful child-window controls.
    - Use `control_exists` or `wait_for_control` when the control can appear asynchronously or when you want an explicit precondition before clicking.
    - When available, prefer value, enabled, or focusable checks over brittle text-only guesses.
@@ -52,6 +53,7 @@ Tools:
 - `active_window_matches`
 - `wait_for_window`
 - `list_window_controls`
+- `diagnose_window_controls`
 - `control_exists`
 - `wait_for_control`
 - `move_window`
@@ -96,6 +98,7 @@ desktopmanager window active-matches --title "Codex"
 desktopmanager window wait --process notepad --timeout-ms 5000
 desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
+desktopmanager control diagnose --window-title "*Codex*" --uia --ensure-foreground --sample-limit 5 --json
 desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar"
 desktopmanager control wait --window-active --uia --control-type Button --text-pattern "Show sidebar" --timeout-ms 5000
 desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar" --enabled --focusable
@@ -124,6 +127,7 @@ desktopmanager snapshot restore before-meeting
 - Prefer screenshot tools when the task needs visual validation rather than only structural window data.
 - Prefer `launch_process` plus `wait_for_window` over blind retries.
 - Prefer `list_window_controls` before guessing a control handle.
+- Prefer `diagnose_window_controls` when Chromium-style apps or background windows are not returning expected controls.
 - Prefer window-level typing when control-level targeting is uncertain.
 - Prefer named layouts and snapshots over repeated manual window placement.
 - Prefer minimizing distracting windows over closing them.

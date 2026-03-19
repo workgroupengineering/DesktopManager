@@ -8,6 +8,7 @@ internal static class ControlCommands {
     public static int Run(string action, CommandLineArguments arguments) {
         return action switch {
             "list" => List(arguments),
+            "diagnose" => Diagnose(arguments),
             "exists" => Exists(arguments),
             "wait" => Wait(arguments),
             "click" => Click(arguments),
@@ -59,6 +60,38 @@ internal static class ControlCommands {
             CreateControlCriteria(arguments),
             arguments.GetBoolFlag("all-windows"));
         return WriteAssertion(arguments, result, "Matching control found.", "No matching controls found.");
+    }
+
+    private static int Diagnose(CommandLineArguments arguments) {
+        IReadOnlyList<ControlDiagnosticResult> diagnostics = DesktopOperations.DiagnoseControls(
+            CreateWindowCriteria(arguments),
+            CreateControlCriteria(arguments),
+            arguments.GetBoolFlag("all-windows"),
+            arguments.GetIntOption("sample-limit") ?? 10);
+
+        if (arguments.GetBoolFlag("json")) {
+            OutputFormatter.WriteJson(diagnostics);
+            return 0;
+        }
+
+        if (diagnostics.Count == 0) {
+            Console.WriteLine("No matching windows found for control diagnostics.");
+            return 0;
+        }
+
+        foreach (ControlDiagnosticResult diagnostic in diagnostics) {
+            Console.WriteLine($"window: {diagnostic.Window.Title} ({diagnostic.Window.Handle})");
+            Console.WriteLine($"effective-source: {diagnostic.EffectiveSource}");
+            Console.WriteLine($"uia: required={diagnostic.RequiresUiAutomation} available={diagnostic.UiAutomationAvailable} requested={diagnostic.UseUiAutomation} include={diagnostic.IncludeUiAutomation}");
+            Console.WriteLine($"preparation: attempted={diagnostic.PreparationAttempted} succeeded={diagnostic.PreparationSucceeded} ensureForeground={diagnostic.EnsureForegroundWindow}");
+            Console.WriteLine($"counts: win32={diagnostic.Win32ControlCount} uia={diagnostic.UiAutomationControlCount} effective={diagnostic.EffectiveControlCount} matched={diagnostic.MatchedControlCount}");
+            foreach (ControlResult sample in diagnostic.SampleControls) {
+                Console.WriteLine($"- {sample.Source} {sample.ControlType} {sample.AutomationId} {sample.Text}");
+            }
+            Console.WriteLine();
+        }
+
+        return 0;
     }
 
     private static int Wait(CommandLineArguments arguments) {

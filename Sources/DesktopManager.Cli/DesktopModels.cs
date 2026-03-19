@@ -83,6 +83,23 @@ internal sealed class ControlAssertionResult {
     public IReadOnlyList<ControlResult> Controls { get; set; } = new List<ControlResult>();
 }
 
+internal sealed class ControlDiagnosticResult {
+    public WindowResult Window { get; set; } = new WindowResult();
+    public bool RequiresUiAutomation { get; set; }
+    public bool UseUiAutomation { get; set; }
+    public bool IncludeUiAutomation { get; set; }
+    public bool EnsureForegroundWindow { get; set; }
+    public bool UiAutomationAvailable { get; set; }
+    public bool PreparationAttempted { get; set; }
+    public bool PreparationSucceeded { get; set; }
+    public string EffectiveSource { get; set; } = string.Empty;
+    public int Win32ControlCount { get; set; }
+    public int UiAutomationControlCount { get; set; }
+    public int EffectiveControlCount { get; set; }
+    public int MatchedControlCount { get; set; }
+    public IReadOnlyList<ControlResult> SampleControls { get; set; } = new List<ControlResult>();
+}
+
 internal sealed class MonitorResult {
     public int Index { get; set; }
     public string DeviceName { get; set; } = string.Empty;

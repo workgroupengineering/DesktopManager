@@ -22,6 +22,7 @@ desktopmanager window minimize
 desktopmanager window snap
 
 desktopmanager control list
+desktopmanager control diagnose
 desktopmanager control exists
 desktopmanager control wait
 desktopmanager control click
@@ -57,6 +58,7 @@ desktopmanager mcp serve
 - `window wait` polls for a matching window and returns when one appears.
 - `window exists` and `window active-matches` provide non-mutating verification commands.
 - `control exists` and `control wait` provide the same inspect-first verification model for controls.
+- `control diagnose` explains which discovery path was used and how many Win32 and UIA controls were actually found.
 - `control` works with child window controls and can also use UI Automation-oriented selectors.
 - control selectors can now match `value`, `enabled`, and `focusable` state through the shared library.
 - `--ensure-foreground` provides a shared opt-in reliability hint for UIA-heavy control queries.
@@ -78,3 +80,4 @@ desktopmanager mcp serve
 
 - Child-window targeting is still the simplest path for classic Win32 controls.
 - UIA discovery and action fallback now work through the shared library, but selector validation is still wise before unattended runs.
+- `control diagnose` is the fastest way to understand why a modern app did or did not expose controls through the shared library.

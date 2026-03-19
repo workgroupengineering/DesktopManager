@@ -200,6 +200,28 @@ public sealed class DesktopAutomationService {
     }
 
     /// <summary>
+    /// Collects control discovery diagnostics for one or more matching windows.
+    /// </summary>
+    public IReadOnlyList<DesktopControlDiscoveryDiagnostics> GetControlDiagnostics(WindowQueryOptions windowOptions, WindowControlQueryOptions? controlOptions = null, bool allWindows = false, int sampleLimit = 10) {
+        if (windowOptions == null) {
+            throw new ArgumentNullException(nameof(windowOptions));
+        }
+
+        if (sampleLimit < 0) {
+            throw new ArgumentOutOfRangeException(nameof(sampleLimit), "sampleLimit must be zero or greater.");
+        }
+
+        List<WindowInfo> windows = _windowManager.GetWindows(windowOptions);
+        if (!allWindows && windows.Count > 1) {
+            windows = new List<WindowInfo> { windows[0] };
+        }
+
+        return windows
+            .Select(window => _windowManager.DiagnoseControls(window, controlOptions, sampleLimit))
+            .ToArray();
+    }
+
+    /// <summary>
     /// Clicks matching controls.
     /// </summary>
     public IReadOnlyList<WindowControlTargetInfo> ClickControls(WindowQueryOptions windowOptions, WindowControlQueryOptions? controlOptions, MouseButton button, bool allWindows = false, bool allControls = false) {
