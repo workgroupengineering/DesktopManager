@@ -24,6 +24,7 @@ internal static class CliApplication {
                 "control-target" => ControlTargetCommands.Run(action, parsed),
                 "layout" => LayoutCommands.Run(action, parsed),
                 "snapshot" => SnapshotCommands.Run(action, parsed),
+                "workflow" => WorkflowCommands.Run(action, parsed),
                 "mcp" => McpCommands.Run(action, parsed),
                 "help" => ShowGroupHelp(parsed),
                 _ => throw new CommandLineException($"Unknown command group '{group}'.")
@@ -51,6 +52,7 @@ internal static class CliApplication {
             "control-target" => HelpText.GetControlTargetHelp(),
             "layout" => HelpText.GetLayoutHelp(),
             "snapshot" => HelpText.GetSnapshotHelp(),
+            "workflow" => HelpText.GetWorkflowHelp(),
             "mcp" => HelpText.GetMcpHelp(),
             _ => HelpText.GetGeneralHelp()
         };

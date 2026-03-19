@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -8,7 +9,7 @@ using System.Threading;
 
 namespace DesktopManager.Cli;
 
-internal static class DesktopOperations {
+internal static partial class DesktopOperations {
     public static IReadOnlyList<WindowResult> ListWindows(WindowSelectionCriteria criteria) {
         return ExecuteCore(() => new DesktopAutomationService().GetWindows(CreateWindowQuery(criteria)).Select(MapWindow).ToArray());
     }
@@ -31,82 +32,131 @@ internal static class DesktopOperations {
             .ToArray());
     }
 
-    public static WindowChangeResult MoveWindow(WindowSelectionCriteria criteria, int? monitorIndex, int? x, int? y, int? width, int? height, bool activate) {
-        return ExecuteCore(() => BuildWindowChangeResult(
+    public static WindowChangeResult MoveWindow(WindowSelectionCriteria criteria, int? monitorIndex, int? x, int? y, int? width, int? height, bool activate, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
             "move",
-            new DesktopAutomationService().MoveWindows(CreateWindowQuery(criteria), monitorIndex, x, y, width, height, activate, criteria.All)));
+            criteria,
+            activate ? "window-management-activate" : "window-management",
+            artifactOptions,
+            automation => automation.MoveWindows(CreateWindowQuery(criteria), monitorIndex, x, y, width, height, activate, criteria.All));
     }
 
-    public static WindowChangeResult FocusWindow(WindowSelectionCriteria criteria) {
-        return ExecuteCore(() => BuildWindowChangeResult(
+    public static WindowChangeResult FocusWindow(WindowSelectionCriteria criteria, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
             "focus",
-            new DesktopAutomationService().FocusWindows(CreateWindowQuery(criteria), criteria.All)));
+            criteria,
+            "window-management-activate",
+            artifactOptions,
+            automation => automation.FocusWindows(CreateWindowQuery(criteria), criteria.All));
     }
 
-    public static WindowChangeResult ClickWindowPoint(WindowSelectionCriteria criteria, int? x, int? y, double? xRatio, double? yRatio, string button, bool activate, bool clientArea) {
+    public static WindowChangeResult ClickWindowPoint(WindowSelectionCriteria criteria, int? x, int? y, double? xRatio, double? yRatio, string button, bool activate, bool clientArea, MutationArtifactOptions? artifactOptions = null) {
         MouseButton mouseButton = ParseMouseButton(button);
-        return ExecuteCore(() => BuildWindowChangeResult(
+        return ExecuteWindowMutation(
             "click-point",
-            new DesktopAutomationService().ClickWindowPoint(CreateWindowQuery(criteria), x, y, xRatio, yRatio, mouseButton, activate, clientArea, criteria.All)));
+            criteria,
+            "foreground-mouse-input",
+            artifactOptions,
+            automation => automation.ClickWindowPoint(CreateWindowQuery(criteria), x, y, xRatio, yRatio, mouseButton, activate, clientArea, criteria.All));
     }
 
-    public static WindowChangeResult ClickWindowTarget(WindowSelectionCriteria criteria, string targetName, string button, bool activate) {
+    public static WindowChangeResult ClickWindowTarget(WindowSelectionCriteria criteria, string targetName, string button, bool activate, MutationArtifactOptions? artifactOptions = null) {
         MouseButton mouseButton = ParseMouseButton(button);
-        return ExecuteCore(() => BuildWindowChangeResult(
+        return ExecuteWindowMutation(
             "click-target",
-            new DesktopAutomationService().ClickWindowTarget(CreateWindowQuery(criteria), targetName, mouseButton, activate, criteria.All)));
+            criteria,
+            "foreground-mouse-input",
+            artifactOptions,
+            automation => automation.ClickWindowTarget(CreateWindowQuery(criteria), targetName, mouseButton, activate, criteria.All),
+            targetName,
+            "window-target");
     }
 
-    public static WindowChangeResult DragWindowPoints(WindowSelectionCriteria criteria, int? startX, int? startY, double? startXRatio, double? startYRatio, int? endX, int? endY, double? endXRatio, double? endYRatio, string button, int stepDelayMilliseconds, bool activate, bool clientArea) {
+    public static WindowChangeResult DragWindowPoints(WindowSelectionCriteria criteria, int? startX, int? startY, double? startXRatio, double? startYRatio, int? endX, int? endY, double? endXRatio, double? endYRatio, string button, int stepDelayMilliseconds, bool activate, bool clientArea, MutationArtifactOptions? artifactOptions = null) {
         MouseButton mouseButton = ParseMouseButton(button);
-        return ExecuteCore(() => BuildWindowChangeResult(
+        return ExecuteWindowMutation(
             "drag-point",
-            new DesktopAutomationService().DragWindowPoints(CreateWindowQuery(criteria), startX, startY, startXRatio, startYRatio, endX, endY, endXRatio, endYRatio, mouseButton, stepDelayMilliseconds, activate, clientArea, criteria.All)));
+            criteria,
+            "foreground-mouse-input",
+            artifactOptions,
+            automation => automation.DragWindowPoints(CreateWindowQuery(criteria), startX, startY, startXRatio, startYRatio, endX, endY, endXRatio, endYRatio, mouseButton, stepDelayMilliseconds, activate, clientArea, criteria.All));
     }
 
-    public static WindowChangeResult DragWindowTargets(WindowSelectionCriteria criteria, string startTargetName, string endTargetName, string button, int stepDelayMilliseconds, bool activate) {
+    public static WindowChangeResult DragWindowTargets(WindowSelectionCriteria criteria, string startTargetName, string endTargetName, string button, int stepDelayMilliseconds, bool activate, MutationArtifactOptions? artifactOptions = null) {
         MouseButton mouseButton = ParseMouseButton(button);
-        return ExecuteCore(() => BuildWindowChangeResult(
+        return ExecuteWindowMutation(
             "drag-target",
-            new DesktopAutomationService().DragWindowTargets(CreateWindowQuery(criteria), startTargetName, endTargetName, mouseButton, stepDelayMilliseconds, activate, criteria.All)));
+            criteria,
+            "foreground-mouse-input",
+            artifactOptions,
+            automation => automation.DragWindowTargets(CreateWindowQuery(criteria), startTargetName, endTargetName, mouseButton, stepDelayMilliseconds, activate, criteria.All),
+            $"{startTargetName}->{endTargetName}",
+            "window-target-pair");
     }
 
-    public static WindowChangeResult ScrollWindowPoint(WindowSelectionCriteria criteria, int? x, int? y, double? xRatio, double? yRatio, int delta, bool activate, bool clientArea) {
-        return ExecuteCore(() => BuildWindowChangeResult(
+    public static WindowChangeResult ScrollWindowPoint(WindowSelectionCriteria criteria, int? x, int? y, double? xRatio, double? yRatio, int delta, bool activate, bool clientArea, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
             "scroll-point",
-            new DesktopAutomationService().ScrollWindowPoint(CreateWindowQuery(criteria), x, y, xRatio, yRatio, delta, activate, clientArea, criteria.All)));
+            criteria,
+            "foreground-mouse-input",
+            artifactOptions,
+            automation => automation.ScrollWindowPoint(CreateWindowQuery(criteria), x, y, xRatio, yRatio, delta, activate, clientArea, criteria.All));
     }
 
-    public static WindowChangeResult ScrollWindowTarget(WindowSelectionCriteria criteria, string targetName, int delta, bool activate) {
-        return ExecuteCore(() => BuildWindowChangeResult(
+    public static WindowChangeResult ScrollWindowTarget(WindowSelectionCriteria criteria, string targetName, int delta, bool activate, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
             "scroll-target",
-            new DesktopAutomationService().ScrollWindowTarget(CreateWindowQuery(criteria), targetName, delta, activate, criteria.All)));
+            criteria,
+            "foreground-mouse-input",
+            artifactOptions,
+            automation => automation.ScrollWindowTarget(CreateWindowQuery(criteria), targetName, delta, activate, criteria.All),
+            targetName,
+            "window-target");
     }
 
-    public static WindowChangeResult MinimizeWindows(WindowSelectionCriteria criteria) {
-        return ExecuteCore(() => BuildWindowChangeResult(
+    public static WindowChangeResult MinimizeWindows(WindowSelectionCriteria criteria, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
             "minimize",
-            new DesktopAutomationService().MinimizeWindows(CreateWindowQuery(criteria), criteria.All)));
+            criteria,
+            "window-management",
+            artifactOptions,
+            automation => automation.MinimizeWindows(CreateWindowQuery(criteria), criteria.All));
     }
 
-    public static WindowChangeResult SnapWindow(WindowSelectionCriteria criteria, string position) {
+    public static WindowChangeResult SnapWindow(WindowSelectionCriteria criteria, string position, MutationArtifactOptions? artifactOptions = null) {
         if (!TryParseSnapPosition(position, out SnapPosition snapPosition)) {
             throw new CommandLineException($"Unsupported snap position '{position}'.");
         }
 
-        return ExecuteCore(() => BuildWindowChangeResult(
+        return ExecuteWindowMutation(
             "snap",
-            new DesktopAutomationService().SnapWindows(CreateWindowQuery(criteria), snapPosition, criteria.All)));
+            criteria,
+            "window-management",
+            artifactOptions,
+            automation => automation.SnapWindows(CreateWindowQuery(criteria), snapPosition, criteria.All));
     }
 
-    public static WindowChangeResult TypeWindowText(WindowSelectionCriteria criteria, string text, bool paste, int delayMilliseconds) {
+    public static WindowChangeResult TypeWindowText(WindowSelectionCriteria criteria, string text, bool paste, int delayMilliseconds, MutationArtifactOptions? artifactOptions = null) {
         if (text == null) {
             throw new CommandLineException("Text is required.");
         }
 
-        return ExecuteCore(() => BuildWindowChangeResult(
+        return ExecuteWindowMutation(
             paste ? "paste-text" : "type-text",
-            new DesktopAutomationService().TypeWindowText(CreateWindowQuery(criteria), text, paste, delayMilliseconds, criteria.All)));
+            criteria,
+            paste ? "window-text-paste" : "window-text-input",
+            artifactOptions,
+            automation => automation.TypeWindowText(CreateWindowQuery(criteria), text, paste, delayMilliseconds, criteria.All));
+    }
+
+    public static WindowChangeResult SendWindowKeys(WindowSelectionCriteria criteria, IReadOnlyList<string> keys, bool activate, MutationArtifactOptions? artifactOptions = null) {
+        VirtualKey[] virtualKeys = ParseVirtualKeys(keys);
+        return ExecuteWindowMutation(
+            "send-window-keys",
+            criteria,
+            "window-key-input",
+            artifactOptions,
+            automation => automation.SendWindowKeys(CreateWindowQuery(criteria), virtualKeys, activate, criteria.All));
     }
 
     public static IReadOnlyList<MonitorResult> ListMonitors(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null) {
@@ -186,52 +236,94 @@ internal static class DesktopOperations {
             .ToArray());
     }
 
-    public static ControlActionResult ClickControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string button, bool allWindows) {
+    public static ControlActionResult ClickControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string button, bool allWindows, MutationArtifactOptions? artifactOptions = null) {
         MouseButton mouseButton = ParseMouseButton(button);
-        return ExecuteCore(() => BuildControlActionResult(
+        return ExecuteControlMutation(
             "click-control",
-            new DesktopAutomationService().ClickControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), mouseButton, allWindows, controlCriteria.All)));
+            windowCriteria,
+            allWindows,
+            controlCriteria.All,
+            artifactOptions,
+            automation => automation.GetControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), allWindows, controlCriteria.All),
+            resolvedControls => DetermineControlClickSafetyMode(resolvedControls),
+            automation => automation.ClickControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), mouseButton, allWindows, controlCriteria.All));
     }
 
-    public static ControlActionResult ClickControlTarget(WindowSelectionCriteria windowCriteria, string targetName, string button, bool allWindows, bool allControls) {
+    public static ControlActionResult ClickControlTarget(WindowSelectionCriteria windowCriteria, string targetName, string button, bool allWindows, bool allControls, MutationArtifactOptions? artifactOptions = null) {
         MouseButton mouseButton = ParseMouseButton(button);
-        return ExecuteCore(() => BuildControlActionResult(
+        return ExecuteControlMutation(
             "click-control",
-            new DesktopAutomationService().ClickControlTarget(CreateWindowQuery(windowCriteria), targetName, mouseButton, allWindows, allControls)));
+            windowCriteria,
+            allWindows,
+            allControls,
+            artifactOptions,
+            automation => automation.GetControlTargets(CreateWindowQuery(windowCriteria), targetName, allWindows, allControls),
+            resolvedControls => DetermineControlClickSafetyMode(resolvedControls),
+            automation => automation.ClickControlTarget(CreateWindowQuery(windowCriteria), targetName, mouseButton, allWindows, allControls),
+            targetName,
+            "control-target");
     }
 
-    public static ControlActionResult SetControlText(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string text, bool allWindows) {
+    public static ControlActionResult SetControlText(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, string text, bool allWindows, MutationArtifactOptions? artifactOptions = null) {
         if (text == null) {
             throw new CommandLineException("Text is required.");
         }
 
-        return ExecuteCore(() => BuildControlActionResult(
+        return ExecuteControlMutation(
             "set-control-text",
-            new DesktopAutomationService().SetControlText(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), text, allWindows, controlCriteria.All)));
+            windowCriteria,
+            allWindows,
+            controlCriteria.All,
+            artifactOptions,
+            automation => automation.GetControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), allWindows, controlCriteria.All),
+            resolvedControls => DetermineControlTextSafetyMode(resolvedControls, controlCriteria.AllowForegroundInputFallback),
+            automation => automation.SetControlText(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), text, allWindows, controlCriteria.All));
     }
 
-    public static ControlActionResult SetControlTargetText(WindowSelectionCriteria windowCriteria, string targetName, string text, bool ensureForegroundWindow, bool allowForegroundInputFallback, bool allWindows, bool allControls) {
+    public static ControlActionResult SetControlTargetText(WindowSelectionCriteria windowCriteria, string targetName, string text, bool ensureForegroundWindow, bool allowForegroundInputFallback, bool allWindows, bool allControls, MutationArtifactOptions? artifactOptions = null) {
         if (text == null) {
             throw new CommandLineException("Text is required.");
         }
 
-        return ExecuteCore(() => BuildControlActionResult(
+        return ExecuteControlMutation(
             "set-control-text",
-            new DesktopAutomationService().SetControlTargetText(CreateWindowQuery(windowCriteria), targetName, text, ensureForegroundWindow, allowForegroundInputFallback, allWindows, allControls)));
+            windowCriteria,
+            allWindows,
+            allControls,
+            artifactOptions,
+            automation => automation.GetControlTargets(CreateWindowQuery(windowCriteria), targetName, allWindows, allControls),
+            resolvedControls => DetermineControlTextSafetyMode(resolvedControls, allowForegroundInputFallback),
+            automation => automation.SetControlTargetText(CreateWindowQuery(windowCriteria), targetName, text, ensureForegroundWindow, allowForegroundInputFallback, allWindows, allControls),
+            targetName,
+            "control-target");
     }
 
-    public static ControlActionResult SendControlKeys(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, IReadOnlyList<string> keys, bool allWindows) {
+    public static ControlActionResult SendControlKeys(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, IReadOnlyList<string> keys, bool allWindows, MutationArtifactOptions? artifactOptions = null) {
         VirtualKey[] virtualKeys = ParseVirtualKeys(keys);
-        return ExecuteCore(() => BuildControlActionResult(
+        return ExecuteControlMutation(
             "send-control-keys",
-            new DesktopAutomationService().SendControlKeys(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), virtualKeys, allWindows, controlCriteria.All)));
+            windowCriteria,
+            allWindows,
+            controlCriteria.All,
+            artifactOptions,
+            automation => automation.GetControls(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), allWindows, controlCriteria.All),
+            resolvedControls => DetermineControlKeySafetyMode(resolvedControls, controlCriteria.AllowForegroundInputFallback),
+            automation => automation.SendControlKeys(CreateWindowQuery(windowCriteria), CreateControlQuery(controlCriteria), virtualKeys, allWindows, controlCriteria.All));
     }
 
-    public static ControlActionResult SendControlTargetKeys(WindowSelectionCriteria windowCriteria, string targetName, IReadOnlyList<string> keys, bool ensureForegroundWindow, bool allowForegroundInputFallback, bool allWindows, bool allControls) {
+    public static ControlActionResult SendControlTargetKeys(WindowSelectionCriteria windowCriteria, string targetName, IReadOnlyList<string> keys, bool ensureForegroundWindow, bool allowForegroundInputFallback, bool allWindows, bool allControls, MutationArtifactOptions? artifactOptions = null) {
         VirtualKey[] virtualKeys = ParseVirtualKeys(keys);
-        return ExecuteCore(() => BuildControlActionResult(
+        return ExecuteControlMutation(
             "send-control-keys",
-            new DesktopAutomationService().SendControlTargetKeys(CreateWindowQuery(windowCriteria), targetName, virtualKeys, ensureForegroundWindow, allowForegroundInputFallback, allWindows, allControls)));
+            windowCriteria,
+            allWindows,
+            allControls,
+            artifactOptions,
+            automation => automation.GetControlTargets(CreateWindowQuery(windowCriteria), targetName, allWindows, allControls),
+            resolvedControls => DetermineControlKeySafetyMode(resolvedControls, allowForegroundInputFallback),
+            automation => automation.SendControlTargetKeys(CreateWindowQuery(windowCriteria), targetName, virtualKeys, ensureForegroundWindow, allowForegroundInputFallback, allWindows, allControls),
+            targetName,
+            "control-target");
     }
 
     public static WaitForControlResult WaitForControl(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, int timeoutMilliseconds, int intervalMilliseconds, bool allWindows) {
@@ -322,7 +414,7 @@ internal static class DesktopOperations {
         return ExecuteCore(() => DesktopStateStore.ListNames("snapshots"));
     }
 
-    public static WindowTargetResult SaveWindowTarget(string name, string? description, int? x, int? y, double? xRatio, double? yRatio, bool clientArea) {
+    public static WindowTargetResult SaveWindowTarget(string name, string? description, int? x, int? y, double? xRatio, double? yRatio, int? width, int? height, double? widthRatio, double? heightRatio, bool clientArea) {
         return ExecuteCore(() => {
             DesktopWindowTargetDefinition definition = new DesktopWindowTargetDefinition {
                 Description = description,
@@ -330,6 +422,10 @@ internal static class DesktopOperations {
                 Y = y,
                 XRatio = xRatio,
                 YRatio = yRatio,
+                Width = width,
+                Height = height,
+                WidthRatio = widthRatio,
+                HeightRatio = heightRatio,
                 ClientArea = clientArea
             };
 
@@ -436,6 +532,14 @@ internal static class DesktopOperations {
         });
     }
 
+    public static ScreenshotResult CaptureWindowTargetScreenshot(WindowSelectionCriteria criteria, string targetName, string? outputPath) {
+        return ExecuteCore(() => {
+            using DesktopCapture capture = new DesktopAutomationService().CaptureWindowTarget(CreateWindowQuery(criteria), targetName);
+            string prefix = capture.Window == null ? $"target-{targetName}" : $"target-{targetName}-{capture.Window.ProcessId}";
+            return SaveScreenshot(capture, prefix, outputPath);
+        });
+    }
+
     public static ProcessLaunchResult LaunchProcess(string filePath, string? arguments, string? workingDirectory, int? waitForInputIdleMilliseconds, int? waitForWindowMilliseconds, int? waitForWindowIntervalMilliseconds, string? windowTitlePattern, string? windowClassNamePattern, bool requireWindow) {
         return ExecuteCore(() => {
             DesktopProcessLaunchInfo result = new DesktopAutomationService().LaunchProcess(new DesktopProcessStartOptions {
@@ -532,10 +636,18 @@ internal static class DesktopOperations {
         }
     }
 
-    private static WindowChangeResult BuildWindowChangeResult(string action, IReadOnlyList<WindowInfo> windows) {
+    private static WindowChangeResult BuildWindowChangeResult(string action, IReadOnlyList<WindowInfo> windows, int elapsedMilliseconds, string safetyMode, string? targetName, string? targetKind, IReadOnlyList<ScreenshotResult> beforeScreenshots, IReadOnlyList<ScreenshotResult> afterScreenshots, IReadOnlyList<string> artifactWarnings) {
         return new WindowChangeResult {
             Action = action,
+            Success = true,
             Count = windows.Count,
+            ElapsedMilliseconds = elapsedMilliseconds,
+            SafetyMode = safetyMode,
+            TargetName = targetName,
+            TargetKind = targetKind,
+            BeforeScreenshots = beforeScreenshots,
+            AfterScreenshots = afterScreenshots,
+            ArtifactWarnings = artifactWarnings,
             Windows = windows.Select(MapWindow).ToArray()
         };
     }
@@ -597,6 +709,10 @@ internal static class DesktopOperations {
             Y = target.Y,
             XRatio = target.XRatio,
             YRatio = target.YRatio,
+            Width = target.Width,
+            Height = target.Height,
+            WidthRatio = target.WidthRatio,
+            HeightRatio = target.HeightRatio,
             ClientArea = target.ClientArea
         };
     }
@@ -632,8 +748,12 @@ internal static class DesktopOperations {
             Geometry = MapWindowGeometry(target.Geometry),
             RelativeX = target.RelativeX,
             RelativeY = target.RelativeY,
+            RelativeWidth = target.RelativeWidth,
+            RelativeHeight = target.RelativeHeight,
             ScreenX = target.ScreenX,
-            ScreenY = target.ScreenY
+            ScreenY = target.ScreenY,
+            ScreenWidth = target.ScreenWidth,
+            ScreenHeight = target.ScreenHeight
         };
     }
 
@@ -724,10 +844,18 @@ internal static class DesktopOperations {
         };
     }
 
-    private static ControlActionResult BuildControlActionResult(string action, IReadOnlyList<WindowControlTargetInfo> controls) {
+    private static ControlActionResult BuildControlActionResult(string action, IReadOnlyList<WindowControlTargetInfo> controls, int elapsedMilliseconds, string safetyMode, string? targetName, string? targetKind, IReadOnlyList<ScreenshotResult> beforeScreenshots, IReadOnlyList<ScreenshotResult> afterScreenshots, IReadOnlyList<string> artifactWarnings) {
         return new ControlActionResult {
             Action = action,
+            Success = true,
             Count = controls.Count,
+            ElapsedMilliseconds = elapsedMilliseconds,
+            SafetyMode = safetyMode,
+            TargetName = targetName,
+            TargetKind = targetKind,
+            BeforeScreenshots = beforeScreenshots,
+            AfterScreenshots = afterScreenshots,
+            ArtifactWarnings = artifactWarnings,
             Controls = controls.Select(MapControl).ToArray()
         };
     }
@@ -856,7 +984,11 @@ internal static class DesktopOperations {
             throw new CommandLineException(ex.Message);
         } catch (DirectoryNotFoundException ex) {
             throw new CommandLineException(ex.Message);
+        } catch (InvalidDataException ex) {
+            throw new CommandLineException(ex.Message);
         } catch (FileNotFoundException ex) {
+            throw new CommandLineException(ex.Message);
+        } catch (Win32Exception ex) {
             throw new CommandLineException(ex.Message);
         } catch (InvalidOperationException ex) {
             throw new CommandLineException(ex.Message);

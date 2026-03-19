@@ -10,6 +10,7 @@ internal static class ControlCommands {
             "list" => List(arguments),
             "diagnose" => Diagnose(arguments),
             "exists" => Exists(arguments),
+            "assert-value" => AssertValue(arguments),
             "wait" => Wait(arguments),
             "click" => Click(arguments),
             "set-text" => SetText(arguments),
@@ -166,6 +167,43 @@ internal static class ControlCommands {
         return 0;
     }
 
+    private static int AssertValue(CommandLineArguments arguments) {
+        bool contains = arguments.GetBoolFlag("contains");
+        string? expected = arguments.GetOption("expected-value") ?? arguments.GetOption("expected");
+        if (string.IsNullOrWhiteSpace(expected)) {
+            throw new CommandLineException("Missing required option '--expected-value'.");
+        }
+
+        string? targetName = arguments.GetOption("target");
+        ControlValueAssertionResult result = !string.IsNullOrWhiteSpace(targetName)
+            ? DesktopOperations.AssertControlTargetValue(
+                CreateWindowCriteria(arguments),
+                targetName,
+                expected,
+                contains,
+                arguments.GetBoolFlag("all-windows"),
+                arguments.GetBoolFlag("all"))
+            : DesktopOperations.AssertControlValue(
+                CreateWindowCriteria(arguments),
+                CreateControlCriteria(arguments),
+                expected,
+                contains,
+                arguments.GetBoolFlag("all-windows"));
+
+        if (arguments.GetBoolFlag("json")) {
+            OutputFormatter.WriteJson(result);
+        } else {
+            Console.WriteLine(result.Matched ? "Control value assertion passed." : "Control value assertion failed.");
+            Console.WriteLine($"assertion: {result.PropertyName} {result.MatchMode} \"{result.Expected}\"");
+            Console.WriteLine($"matched: {result.MatchedCount}/{result.Count}");
+            foreach (ControlResult control in result.Controls) {
+                Console.WriteLine($"- {control.ControlType} value=\"{control.Value}\" text=\"{control.Text}\" in {control.ParentWindow.Title}");
+            }
+        }
+
+        return result.Matched ? 0 : 2;
+    }
+
     private static int Click(CommandLineArguments arguments) {
         string? targetName = arguments.GetOption("target");
         ControlActionResult result;
@@ -175,7 +213,8 @@ internal static class ControlCommands {
                 targetName,
                 arguments.GetOption("button") ?? "left",
                 arguments.GetBoolFlag("all-windows"),
-                arguments.GetBoolFlag("all"));
+                arguments.GetBoolFlag("all"),
+                CreateArtifactOptions(arguments));
             return WriteAction(arguments, result);
         }
 
@@ -183,7 +222,8 @@ internal static class ControlCommands {
             CreateWindowCriteria(arguments),
             CreateControlCriteria(arguments),
             arguments.GetOption("button") ?? "left",
-            arguments.GetBoolFlag("all-windows"));
+            arguments.GetBoolFlag("all-windows"),
+            CreateArtifactOptions(arguments));
         return WriteAction(arguments, result);
     }
 
@@ -197,12 +237,14 @@ internal static class ControlCommands {
                 arguments.GetBoolFlag("ensure-foreground"),
                 arguments.GetBoolFlag("allow-foreground-input"),
                 arguments.GetBoolFlag("all-windows"),
-                arguments.GetBoolFlag("all"))
+                arguments.GetBoolFlag("all"),
+                CreateArtifactOptions(arguments))
             : DesktopOperations.SetControlText(
                 CreateWindowCriteria(arguments),
                 CreateControlCriteria(arguments),
                 arguments.GetRequiredOption("text"),
-                arguments.GetBoolFlag("all-windows"));
+                arguments.GetBoolFlag("all-windows"),
+                CreateArtifactOptions(arguments));
         return WriteAction(arguments, result);
     }
 
@@ -222,12 +264,14 @@ internal static class ControlCommands {
                 arguments.GetBoolFlag("ensure-foreground"),
                 arguments.GetBoolFlag("allow-foreground-input"),
                 arguments.GetBoolFlag("all-windows"),
-                arguments.GetBoolFlag("all"))
+                arguments.GetBoolFlag("all"),
+                CreateArtifactOptions(arguments))
             : DesktopOperations.SendControlKeys(
                 CreateWindowCriteria(arguments),
                 CreateControlCriteria(arguments),
                 keys,
-                arguments.GetBoolFlag("all-windows"));
+                arguments.GetBoolFlag("all-windows"),
+                CreateArtifactOptions(arguments));
         return WriteAction(arguments, result);
     }
 
@@ -237,11 +281,38 @@ internal static class ControlCommands {
             return 0;
         }
 
-        Console.WriteLine($"{result.Action}: {result.Count} control(s)");
+        Console.WriteLine($"{result.Action}: {result.Count} control(s) success={result.Success} safety={result.SafetyMode} elapsed-ms={result.ElapsedMilliseconds}");
+        if (!string.IsNullOrWhiteSpace(result.TargetName)) {
+            Console.WriteLine($"target: {result.TargetKind ?? "selector"} {result.TargetName}");
+        }
+
+        if (result.BeforeScreenshots.Count > 0 || result.AfterScreenshots.Count > 0) {
+            Console.WriteLine($"artifacts: before={result.BeforeScreenshots.Count} after={result.AfterScreenshots.Count}");
+        }
+
+        foreach (string warning in result.ArtifactWarnings) {
+            Console.WriteLine($"warning: {warning}");
+        }
+
         foreach (ControlResult control in result.Controls) {
             Console.WriteLine($"- {control.ClassName} [{control.Id}] in {control.ParentWindow.Title}");
         }
         return 0;
+    }
+
+    private static MutationArtifactOptions? CreateArtifactOptions(CommandLineArguments arguments) {
+        bool captureBefore = arguments.GetBoolFlag("capture-before");
+        bool captureAfter = arguments.GetBoolFlag("capture-after");
+        string? artifactDirectory = arguments.GetOption("artifact-directory");
+        if (!captureBefore && !captureAfter && string.IsNullOrWhiteSpace(artifactDirectory)) {
+            return null;
+        }
+
+        return new MutationArtifactOptions {
+            CaptureBefore = captureBefore,
+            CaptureAfter = captureAfter,
+            ArtifactDirectory = artifactDirectory
+        };
     }
 
     private static int WriteAssertion(CommandLineArguments arguments, ControlAssertionResult result, string successText, string failureText) {

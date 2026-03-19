@@ -150,6 +150,19 @@ internal static class TestHelper {
     }
 
     /// <summary>
+    /// Skips experimental desktop-changing tests unless explicitly enabled.
+    /// </summary>
+    public static void RequireExperimentalDesktopChanges() {
+        RequireDesktopChanges();
+        if (Environment.GetEnvironmentVariable("RUN_EXPERIMENTAL_UI_TESTS") == "true" ||
+            Environment.GetEnvironmentVariable("DESKTOPMANAGER_RUN_EXPERIMENTAL_UI_TESTS") == "true") {
+            return;
+        }
+
+        Assert.Inconclusive("Experimental desktop-changing UI tests skipped. Set RUN_EXPERIMENTAL_UI_TESTS=true (or DESKTOPMANAGER_RUN_EXPERIMENTAL_UI_TESTS=true) to run.");
+    }
+
+    /// <summary>
     /// Safely kills a process.
     /// </summary>
     public static void SafeKillProcess(Process? process) {

@@ -170,4 +170,44 @@ public class UiAutomationControlServiceTests {
 
         Assert.IsTrue(score >= 80, $"Expected a strong score for a near-identical control, but got {score}.");
     }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures editable UIA controls can opt into explicit foreground fallback even when focusability metadata is missing.
+    /// </summary>
+    public void SupportsForegroundFallback_EditableControlWithoutHandle_ReturnsTrue() {
+        bool supported = UiAutomationControlService.SupportsForegroundFallback(
+            hasNativeHandle: false,
+            isKeyboardFocusable: null,
+            isEnabled: true,
+            controlType: "Edit",
+            className: "Chrome_RenderWidgetHostHWND");
+
+        Assert.IsTrue(supported);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures disabled controls do not advertise explicit foreground fallback.
+    /// </summary>
+    public void SupportsForegroundFallback_DisabledControl_ReturnsFalse() {
+        bool supported = UiAutomationControlService.SupportsForegroundFallback(
+            hasNativeHandle: false,
+            isKeyboardFocusable: true,
+            isEnabled: false,
+            controlType: "Edit",
+            className: "TextBox");
+
+        Assert.IsFalse(supported);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures obvious editable control shapes are detected for modern-app fallback heuristics.
+    /// </summary>
+    public void IsLikelyEditableControl_EditAndTextBoxShapes_ReturnTrue() {
+        Assert.IsTrue(UiAutomationControlService.IsLikelyEditableControl("Edit", string.Empty));
+        Assert.IsTrue(UiAutomationControlService.IsLikelyEditableControl("Document", string.Empty));
+        Assert.IsTrue(UiAutomationControlService.IsLikelyEditableControl(string.Empty, "InputTextBox"));
+    }
 }

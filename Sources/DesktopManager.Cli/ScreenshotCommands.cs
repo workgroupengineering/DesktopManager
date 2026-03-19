@@ -7,6 +7,7 @@ internal static class ScreenshotCommands {
         return action switch {
             "desktop" => Desktop(arguments),
             "window" => Window(arguments),
+            "target" => Target(arguments),
             _ => throw new CommandLineException($"Unknown screenshot command '{action}'.")
         };
     }
@@ -25,6 +26,26 @@ internal static class ScreenshotCommands {
     }
 
     private static int Window(CommandLineArguments arguments) {
+        string? targetName = arguments.GetOption("target");
+        if (!string.IsNullOrWhiteSpace(targetName)) {
+            ScreenshotResult targetResult = DesktopOperations.CaptureWindowTargetScreenshot(
+                new WindowSelectionCriteria {
+                    TitlePattern = arguments.GetOption("title") ?? "*",
+                    ProcessNamePattern = arguments.GetOption("process") ?? "*",
+                    ClassNamePattern = arguments.GetOption("class") ?? "*",
+                    ProcessId = arguments.GetIntOption("pid"),
+                    Handle = arguments.GetOption("handle"),
+                    Active = arguments.GetBoolFlag("active"),
+                    IncludeHidden = true,
+                    IncludeCloaked = true,
+                    IncludeOwned = true,
+                    IncludeEmptyTitles = true
+                },
+                targetName,
+                arguments.GetOption("output"));
+            return WriteScreenshotResult(arguments, targetResult);
+        }
+
         ScreenshotResult result = DesktopOperations.CaptureWindowScreenshot(
             new WindowSelectionCriteria {
                 TitlePattern = arguments.GetOption("title") ?? "*",
@@ -38,6 +59,25 @@ internal static class ScreenshotCommands {
                 IncludeOwned = true,
                 IncludeEmptyTitles = true
             },
+            arguments.GetOption("output"));
+        return WriteScreenshotResult(arguments, result);
+    }
+
+    private static int Target(CommandLineArguments arguments) {
+        ScreenshotResult result = DesktopOperations.CaptureWindowTargetScreenshot(
+            new WindowSelectionCriteria {
+                TitlePattern = arguments.GetOption("title") ?? "*",
+                ProcessNamePattern = arguments.GetOption("process") ?? "*",
+                ClassNamePattern = arguments.GetOption("class") ?? "*",
+                ProcessId = arguments.GetIntOption("pid"),
+                Handle = arguments.GetOption("handle"),
+                Active = arguments.GetBoolFlag("active"),
+                IncludeHidden = true,
+                IncludeCloaked = true,
+                IncludeOwned = true,
+                IncludeEmptyTitles = true
+            },
+            arguments.GetRequiredCommandPart(2, "target name"),
             arguments.GetOption("output"));
         return WriteScreenshotResult(arguments, result);
     }

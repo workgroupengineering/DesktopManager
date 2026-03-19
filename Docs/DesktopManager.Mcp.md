@@ -9,6 +9,8 @@ DesktopManager exposes two automation surfaces:
 
 For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 
+The MCP server now starts in read-only inspection mode by default. Use `desktopmanager mcp serve --allow-mutations` when you intentionally want mutating tools, add `--allow-process <pattern>` or `--deny-process <pattern>` when the session should be constrained to specific apps, add `--allow-foreground-input` only for sessions that may need focused foreground fallback on zero-handle UIA text or key actions, and use `--dry-run` when you want mutation previews without changing the desktop.
+
 ## Current MCP Tools
 
 - `get_active_window`
@@ -20,12 +22,14 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 - `list_window_controls`
 - `diagnose_window_controls`
 - `control_exists`
+- `assert_control_value`
 - `wait_for_control`
 - `move_window`
 - `click_window_point`
 - `drag_window_points`
 - `scroll_window_point`
 - `type_window_text`
+- `send_window_keys`
 - `focus_window`
 - `minimize_windows`
 - `snap_window`
@@ -33,6 +37,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 - `screenshot_desktop`
 - `screenshot_window`
 - `launch_process`
+- `launch_and_wait_for_window`
 - `list_named_targets`
 - `get_named_target`
 - `save_window_target`
@@ -47,9 +52,13 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 - `list_named_layouts`
 - `save_current_layout`
 - `apply_named_layout`
+- `assert_window_layout`
 - `list_named_snapshots`
 - `save_current_snapshot`
 - `restore_saved_snapshot`
+- `prepare_for_coding`
+- `prepare_for_screen_sharing`
+- `clean_up_distractions`
 
 ## Current MCP Resources
 
@@ -69,25 +78,33 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 
 ## Recommended Agent Workflow
 
-1. Inspect first.
+1. Start the server in the safest useful mode.
+   - use plain `desktopmanager mcp serve` for inspection-only sessions
+   - add `--allow-mutations` only when the workflow really needs state changes
+   - add `--allow-process` and `--deny-process` when the workflow should be limited to specific desktop apps
+   - add `--allow-foreground-input` only for sacrificial or tightly controlled sessions that may need focused fallback in modern apps
+   - add `--dry-run` when you want a preview of mutating requests without side effects
+2. Inspect first.
    - Read `desktop://windows/visible`, `desktop://windows/active`, and `desktop://monitors`.
    - Use `get_active_window` when focus matters.
    - Use `window_exists` or `active_window_matches` when you want a structured assertion before acting.
    - Use `screenshot_desktop` or `screenshot_window` when visual confirmation is needed.
    - Use `get_window_geometry` when you need outer-window and client-area bounds before a coordinate-based action.
    - When multiple windows match, prefer an exact `handle` over a broad process selector.
-2. Launch when needed.
+3. Launch when needed.
    - Use `launch_process` for the app under test.
+   - Prefer `launch_and_wait_for_window` when the next step depends on a real launched window, because it binds the wait to the launched process and returns both launch and wait results together.
    - Use `waitForWindowMs` when you want launch to spend a short time correlating the real app window before returning.
    - When you know what kind of window should appear, pass `windowTitle` or `windowClassName` and set `requireWindow=true`.
    - Use `wait_for_window` before trying to move, focus, or capture the window.
-3. Inspect controls before trying to interact.
+4. Inspect controls before trying to interact.
    - Use `list_window_controls` to discover target handles, classes, visible text, automation ids, control types, and control bounds.
    - Use `diagnose_window_controls` when a modern app is not exposing the controls you expect. It will tell you whether Win32 or UIA discovery produced results, whether foreground preparation succeeded, and what each probed UIA root returned.
 - `diagnose_window_controls` also accepts a saved `targetName`, so reusable control targets and one-off selectors share the same diagnostic path.
 - `diagnose_window_controls` also accepts `includeActionProbe`, which adds a read-only UIA action-resolution probe for the first matched UIA control.
 - Diagnostic results now include elapsed times for the overall pass, and the optional action probe includes its own elapsed time too.
    - Use `control_exists` or `wait_for_control` when the target control can appear asynchronously or when you want a structured assertion before clicking.
+   - Use `assert_control_value` when you need to prove that a field really contains the expected value, not just that a matching control exists.
    - When modern controls expose state through UI Automation, filter by current value, enabled state, or keyboard focusability instead of guessing from text alone.
    - If a UIA-heavy query is host-sensitive, opt into foreground assistance before falling back to brittle retries.
    - If structure discovery still fails, use `screenshot_window` plus `get_window_geometry`, then target `click_window_point`, `drag_window_points`, or `scroll_window_point`.
@@ -95,23 +112,34 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
    - When the same coordinate fallback will be reused, save it once with `save_window_target` and resolve or reuse it by name.
    - When the same control selector will be reused, save it once with `save_control_target` and resolve or reuse it by name.
    - Prefer `type_window_text` for whole-window text entry.
+   - Prefer `send_window_keys` for whole-window Enter, Escape, or accelerator follow-up actions when a modern control becomes unreliable after text entry.
    - Prefer `click_control`, `set_control_text`, and `send_control_keys` for control-level interactions.
 - Saved control targets are especially useful for modern Chromium-style apps because they preserve the same capability-aware selector profile across runs.
 - The same saved control target can now drive read-only discovery too, not just actions, so agents can `list`, `exists`, and `wait` against one reusable selector profile.
    - For classic handle-backed controls, `set_control_text` and `send_control_keys` now route directly to the target control instead of depending on foreground focus.
    - For zero-handle UIA controls in modern apps, foreground-based text or key fallback is now shared too, but should be treated as an explicit opt-in because it can affect the live focused app.
-4. Prefer named state when available.
+   - When foreground text fallback is enabled for those controls, the shared library now prefers a focused select-all-and-paste path with verification before it falls back to raw typed characters, which is usually more reliable for Chromium-style editors and address bars.
+5. Prefer named state when available.
    - Use `list_named_layouts` before moving windows one by one.
    - Use `apply_named_layout` or `restore_saved_snapshot` when a saved state exists.
-5. Make reversible changes.
+   - Use `assert_window_layout` when the workflow depends on the layout being correct before continuing, not just on a layout name existing.
+6. Make reversible changes.
    - Prefer `focus_window`, `snap_window`, and `minimize_windows` over destructive actions.
    - Save the current layout or snapshot before larger rearrangements.
-6. Explain intent.
+7. Explain intent.
    - Say what will change before applying a layout or minimizing multiple windows.
-7. Avoid assumptions.
+8. Avoid assumptions.
    - Match windows by title, process, class, pid, or handle.
    - Start with specific selectors when possible.
    - Remember that `activeWindow` means the current foreground window, which may be the agent host if it has focus.
+9. Ask mutating tools for evidence when it matters.
+   - mutating MCP tools now accept `captureBefore`, `captureAfter`, and `artifactDirectory`.
+   - their structured results now include `success`, `elapsedMilliseconds`, `safetyMode`, optional resolved target name/kind, best-effort before/after screenshots, and artifact warnings.
+   - prefer `captureAfter=true` for lightweight confirmation and add `captureBefore=true` when you need a stronger audit trail.
+10. Prefer shared workflows over prompt-only orchestration when they fit.
+   - `prepare_for_coding`, `prepare_for_screen_sharing`, and `clean_up_distractions` now exist as MCP tools, not only as prompts.
+   - use them when you want a structured result with layout/focus/minimize details instead of free-form narration.
+   - when a workflow is given an explicit window selector, its structured result can include `ResolvedWindow`, but focus and target resolution are still best-effort and may fall back to explanatory `Notes`.
 
 ## CLI Fallback Patterns
 
@@ -142,6 +170,7 @@ desktopmanager window scroll --handle 0xFF1802 --x-ratio 0.5 --y-ratio 0.5 --del
 desktopmanager window scroll --handle 0xFF1802 --target editor-center --delta -120
 desktopmanager window type --handle 0x30A263C --text "Hello world"
 desktopmanager window type --process notepad --text "Hello world"
+desktopmanager window keys --process msedge --keys VK_RETURN
 desktopmanager control list --window-process notepad
 desktopmanager control diagnose --window-title "*Codex*" --uia --ensure-foreground --sample-limit 5 --json
 desktopmanager control diagnose --window-title "Codex" --target codex-sidebar-toggle --sample-limit 5 --json
@@ -155,6 +184,7 @@ desktopmanager control click --window-process notepad --class RichEditD2DPT
 desktopmanager control set-text --window-process notepad --class RichEditD2DPT --text "Hello world"
 desktopmanager control send-keys --window-process notepad --class RichEditD2DPT --keys VK_CONTROL,VK_A
 desktopmanager process start notepad.exe --wait-for-input-idle-ms 1000
+desktopmanager process start-and-wait notepad.exe --window-title "*Notepad*" --timeout-ms 5000 --json
 desktopmanager screenshot desktop
 desktopmanager screenshot window --process notepad
 desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400
@@ -164,10 +194,27 @@ desktopmanager monitor list
 desktopmanager layout list
 desktopmanager layout save coding
 desktopmanager layout apply coding
+desktopmanager layout assert coding --position-tolerance-px 50 --size-tolerance-px 50 --json
 desktopmanager snapshot save before-meeting
 desktopmanager snapshot restore before-meeting
 desktopmanager mcp serve
+desktopmanager mcp serve --allow-mutations
+desktopmanager mcp serve --allow-mutations --allow-process notepad
+desktopmanager mcp serve --allow-mutations --deny-process teams
+desktopmanager mcp serve --allow-mutations --allow-foreground-input
+desktopmanager mcp serve --dry-run
 ```
+
+## Screenshot-Assisted Target Flow
+
+When control structure is flaky, prefer this flow:
+
+1. Capture the target window with `screenshot_window`.
+2. Read `get_window_geometry` if you need exact client-area bounds.
+3. Save a reusable point or area with `save_window_target`.
+4. Reuse it from `resolve_window_target`, `screenshot_window` with `targetName`, `click_window_point`, `drag_window_points`, or `scroll_window_point`.
+
+That keeps screenshot-assisted targeting in the shared core instead of forcing the agent to re-invent one-off coordinates every run.
 
 ## Safety Notes
 
@@ -177,6 +224,7 @@ desktopmanager mcp serve
 - Snapshots are windows-only for now.
 - Control discovery supports both child-window selectors and UIA-oriented selectors.
 - Control assertions and waits are available on the same shared selector model as list/click/set-text.
+- Saved layouts now also support structured assertion through `assert_window_layout`, so agents can verify geometry/state expectations before assuming the desktop is ready.
 - Control diagnostics are available on the same shared selector model and help explain Win32 versus UIA discovery gaps.
 - Control diagnostics now include per-root UIA probe details, which makes Chromium-style discovery failures much easier to explain and debug.
 - Control diagnostics now also show whether a preferred UIA root was learned and reused inside the current long-lived process, which is most relevant for MCP sessions and in-process waits.
@@ -186,16 +234,24 @@ desktopmanager mcp serve
 - Coordinate fallbacks can target the client area, which is usually more reliable for browser/editor content than raw outer-window coordinates.
 - Ratio-based coordinate fallbacks are available, which makes screenshot-assisted targeting more portable across different window sizes.
 - Named window targets are available on the same shared geometry model, which makes repeated coordinate fallbacks much less brittle.
+- Named window targets can now also describe reusable areas, not just points, so agents can capture and verify stable visual regions through the shared core.
 - Window screenshots now return geometry metadata in JSON so agents can align the image with client-area coordinates.
 - Window typing now avoids raw `SendInput` when Windows refuses to foreground the target window, which reduces the chance of text leaking into whatever app currently owns focus.
+- Window-level key sending is available as a shared MCP tool, which gives agents a cleaner way to commit or dismiss modern UI flows after whole-window text entry.
 - Process launch can now wait for a launched window and prefers windows from the launched process or newer post-launch handles instead of blindly reusing an older matching window.
 - Process launch can also validate the launched window by title/class and require a real match before returning.
+- `launch_and_wait_for_window` adds a higher-level shared result for unattended launch flows, so MCP callers do not need to stitch `launch_process` and `wait_for_window` together by hand.
 - The shared control selector model now supports value, enabled, and keyboard-focusable checks.
 - The shared control selector model now also exposes background-safe capability metadata for click, text, keys, and explicit foreground fallback.
 - The shared control selector model also supports an opt-in foreground hint for UIA discovery when a target window needs focus.
 - Handle-backed control text and key actions now use shared direct message routing, which is safer for background automation than stealing focus first.
 - UIA control actions now reuse the same shared fallback-root search strategy as UIA discovery, which reduces action mismatches when controls live under Chromium-style child roots.
 - Zero-handle UIA controls now also support shared foreground-based text and key fallback paths, but they should only be enabled intentionally for sacrificial or tightly controlled windows.
+- Shared zero-handle UIA text fallback now prefers focused paste-with-verification before raw typed characters, which should improve reliability for modern edit fields without changing the explicit opt-in safety boundary.
+- Mutating MCP tools can now return best-effort before/after screenshot artifacts plus safety/timing metadata, which makes it easier to verify what actually happened without building custom wrappers around each action.
+- The MCP server now enforces its safety posture instead of documenting it only: default read-only inspection, explicit mutation opt-in through `--allow-mutations`, explicit risky foreground-input opt-in through `--allow-foreground-input`, and side-effect-free mutation previews through `--dry-run`.
+- MCP process filters now let you constrain live desktop mutations to allowed or denied process patterns, and they intentionally block broader layout/workflow mutations when the target app set cannot be scoped safely.
+- Higher-level workflow tools now exist for coding prep, screen-sharing prep, and distraction cleanup, so agents do not have to reassemble those routines from prompts alone.
 - Saved control targets still pay the underlying UIA discovery cost on modern apps, so target-based `wait` is reusable and safer, but not necessarily cheap.
 - Preferred-root reuse is process-local. It helps a long-running MCP server more than separate one-shot CLI invocations.
 - The short-lived shared UIA control cache is also process-local, so long-running MCP sessions benefit far more than one-shot CLI calls.

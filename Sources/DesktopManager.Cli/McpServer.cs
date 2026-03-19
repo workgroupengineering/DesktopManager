@@ -9,6 +9,11 @@ namespace DesktopManager.Cli;
 internal sealed class McpServer {
     private const string ProtocolVersion = "2025-06-18";
     private static readonly byte[] HeaderSeparator = Encoding.ASCII.GetBytes("\r\n\r\n");
+    private readonly McpSafetyPolicy _safetyPolicy;
+
+    public McpServer(McpSafetyPolicy? safetyPolicy = null) {
+        _safetyPolicy = safetyPolicy ?? new McpSafetyPolicy(allowMutations: false, allowForegroundInput: false, dryRun: false);
+    }
 
     public int Run() {
         using Stream input = Console.OpenStandardInput();
@@ -32,7 +37,7 @@ internal sealed class McpServer {
         }
     }
 
-    private static void ProcessMessage(JsonElement message, Stream output) {
+    private void ProcessMessage(JsonElement message, Stream output) {
         if (!message.TryGetProperty("method", out JsonElement methodElement)) {
             return;
         }
@@ -54,7 +59,8 @@ internal sealed class McpServer {
                         name = "DesktopManager.Cli",
                         version = "0.1.0"
                     },
-                    instructions = "Use read-only inspection tools before mutating the desktop. Layouts and snapshots are stored per-user. Snapshots currently store window layout state only."
+                    safetyPolicy = _safetyPolicy.ToModel(),
+                    instructions = _safetyPolicy.BuildInstructions()
                 });
                 return;
             case "notifications/initialized":
@@ -99,7 +105,7 @@ internal sealed class McpServer {
         }
     }
 
-    private static void HandleToolCall(Stream output, JsonElement id, JsonElement parameters) {
+    private void HandleToolCall(Stream output, JsonElement id, JsonElement parameters) {
         if (!parameters.TryGetProperty("name", out JsonElement nameElement)) {
             WriteError(output, id, -32602, "Tool calls require a tool name.");
             return;
@@ -107,6 +113,42 @@ internal sealed class McpServer {
 
         string name = nameElement.GetString() ?? string.Empty;
         JsonElement arguments = parameters.TryGetProperty("arguments", out JsonElement argsElement) ? argsElement : default;
+        McpToolSafetyDecision safetyDecision = _safetyPolicy.EvaluateToolCall(name, arguments);
+        if (safetyDecision.Kind == McpToolSafetyDecisionKind.Deny) {
+            object deniedResult = new {
+                error = safetyDecision.Message ?? "The requested tool call is blocked by the active MCP safety policy."
+            };
+            WriteSuccess(output, id, new {
+                content = new[] {
+                    new {
+                        type = "text",
+                        text = JsonUtilities.Serialize(deniedResult)
+                    }
+                },
+                structuredContent = deniedResult,
+                isError = true,
+                message = safetyDecision.Message
+            });
+            return;
+        }
+
+        if (safetyDecision.Kind == McpToolSafetyDecisionKind.DryRun) {
+            object dryRunResult = safetyDecision.Result ?? new {
+                dryRun = true,
+                message = "Mutation skipped because the MCP server is running in dry-run mode."
+            };
+            WriteSuccess(output, id, new {
+                content = new[] {
+                    new {
+                        type = "text",
+                        text = JsonUtilities.Serialize(dryRunResult)
+                    }
+                },
+                structuredContent = dryRunResult,
+                isError = false
+            });
+            return;
+        }
 
         bool success = McpCatalog.TryCallTool(name, arguments, out object result, out string? error);
         WriteSuccess(output, id, new {
@@ -122,7 +164,7 @@ internal sealed class McpServer {
         });
     }
 
-    private static void HandleResourceRead(Stream output, JsonElement id, JsonElement parameters) {
+    private void HandleResourceRead(Stream output, JsonElement id, JsonElement parameters) {
         if (!parameters.TryGetProperty("uri", out JsonElement uriElement)) {
             WriteError(output, id, -32602, "Resource reads require a uri.");
             return;
@@ -145,7 +187,7 @@ internal sealed class McpServer {
         }
     }
 
-    private static void HandlePromptGet(Stream output, JsonElement id, JsonElement parameters) {
+    private void HandlePromptGet(Stream output, JsonElement id, JsonElement parameters) {
         if (!parameters.TryGetProperty("name", out JsonElement nameElement)) {
             WriteError(output, id, -32602, "Prompt requests require a name.");
             return;

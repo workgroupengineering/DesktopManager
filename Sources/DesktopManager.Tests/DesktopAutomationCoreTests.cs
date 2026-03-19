@@ -83,6 +83,8 @@ public class DesktopAutomationCoreTests {
                 Description = "Editor center",
                 XRatio = 0.5,
                 YRatio = 0.5,
+                WidthRatio = 0.8,
+                HeightRatio = 0.6,
                 ClientArea = true
             });
 
@@ -92,6 +94,8 @@ public class DesktopAutomationCoreTests {
             Assert.AreEqual(saved.Description, loaded.Description);
             Assert.AreEqual(saved.XRatio, loaded.XRatio);
             Assert.AreEqual(saved.YRatio, loaded.YRatio);
+            Assert.AreEqual(saved.WidthRatio, loaded.WidthRatio);
+            Assert.AreEqual(saved.HeightRatio, loaded.HeightRatio);
             Assert.AreEqual(saved.ClientArea, loaded.ClientArea);
             Assert.IsTrue(File.Exists(path));
         } finally {
@@ -305,6 +309,22 @@ public class DesktopAutomationCoreTests {
 
         Assert.ThrowsException<ArgumentException>(() => automation.SaveWindowTarget(targetName, new DesktopWindowTargetDefinition {
             YRatio = 0.5
+        }));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures target area definitions reject zero width.
+    /// </summary>
+    public void DesktopAutomationService_SaveWindowTarget_ZeroWidth_ThrowsArgumentOutOfRangeException() {
+        string targetName = "DesktopAutomationCoreTests-" + Guid.NewGuid().ToString("N");
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<ArgumentOutOfRangeException>(() => automation.SaveWindowTarget(targetName, new DesktopWindowTargetDefinition {
+            XRatio = 0.5,
+            YRatio = 0.5,
+            Width = 0,
+            Height = 100
         }));
     }
 
