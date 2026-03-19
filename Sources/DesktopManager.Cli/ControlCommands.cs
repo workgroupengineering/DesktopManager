@@ -40,13 +40,16 @@ internal static class ControlCommands {
                 control.Handle.Replace("0x", string.Empty, StringComparison.OrdinalIgnoreCase),
                 control.Source,
                 control.ControlType,
+                control.IsEnabled?.ToString() ?? string.Empty,
+                control.IsKeyboardFocusable?.ToString() ?? string.Empty,
                 control.AutomationId,
                 control.ClassName,
                 control.Text,
+                control.Value,
                 control.ParentWindow.Title
             })
             .ToArray();
-        OutputFormatter.WriteTable(new[] { "PID", "Id", "Handle", "Source", "Type", "AutomationId", "Class", "Text", "Window" }, rows);
+        OutputFormatter.WriteTable(new[] { "PID", "Id", "Handle", "Source", "Type", "Enabled", "Focusable", "AutomationId", "Class", "Text", "Value", "Window" }, rows);
         return 0;
     }
 
@@ -156,11 +159,14 @@ internal static class ControlCommands {
         return new ControlSelectionCriteria {
             ClassNamePattern = arguments.GetOption("class") ?? "*",
             TextPattern = arguments.GetOption("text-pattern") ?? "*",
+            ValuePattern = arguments.GetOption("value-pattern") ?? "*",
             Id = arguments.GetIntOption("id"),
             Handle = arguments.GetOption("handle"),
             AutomationIdPattern = arguments.GetOption("automation-id") ?? "*",
             ControlTypePattern = arguments.GetOption("control-type") ?? "*",
             FrameworkIdPattern = arguments.GetOption("framework-id") ?? "*",
+            IsEnabled = arguments.GetBoolFlag("enabled") ? true : arguments.GetBoolFlag("disabled") ? false : null,
+            IsKeyboardFocusable = arguments.GetBoolFlag("focusable") ? true : arguments.GetBoolFlag("not-focusable") ? false : null,
             UiAutomation = arguments.GetBoolFlag("uia"),
             IncludeUiAutomation = arguments.GetBoolFlag("include-uia"),
             All = arguments.GetBoolFlag("all")

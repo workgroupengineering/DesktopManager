@@ -360,6 +360,7 @@ internal static class DesktopOperations {
             ClassName = target.Control.ClassName,
             Id = target.Control.Id,
             Text = !string.IsNullOrWhiteSpace(target.Control.Text) ? target.Control.Text : target.Control.Handle != IntPtr.Zero ? WindowTextHelper.GetWindowText(target.Control.Handle) : string.Empty,
+            Value = !string.IsNullOrWhiteSpace(target.Control.Value) ? target.Control.Value : !string.IsNullOrWhiteSpace(target.Control.Text) ? target.Control.Text : target.Control.Handle != IntPtr.Zero ? WindowTextHelper.GetWindowText(target.Control.Handle) : string.Empty,
             Source = target.Control.Source.ToString(),
             AutomationId = target.Control.AutomationId,
             ControlType = target.Control.ControlType,
@@ -478,6 +479,9 @@ internal static class DesktopOperations {
             AutomationIdPattern = criteria.AutomationIdPattern,
             ControlTypePattern = criteria.ControlTypePattern,
             FrameworkIdPattern = criteria.FrameworkIdPattern,
+            ValuePattern = criteria.ValuePattern,
+            IsEnabled = criteria.IsEnabled,
+            IsKeyboardFocusable = criteria.IsKeyboardFocusable,
             UseUiAutomation = criteria.UiAutomation,
             IncludeUiAutomation = criteria.IncludeUiAutomation
         };

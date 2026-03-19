@@ -14,6 +14,8 @@ public class WindowControlInfo {
     public int Id { get; internal set; }
     /// <summary>Displayed text of the control.</summary>
     public string Text { get; internal set; } = string.Empty;
+    /// <summary>Current control value when available.</summary>
+    public string Value { get; internal set; } = string.Empty;
     /// <summary>Origin of the control metadata.</summary>
     public WindowControlSource Source { get; internal set; } = WindowControlSource.Win32;
     /// <summary>UI Automation automation identifier when available.</summary>

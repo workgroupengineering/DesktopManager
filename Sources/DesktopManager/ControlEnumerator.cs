@@ -21,6 +21,7 @@ public class ControlEnumerator {
             };
 
             info.Text = WindowTextHelper.GetWindowText(hWnd);
+            info.Value = info.Text;
 
             StringBuilder classSb = new StringBuilder(256);
             MonitorNativeMethods.GetClassName(hWnd, classSb, classSb.Capacity);

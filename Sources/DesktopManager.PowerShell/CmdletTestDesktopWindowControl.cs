@@ -34,6 +34,12 @@ public sealed class CmdletTestDesktopWindowControl : PSCmdlet {
     public string TextPattern { get; set; } = "*";
 
     /// <summary>
+    /// <para type="description">Filter controls by current value. Supports wildcards.</para>
+    /// </summary>
+    [Parameter]
+    public string ValuePattern { get; set; } = "*";
+
+    /// <summary>
     /// <para type="description">Filter controls by control identifier.</para>
     /// </summary>
     [Parameter]
@@ -56,6 +62,30 @@ public sealed class CmdletTestDesktopWindowControl : PSCmdlet {
     /// </summary>
     [Parameter]
     public string FrameworkId { get; set; } = "*";
+
+    /// <summary>
+    /// <para type="description">Require the control to be enabled.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter Enabled { get; set; }
+
+    /// <summary>
+    /// <para type="description">Require the control to be disabled.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter Disabled { get; set; }
+
+    /// <summary>
+    /// <para type="description">Require the control to accept keyboard focus.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter Focusable { get; set; }
+
+    /// <summary>
+    /// <para type="description">Require the control to not accept keyboard focus.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter NotFocusable { get; set; }
 
     /// <summary>
     /// <para type="description">Use UI Automation for control discovery.</para>
@@ -83,10 +113,13 @@ public sealed class CmdletTestDesktopWindowControl : PSCmdlet {
         var controlOptions = new WindowControlQueryOptions {
             ClassNamePattern = ClassName,
             TextPattern = TextPattern,
+            ValuePattern = ValuePattern,
             Id = Id,
             AutomationIdPattern = AutomationId,
             ControlTypePattern = ControlType,
             FrameworkIdPattern = FrameworkId,
+            IsEnabled = Enabled ? true : Disabled ? false : null,
+            IsKeyboardFocusable = Focusable ? true : NotFocusable ? false : null,
             UseUiAutomation = UiAutomation,
             IncludeUiAutomation = IncludeUiAutomation
         };

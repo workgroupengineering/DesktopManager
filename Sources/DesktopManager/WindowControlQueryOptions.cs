@@ -42,6 +42,21 @@ public sealed class WindowControlQueryOptions {
     public string FrameworkIdPattern { get; set; } = "*";
 
     /// <summary>
+    /// Gets or sets the control value filter. Supports wildcards and substring matches.
+    /// </summary>
+    public string ValuePattern { get; set; } = "*";
+
+    /// <summary>
+    /// Gets or sets a value indicating whether matching controls must be enabled.
+    /// </summary>
+    public bool? IsEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether matching controls must be keyboard focusable.
+    /// </summary>
+    public bool? IsKeyboardFocusable { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether UI Automation should be used for control discovery.
     /// </summary>
     public bool UseUiAutomation { get; set; }
@@ -60,7 +75,10 @@ public sealed class WindowControlQueryOptions {
             IncludeUiAutomation ||
             !IsWildcard(AutomationIdPattern) ||
             !IsWildcard(ControlTypePattern) ||
-            !IsWildcard(FrameworkIdPattern);
+            !IsWildcard(FrameworkIdPattern) ||
+            !IsWildcard(ValuePattern) ||
+            IsEnabled.HasValue ||
+            IsKeyboardFocusable.HasValue;
     }
 
     private static bool IsWildcard(string? value) {

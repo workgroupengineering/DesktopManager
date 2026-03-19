@@ -115,6 +115,24 @@ public partial class WindowManager {
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.ValuePattern) && filter.ValuePattern != "*") {
+            if (!MatchesWildcard(control.Value ?? string.Empty, filter.ValuePattern)) {
+                return false;
+            }
+        }
+
+        if (filter.IsEnabled.HasValue) {
+            if (!control.IsEnabled.HasValue || control.IsEnabled.Value != filter.IsEnabled.Value) {
+                return false;
+            }
+        }
+
+        if (filter.IsKeyboardFocusable.HasValue) {
+            if (!control.IsKeyboardFocusable.HasValue || control.IsKeyboardFocusable.Value != filter.IsKeyboardFocusable.Value) {
+                return false;
+            }
+        }
+
         return true;
     }
 

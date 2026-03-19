@@ -38,4 +38,28 @@ public class WindowControlQueryOptionsTests {
 
         Assert.IsTrue(options.RequiresUiAutomation());
     }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures value filters enable UI Automation.
+    /// </summary>
+    public void RequiresUiAutomation_ValueFilter_ReturnsTrue() {
+        var options = new WindowControlQueryOptions {
+            ValuePattern = "Hello*"
+        };
+
+        Assert.IsTrue(options.RequiresUiAutomation());
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures enabled-state filters enable UI Automation.
+    /// </summary>
+    public void RequiresUiAutomation_IsEnabledFilter_ReturnsTrue() {
+        var options = new WindowControlQueryOptions {
+            IsEnabled = true
+        };
+
+        Assert.IsTrue(options.RequiresUiAutomation());
+    }
 }

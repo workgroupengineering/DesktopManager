@@ -316,12 +316,14 @@ internal sealed class UiAutomationControlService {
         bool? isKeyboardFocusable = ReadNullableBoolean(current, "IsKeyboardFocusable");
         bool? isEnabled = ReadNullableBoolean(current, "IsEnabled");
         string controlType = ReadControlTypeName(current);
+        string value = ReadValue(element);
 
         return new WindowControlInfo {
             Handle = nativeWindowHandle == 0 ? IntPtr.Zero : new IntPtr(nativeWindowHandle),
             ClassName = className,
             Id = 0,
             Text = name,
+            Value = value,
             Source = WindowControlSource.UiAutomation,
             AutomationId = automationId,
             ControlType = controlType,
@@ -329,6 +331,38 @@ internal sealed class UiAutomationControlService {
             IsKeyboardFocusable = isKeyboardFocusable,
             IsEnabled = isEnabled
         };
+    }
+
+    private string ReadValue(object element) {
+        return ReadPatternValue(element, "System.Windows.Automation.ValuePattern") ??
+            ReadPatternValue(element, "System.Windows.Automation.RangeValuePattern") ??
+            ReadPatternValue(element, "System.Windows.Automation.LegacyIAccessiblePattern") ??
+            string.Empty;
+    }
+
+    private string? ReadPatternValue(object element, string patternTypeName) {
+        Type? patternType = _automationClientAssembly?.GetType(patternTypeName, throwOnError: false);
+        if (patternType == null) {
+            return null;
+        }
+
+        object? pattern = GetCurrentPattern(element, patternType);
+        if (pattern == null) {
+            return null;
+        }
+
+        object? current = pattern.GetType().GetProperty("Current", BindingFlags.Public | BindingFlags.Instance)?.GetValue(pattern);
+        if (current == null) {
+            return null;
+        }
+
+        PropertyInfo? valueProperty = current.GetType().GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+        if (valueProperty == null) {
+            return null;
+        }
+
+        object? value = valueProperty.GetValue(current);
+        return value?.ToString();
     }
 
     private static string ReadString(object instance, string propertyName) {

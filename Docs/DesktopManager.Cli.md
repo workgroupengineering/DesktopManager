@@ -57,6 +57,7 @@ desktopmanager mcp serve
 - `window exists` and `window active-matches` provide non-mutating verification commands.
 - `control exists` and `control wait` provide the same inspect-first verification model for controls.
 - `control` works with child window controls and can also use UI Automation-oriented selectors.
+- control selectors can now match `value`, `enabled`, and `focusable` state through the shared library.
 - `window type` sends text to the target window, either by simulated typing or clipboard paste.
 - `window` commands support exact handle targeting and active-window targeting for safer selection when multiple windows match.
 - `screenshot window` now prefers real window rendering before falling back to screen pixels, which improves captures for covered windows.

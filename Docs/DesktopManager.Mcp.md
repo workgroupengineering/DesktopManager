@@ -66,6 +66,7 @@ For agent-driven desktop automation, prefer MCP first and use CLI as fallback.
 3. Inspect controls before trying to interact.
    - Use `list_window_controls` to discover target handles, classes, visible text, automation ids, and control types.
    - Use `control_exists` or `wait_for_control` when the target control can appear asynchronously or when you want a structured assertion before clicking.
+   - When modern controls expose state through UI Automation, filter by current value, enabled state, or keyboard focusability instead of guessing from text alone.
    - Prefer `type_window_text` for whole-window text entry.
    - Prefer `click_control`, `set_control_text`, and `send_control_keys` for control-level interactions.
 4. Prefer named state when available.
@@ -96,6 +97,7 @@ desktopmanager window type --process notepad --text "Hello world"
 desktopmanager control list --window-process notepad
 desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar"
 desktopmanager control wait --window-active --uia --control-type Button --text-pattern "Show sidebar" --timeout-ms 5000
+desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar" --enabled --focusable
 desktopmanager control list --window-active --uia --control-type Button
 desktopmanager control click --window-process notepad --class RichEditD2DPT
 desktopmanager control set-text --window-process notepad --class RichEditD2DPT --text "Hello world"
@@ -123,5 +125,6 @@ desktopmanager mcp serve
 - Snapshots are windows-only for now.
 - Control discovery supports both child-window selectors and UIA-oriented selectors.
 - Control assertions and waits are available on the same shared selector model as list/click/set-text.
+- The shared control selector model now supports value, enabled, and keyboard-focusable checks.
 - Prefer minimizing distractions instead of closing applications.
 - When targeting multiple windows, verify selectors carefully before using `all`.

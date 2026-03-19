@@ -19,11 +19,14 @@ internal sealed class WindowSelectionCriteria {
 internal sealed class ControlSelectionCriteria {
     public string ClassNamePattern { get; set; } = "*";
     public string TextPattern { get; set; } = "*";
+    public string ValuePattern { get; set; } = "*";
     public int? Id { get; set; }
     public string? Handle { get; set; }
     public string AutomationIdPattern { get; set; } = "*";
     public string ControlTypePattern { get; set; } = "*";
     public string FrameworkIdPattern { get; set; } = "*";
+    public bool? IsEnabled { get; set; }
+    public bool? IsKeyboardFocusable { get; set; }
     public bool UiAutomation { get; set; }
     public bool IncludeUiAutomation { get; set; }
     public bool All { get; set; }
@@ -56,6 +59,7 @@ internal sealed class ControlResult {
     public string ClassName { get; set; } = string.Empty;
     public int Id { get; set; }
     public string Text { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
     public string AutomationId { get; set; } = string.Empty;
     public string ControlType { get; set; } = string.Empty;
