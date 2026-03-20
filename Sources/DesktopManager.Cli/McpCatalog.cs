@@ -5,6 +5,171 @@ using System.Text.Json;
 namespace DesktopManager.Cli;
 
 internal static class McpCatalog {
+    private static readonly HashSet<string> KnownToolNames = new(StringComparer.Ordinal) {
+        "get_active_window",
+        "list_windows",
+        "get_window_geometry",
+        "window_exists",
+        "active_window_matches",
+        "wait_for_window",
+        "list_window_controls",
+        "diagnose_window_controls",
+        "control_exists",
+        "assert_control_value",
+        "wait_for_control",
+        "click_control",
+        "set_control_text",
+        "send_control_keys",
+        "move_window",
+        "click_window_point",
+        "drag_window_points",
+        "scroll_window_point",
+        "type_window_text",
+        "send_window_keys",
+        "focus_window",
+        "minimize_windows",
+        "snap_window",
+        "list_monitors",
+        "screenshot_desktop",
+        "screenshot_window",
+        "launch_process",
+        "launch_and_wait_for_window",
+        "list_named_targets",
+        "get_named_target",
+        "save_window_target",
+        "resolve_window_target",
+        "list_named_control_targets",
+        "get_named_control_target",
+        "save_control_target",
+        "resolve_control_target",
+        "list_named_layouts",
+        "save_current_layout",
+        "apply_named_layout",
+        "assert_window_layout",
+        "list_named_snapshots",
+        "save_current_snapshot",
+        "restore_saved_snapshot",
+        "prepare_for_coding",
+        "prepare_for_screen_sharing",
+        "clean_up_distractions"
+    };
+
+    private static readonly HashSet<string> MutatingToolNames = new(StringComparer.Ordinal) {
+        "click_control",
+        "set_control_text",
+        "send_control_keys",
+        "move_window",
+        "click_window_point",
+        "drag_window_points",
+        "scroll_window_point",
+        "type_window_text",
+        "send_window_keys",
+        "focus_window",
+        "minimize_windows",
+        "snap_window",
+        "launch_process",
+        "launch_and_wait_for_window",
+        "save_window_target",
+        "save_control_target",
+        "save_current_layout",
+        "apply_named_layout",
+        "save_current_snapshot",
+        "restore_saved_snapshot",
+        "prepare_for_coding",
+        "prepare_for_screen_sharing",
+        "clean_up_distractions"
+    };
+
+    private static readonly HashSet<string> LiveDesktopMutationToolNames = new(StringComparer.Ordinal) {
+        "click_control",
+        "set_control_text",
+        "send_control_keys",
+        "move_window",
+        "click_window_point",
+        "drag_window_points",
+        "scroll_window_point",
+        "type_window_text",
+        "send_window_keys",
+        "focus_window",
+        "minimize_windows",
+        "snap_window",
+        "launch_process",
+        "launch_and_wait_for_window",
+        "apply_named_layout",
+        "restore_saved_snapshot",
+        "prepare_for_coding",
+        "prepare_for_screen_sharing",
+        "clean_up_distractions"
+    };
+
+    private static readonly HashSet<string> ForegroundInputFallbackToolNames = new(StringComparer.Ordinal) {
+        "set_control_text",
+        "send_control_keys"
+    };
+
+    public static bool IsKnownTool(string name) {
+        return KnownToolNames.Contains(name);
+    }
+
+    public static bool IsMutatingTool(string name) {
+        return MutatingToolNames.Contains(name);
+    }
+
+    public static bool AffectsLiveDesktop(string name) {
+        return LiveDesktopMutationToolNames.Contains(name);
+    }
+
+    public static bool RequestsForegroundInputFallback(string name, JsonElement arguments) {
+        return ForegroundInputFallbackToolNames.Contains(name) && ReadBool(arguments, "allowForegroundInput");
+    }
+
+    public static bool TryGetMutatingProcessScope(string name, JsonElement arguments, out string[] processPatterns, out string? error) {
+        processPatterns = Array.Empty<string>();
+        error = null;
+
+        switch (name) {
+            case "launch_process":
+            case "launch_and_wait_for_window":
+                string? filePath = ReadOptionalString(arguments, "filePath");
+                if (string.IsNullOrWhiteSpace(filePath)) {
+                    error = "Process-scoped MCP safety filters require a non-empty 'filePath' for launch tools.";
+                    return false;
+                }
+
+                processPatterns = ExtractProcessPatternsFromFilePath(filePath);
+                return processPatterns.Length > 0;
+            case "click_control":
+            case "set_control_text":
+            case "send_control_keys":
+            case "move_window":
+            case "click_window_point":
+            case "drag_window_points":
+            case "scroll_window_point":
+            case "type_window_text":
+            case "send_window_keys":
+            case "focus_window":
+            case "minimize_windows":
+            case "snap_window":
+                string? processName = ReadOptionalString(arguments, "processName");
+                if (!string.IsNullOrWhiteSpace(processName) && !string.Equals(processName.Trim(), "*", StringComparison.Ordinal)) {
+                    processPatterns = new[] { processName.Trim() };
+                    return true;
+                }
+
+                error = "Process-scoped MCP safety filters require an explicit 'processName' selector for this tool.";
+                return false;
+            case "apply_named_layout":
+            case "restore_saved_snapshot":
+            case "prepare_for_coding":
+            case "prepare_for_screen_sharing":
+            case "clean_up_distractions":
+                error = "This tool can affect multiple applications and is blocked while MCP process allow/deny filters are active.";
+                return false;
+            default:
+                return true;
+        }
+    }
+
     public static object[] GetTools() {
         return new object[] {
             CreateTool("get_active_window", "Get Active Window", "Return information about the currently focused window.", CreateObjectSchema(), readOnly: true),
@@ -114,6 +279,37 @@ internal static class McpCatalog {
                     ["targetName"] = CreateStringSchema("Optional saved control target name."),
                     ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
                 }), readOnly: true),
+            CreateTool("assert_control_value", "Assert Control Value", "Assert that matched controls expose a specific value or text.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["windowClassName"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Window process identifier."),
+                    ["windowHandle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["controlClassName"] = CreateStringSchema("Control class filter."),
+                    ["controlText"] = CreateStringSchema("Control text filter."),
+                    ["controlValue"] = CreateStringSchema("Control value filter."),
+                    ["controlId"] = CreateIntegerSchema("Control identifier."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["controlAutomationId"] = CreateStringSchema("UI Automation automation identifier filter."),
+                    ["controlType"] = CreateStringSchema("UI Automation control type filter."),
+                    ["controlFrameworkId"] = CreateStringSchema("UI Automation framework identifier filter."),
+                    ["isEnabled"] = CreateBooleanSchema("Filter by whether the control is enabled."),
+                    ["isKeyboardFocusable"] = CreateBooleanSchema("Filter by whether the control can receive keyboard focus."),
+                    ["supportsBackgroundClick"] = CreateBooleanSchema("Filter by whether the control supports background-safe click or invoke actions."),
+                    ["supportsBackgroundText"] = CreateBooleanSchema("Filter by whether the control supports background-safe text updates."),
+                    ["supportsBackgroundKeys"] = CreateBooleanSchema("Filter by whether the control supports background-safe key delivery."),
+                    ["supportsForegroundInputFallback"] = CreateBooleanSchema("Filter by whether the control supports explicit foreground input fallback."),
+                    ["uiAutomation"] = CreateBooleanSchema("Use UI Automation for control discovery."),
+                    ["includeUiAutomation"] = CreateBooleanSchema("Combine Win32 and UI Automation control results."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Bring the target window to the foreground before UI Automation queries."),
+                    ["targetName"] = CreateStringSchema("Optional saved control target name."),
+                    ["expectedValue"] = CreateStringSchema("Expected control value or text."),
+                    ["contains"] = CreateBooleanSchema("Use case-insensitive contains matching instead of exact equality."),
+                    ["all"] = CreateBooleanSchema("Require all matching controls to satisfy the assertion."),
+                    ["allWindows"] = CreateBooleanSchema("Enumerate controls for all matching windows.")
+                }, new[] { "expectedValue" }), readOnly: true),
             CreateTool("wait_for_control", "Wait For Control", "Wait for a matching control to appear.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -146,7 +342,7 @@ internal static class McpCatalog {
                     ["intervalMs"] = CreateIntegerSchema("Polling interval in milliseconds.")
                 }), readOnly: true),
             CreateTool("click_control", "Click Control", "Click a matching child control.", CreateObjectSchema(
-                new Dictionary<string, object> {
+                AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
                     ["processName"] = CreateStringSchema("Process name filter."),
                     ["windowClassName"] = CreateStringSchema("Window class filter."),
@@ -174,9 +370,9 @@ internal static class McpCatalog {
                     ["button"] = CreateStringSchema("Mouse button: left or right."),
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
-                }), readOnly: false, destructive: false, idempotent: true),
+                })), readOnly: false, destructive: false, idempotent: true),
             CreateTool("set_control_text", "Set Control Text", "Set text on a matching child control.", CreateObjectSchema(
-                new Dictionary<string, object> {
+                AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
                     ["processName"] = CreateStringSchema("Process name filter."),
                     ["windowClassName"] = CreateStringSchema("Window class filter."),
@@ -205,9 +401,9 @@ internal static class McpCatalog {
                     ["text"] = CreateStringSchema("Text to set on the control."),
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
-                }, new[] { "text" }), readOnly: false, destructive: false, idempotent: true),
+                }), new[] { "text" }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("send_control_keys", "Send Control Keys", "Send keys to a matching child control.", CreateObjectSchema(
-                new Dictionary<string, object> {
+                AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
                     ["processName"] = CreateStringSchema("Process name filter."),
                     ["windowClassName"] = CreateStringSchema("Window class filter."),
@@ -240,9 +436,9 @@ internal static class McpCatalog {
                     },
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
-                }, new[] { "keys" }), readOnly: false, destructive: false, idempotent: true),
+                }), new[] { "keys" }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("move_window", "Move Window", "Move and optionally resize a window by title, process, pid, class, or handle.", CreateObjectSchema(
-                new Dictionary<string, object> {
+                AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
                     ["processName"] = CreateStringSchema("Process name filter."),
                     ["className"] = CreateStringSchema("Window class filter."),
@@ -256,9 +452,9 @@ internal static class McpCatalog {
                     ["height"] = CreateIntegerSchema("Window height."),
                     ["activate"] = CreateBooleanSchema("Activate the window after moving."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
-                }), readOnly: false, destructive: false, idempotent: true),
+                })), readOnly: false, destructive: false, idempotent: true),
             CreateTool("click_window_point", "Click Window Point", "Click a point relative to a matching window.", CreateObjectSchema(
-                new Dictionary<string, object> {
+                AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
                     ["processName"] = CreateStringSchema("Process name filter."),
                     ["className"] = CreateStringSchema("Window class filter."),
@@ -274,9 +470,9 @@ internal static class McpCatalog {
                     ["activate"] = CreateBooleanSchema("Activate the window before clicking."),
                     ["clientArea"] = CreateBooleanSchema("Interpret coordinates relative to the window client area."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
-                }), readOnly: false, destructive: false, idempotent: false),
+                })), readOnly: false, destructive: false, idempotent: false),
             CreateTool("drag_window_points", "Drag Window Points", "Drag between two points relative to a matching window.", CreateObjectSchema(
-                new Dictionary<string, object> {
+                AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
                     ["processName"] = CreateStringSchema("Process name filter."),
                     ["className"] = CreateStringSchema("Window class filter."),
@@ -298,9 +494,9 @@ internal static class McpCatalog {
                     ["activate"] = CreateBooleanSchema("Activate the window before dragging."),
                     ["clientArea"] = CreateBooleanSchema("Interpret coordinates relative to the window client area."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
-                }), readOnly: false, destructive: false, idempotent: false),
+                })), readOnly: false, destructive: false, idempotent: false),
             CreateTool("scroll_window_point", "Scroll Window Point", "Scroll the mouse wheel at a point relative to a matching window.", CreateObjectSchema(
-                new Dictionary<string, object> {
+                AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
                     ["processName"] = CreateStringSchema("Process name filter."),
                     ["className"] = CreateStringSchema("Window class filter."),
@@ -316,9 +512,9 @@ internal static class McpCatalog {
                     ["activate"] = CreateBooleanSchema("Activate the window before scrolling."),
                     ["clientArea"] = CreateBooleanSchema("Interpret coordinates relative to the window client area."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
-                }, new[] { "delta" }), readOnly: false, destructive: false, idempotent: false),
+                }), new[] { "delta" }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("type_window_text", "Type Window Text", "Type or paste text into a matching window.", CreateObjectSchema(
-                new Dictionary<string, object> {
+                AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
                     ["processName"] = CreateStringSchema("Process name filter."),
                     ["className"] = CreateStringSchema("Window class filter."),
@@ -329,11 +525,23 @@ internal static class McpCatalog {
                     ["paste"] = CreateBooleanSchema("Use clipboard paste instead of typed characters."),
                     ["delayMs"] = CreateIntegerSchema("Delay in milliseconds between typed characters."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
-                }, new[] { "text" }), readOnly: false, destructive: false, idempotent: false),
-            CreateTool("focus_window", "Focus Window", "Bring a matching window to the foreground.", CreateWindowSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
-            CreateTool("minimize_windows", "Minimize Windows", "Minimize one or more matching windows.", CreateWindowSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
+                }), new[] { "text" }), readOnly: false, destructive: false, idempotent: false),
+            CreateTool("send_window_keys", "Send Window Keys", "Send keys to a matching window after activating it.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["keys"] = CreateArraySchema("Keys to send to the window.", CreateStringSchema("Virtual key name or single character.")),
+                    ["activate"] = CreateBooleanSchema("Activate the window before sending keys. Defaults to true."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
+                }), new[] { "keys" }), readOnly: false, destructive: false, idempotent: false),
+            CreateTool("focus_window", "Focus Window", "Bring a matching window to the foreground.", CreateWindowMutationSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("minimize_windows", "Minimize Windows", "Minimize one or more matching windows.", CreateWindowMutationSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
             CreateTool("snap_window", "Snap Window", "Snap one or more matching windows to a predefined monitor region.", CreateObjectSchema(
-                new Dictionary<string, object> {
+                AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
                     ["processName"] = CreateStringSchema("Process name filter."),
                     ["className"] = CreateStringSchema("Window class filter."),
@@ -342,7 +550,7 @@ internal static class McpCatalog {
                     ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
                     ["position"] = CreateStringSchema("One of left, right, top-left, top-right, bottom-left, bottom-right."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
-                }, new[] { "position" }), readOnly: false, destructive: false, idempotent: true),
+                }), new[] { "position" }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("list_monitors", "List Monitors", "List connected monitors and their bounds.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["connectedOnly"] = CreateBooleanSchema("Return only connected monitors."),
@@ -368,6 +576,7 @@ internal static class McpCatalog {
                     ["processId"] = CreateIntegerSchema("Process identifier."),
                     ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
                     ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["targetName"] = CreateStringSchema("Optional named target area to capture within the window."),
                     ["outputPath"] = CreateStringSchema("Optional PNG output path.")
                 }), readOnly: true),
             CreateTool("launch_process", "Launch Process", "Start a desktop application or process.", CreateObjectSchema(
@@ -382,6 +591,24 @@ internal static class McpCatalog {
                     ["windowClassName"] = CreateStringSchema("Optional launched-window class filter."),
                     ["requireWindow"] = CreateBooleanSchema("Require a launched window to be found before returning.")
                 }, new[] { "filePath" }), readOnly: false, destructive: false, idempotent: false),
+            CreateTool("launch_and_wait_for_window", "Launch And Wait For Window", "Start a desktop application or process, then wait for a matching launched window.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["filePath"] = CreateStringSchema("Executable path or shell command."),
+                    ["arguments"] = CreateStringSchema("Optional argument string."),
+                    ["workingDirectory"] = CreateStringSchema("Optional working directory."),
+                    ["waitForInputIdleMs"] = CreateIntegerSchema("Optional wait for UI input idle in milliseconds."),
+                    ["launchWaitForWindowMs"] = CreateIntegerSchema("Optional launch-time correlation wait in milliseconds."),
+                    ["launchWaitForWindowIntervalMs"] = CreateIntegerSchema("Polling interval while correlating the launched window."),
+                    ["launchWindowTitle"] = CreateStringSchema("Optional launch-time window title filter."),
+                    ["launchWindowClass"] = CreateStringSchema("Optional launch-time window class filter."),
+                    ["windowTitle"] = CreateStringSchema("Optional final window title filter."),
+                    ["windowClass"] = CreateStringSchema("Optional final window class filter."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows while waiting."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles while waiting."),
+                    ["all"] = CreateBooleanSchema("Return all matching windows instead of the first match."),
+                    ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait for the final window in milliseconds."),
+                    ["intervalMs"] = CreateIntegerSchema("Polling interval while waiting for the final window.")
+                }), new[] { "filePath" }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("list_named_targets", "List Named Targets", "List saved reusable window-relative targets.", CreateObjectSchema(), readOnly: true),
             CreateTool("get_named_target", "Get Named Target", "Get a saved reusable window-relative target definition.", CreateObjectSchema(
                 new Dictionary<string, object> {
@@ -395,6 +622,10 @@ internal static class McpCatalog {
                     ["y"] = CreateIntegerSchema("Vertical coordinate relative to the target bounds."),
                     ["xRatio"] = CreateNumberSchema("Horizontal coordinate ratio from 0 to 1."),
                     ["yRatio"] = CreateNumberSchema("Vertical coordinate ratio from 0 to 1."),
+                    ["width"] = CreateIntegerSchema("Optional target area width in pixels."),
+                    ["height"] = CreateIntegerSchema("Optional target area height in pixels."),
+                    ["widthRatio"] = CreateNumberSchema("Optional target area width ratio from 0 to 1."),
+                    ["heightRatio"] = CreateNumberSchema("Optional target area height ratio from 0 to 1."),
                     ["clientArea"] = CreateBooleanSchema("Interpret coordinates relative to the window client area.")
                 }, new[] { "name" }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("resolve_window_target", "Resolve Window Target", "Resolve a saved target against one or more live windows.", CreateObjectSchema(
@@ -465,6 +696,15 @@ internal static class McpCatalog {
                     ["name"] = CreateStringSchema("Layout name."),
                     ["validate"] = CreateBooleanSchema("Validate the layout before applying it.")
                 }, new[] { "name" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("assert_window_layout", "Assert Window Layout", "Assert that the current desktop windows satisfy a saved named layout within configurable tolerances.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["name"] = CreateStringSchema("Layout name."),
+                    ["positionTolerancePx"] = CreateIntegerSchema("Allowed left/top difference in pixels."),
+                    ["sizeTolerancePx"] = CreateIntegerSchema("Allowed width/height difference in pixels."),
+                    ["checkState"] = CreateBooleanSchema("Require saved window state values to match when present."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows while asserting."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles while asserting.")
+                }), new[] { "name" }), readOnly: true),
             CreateTool("list_named_snapshots", "List Named Snapshots", "List saved named snapshots.", CreateObjectSchema(), readOnly: true),
             CreateTool("save_current_snapshot", "Save Current Snapshot", "Save the current desktop snapshot. Snapshots are windows-only for now.", CreateObjectSchema(
                 new Dictionary<string, object> {
@@ -474,7 +714,29 @@ internal static class McpCatalog {
                 new Dictionary<string, object> {
                     ["name"] = CreateStringSchema("Snapshot name."),
                     ["validate"] = CreateBooleanSchema("Validate the snapshot before applying it.")
-                }, new[] { "name" }), readOnly: false, destructive: false, idempotent: true)
+                }, new[] { "name" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("prepare_for_coding", "Prepare For Coding", "Apply a preferred layout when available and focus a likely editor or terminal window.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["layoutName"] = CreateStringSchema("Optional preferred layout to apply."),
+                    ["windowTitle"] = CreateStringSchema("Optional explicit focus window title filter."),
+                    ["processName"] = CreateStringSchema("Optional explicit focus process filter."),
+                    ["className"] = CreateStringSchema("Optional explicit focus class filter."),
+                    ["processId"] = CreateIntegerSchema("Optional explicit focus process identifier."),
+                    ["handle"] = CreateStringSchema("Optional explicit focus window handle."),
+                    ["activeWindow"] = CreateBooleanSchema("Focus the current active window when requested.")
+                })), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("prepare_for_screen_sharing", "Prepare For Screen Sharing", "Apply a preferred layout, minimize common distractions, and focus a likely sharing window.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["layoutName"] = CreateStringSchema("Optional preferred layout to apply."),
+                    ["windowTitle"] = CreateStringSchema("Optional explicit focus window title filter."),
+                    ["processName"] = CreateStringSchema("Optional explicit focus process filter."),
+                    ["className"] = CreateStringSchema("Optional explicit focus class filter."),
+                    ["processId"] = CreateIntegerSchema("Optional explicit focus process identifier."),
+                    ["handle"] = CreateStringSchema("Optional explicit focus window handle."),
+                    ["activeWindow"] = CreateBooleanSchema("Focus the current active window when requested.")
+                })), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("clean_up_distractions", "Clean Up Distractions", "Minimize common chat, mail, and messaging windows before focused work or sharing.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object>())), readOnly: false, destructive: false, idempotent: true)
         };
     }
 
@@ -586,13 +848,14 @@ internal static class McpCatalog {
                     ReadInt(arguments, "y"),
                     ReadInt(arguments, "width"),
                     ReadInt(arguments, "height"),
-                    ReadBool(arguments, "activate")),
+                    ReadBool(arguments, "activate"),
+                    ReadMutationArtifactOptions(arguments)),
                 "click_window_point" => CallClickWindowPoint(arguments),
                 "drag_window_points" => CallDragWindowPoints(arguments),
                 "scroll_window_point" => CallScrollWindowPoint(arguments),
-                "focus_window" => DesktopOperations.FocusWindow(ReadWindowCriteria(arguments, true)),
-                "minimize_windows" => DesktopOperations.MinimizeWindows(ReadWindowCriteria(arguments, true)),
-                "snap_window" => DesktopOperations.SnapWindow(ReadWindowCriteria(arguments, true), ReadRequiredString(arguments, "position")),
+                "focus_window" => DesktopOperations.FocusWindow(ReadWindowCriteria(arguments, true), ReadMutationArtifactOptions(arguments)),
+                "minimize_windows" => DesktopOperations.MinimizeWindows(ReadWindowCriteria(arguments, true), ReadMutationArtifactOptions(arguments)),
+                "snap_window" => DesktopOperations.SnapWindow(ReadWindowCriteria(arguments, true), ReadRequiredString(arguments, "position"), ReadMutationArtifactOptions(arguments)),
                 "list_monitors" => DesktopOperations.ListMonitors(ReadNullableBool(arguments, "connectedOnly"), ReadNullableBool(arguments, "primaryOnly"), ReadInt(arguments, "index")),
                 "screenshot_desktop" => DesktopOperations.CaptureDesktopScreenshot(
                     ReadInt(arguments, "monitor"),
@@ -603,7 +866,9 @@ internal static class McpCatalog {
                     ReadInt(arguments, "width"),
                     ReadInt(arguments, "height"),
                     ReadOptionalString(arguments, "outputPath")),
-                "screenshot_window" => DesktopOperations.CaptureWindowScreenshot(ReadWindowCriteria(arguments, true), ReadOptionalString(arguments, "outputPath")),
+                "screenshot_window" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
+                    ? DesktopOperations.CaptureWindowScreenshot(ReadWindowCriteria(arguments, true), ReadOptionalString(arguments, "outputPath"))
+                    : DesktopOperations.CaptureWindowTargetScreenshot(ReadWindowCriteria(arguments, true), ReadRequiredString(arguments, "targetName"), ReadOptionalString(arguments, "outputPath")),
                 "launch_process" => DesktopOperations.LaunchProcess(
                     ReadRequiredString(arguments, "filePath"),
                     ReadOptionalString(arguments, "arguments"),
@@ -614,6 +879,23 @@ internal static class McpCatalog {
                     ReadOptionalString(arguments, "windowTitle"),
                     ReadOptionalString(arguments, "windowClassName"),
                     ReadBool(arguments, "requireWindow")),
+                "launch_and_wait_for_window" => DesktopOperations.LaunchAndWaitForWindow(
+                    ReadRequiredString(arguments, "filePath"),
+                    ReadOptionalString(arguments, "arguments"),
+                    ReadOptionalString(arguments, "workingDirectory"),
+                    ReadInt(arguments, "waitForInputIdleMs"),
+                    ReadInt(arguments, "launchWaitForWindowMs"),
+                    ReadInt(arguments, "launchWaitForWindowIntervalMs"),
+                    ReadOptionalString(arguments, "launchWindowTitle"),
+                    ReadOptionalString(arguments, "launchWindowClass"),
+                    ReadOptionalString(arguments, "windowTitle"),
+                    ReadOptionalString(arguments, "windowClass"),
+                    ReadBool(arguments, "includeHidden"),
+                    ReadBool(arguments, "includeEmpty"),
+                    ReadBool(arguments, "all"),
+                    ReadInt(arguments, "timeoutMs") ?? 10000,
+                    ReadInt(arguments, "intervalMs") ?? 200,
+                    ReadMutationArtifactOptions(arguments)),
                 "list_named_targets" => DesktopOperations.ListWindowTargets(),
                 "get_named_target" => DesktopOperations.GetWindowTarget(ReadRequiredString(arguments, "name")),
                 "save_window_target" => DesktopOperations.SaveWindowTarget(
@@ -623,6 +905,10 @@ internal static class McpCatalog {
                     ReadInt(arguments, "y"),
                     ReadDouble(arguments, "xRatio"),
                     ReadDouble(arguments, "yRatio"),
+                    ReadInt(arguments, "width"),
+                    ReadInt(arguments, "height"),
+                    ReadDouble(arguments, "widthRatio"),
+                    ReadDouble(arguments, "heightRatio"),
                     ReadBool(arguments, "clientArea")),
                 "resolve_window_target" => DesktopOperations.ResolveWindowTargets(ReadWindowCriteria(arguments, true), ReadRequiredString(arguments, "name")),
                 "list_named_control_targets" => DesktopOperations.ListControlTargets(),
@@ -668,6 +954,20 @@ internal static class McpCatalog {
                         ReadRequiredString(arguments, "targetName"),
                         ReadBool(arguments, "allWindows"),
                         ReadBool(arguments, "all")),
+                "assert_control_value" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
+                    ? DesktopOperations.AssertControlValue(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadControlCriteria(arguments),
+                        ReadRequiredString(arguments, "expectedValue"),
+                        ReadBool(arguments, "contains"),
+                        ReadBool(arguments, "allWindows"))
+                    : DesktopOperations.AssertControlTargetValue(
+                        ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
+                        ReadRequiredString(arguments, "targetName"),
+                        ReadRequiredString(arguments, "expectedValue"),
+                        ReadBool(arguments, "contains"),
+                        ReadBool(arguments, "allWindows"),
+                        ReadBool(arguments, "all")),
                 "wait_for_control" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
                     ? DesktopOperations.WaitForControl(
                         ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
@@ -687,19 +987,22 @@ internal static class McpCatalog {
                         ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
                         ReadControlCriteria(arguments),
                         ReadOptionalString(arguments, "button") ?? "left",
-                        ReadBool(arguments, "allWindows"))
+                        ReadBool(arguments, "allWindows"),
+                        ReadMutationArtifactOptions(arguments))
                     : DesktopOperations.ClickControlTarget(
                         ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
                         ReadRequiredString(arguments, "targetName"),
                         ReadOptionalString(arguments, "button") ?? "left",
                         ReadBool(arguments, "allWindows"),
-                        ReadBool(arguments, "all")),
+                        ReadBool(arguments, "all"),
+                        ReadMutationArtifactOptions(arguments)),
                 "set_control_text" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
                     ? DesktopOperations.SetControlText(
                         ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
                         ReadControlCriteria(arguments),
                         ReadRequiredString(arguments, "text"),
-                        ReadBool(arguments, "allWindows"))
+                        ReadBool(arguments, "allWindows"),
+                        ReadMutationArtifactOptions(arguments))
                     : DesktopOperations.SetControlTargetText(
                         ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
                         ReadRequiredString(arguments, "targetName"),
@@ -707,13 +1010,15 @@ internal static class McpCatalog {
                         ReadBool(arguments, "ensureForegroundWindow"),
                         ReadBool(arguments, "allowForegroundInput"),
                         ReadBool(arguments, "allWindows"),
-                        ReadBool(arguments, "all")),
+                        ReadBool(arguments, "all"),
+                        ReadMutationArtifactOptions(arguments)),
                 "send_control_keys" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
                     ? DesktopOperations.SendControlKeys(
                         ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
                         ReadControlCriteria(arguments),
                         ReadStringList(arguments, "keys"),
-                        ReadBool(arguments, "allWindows"))
+                        ReadBool(arguments, "allWindows"),
+                        ReadMutationArtifactOptions(arguments))
                     : DesktopOperations.SendControlTargetKeys(
                         ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
                         ReadRequiredString(arguments, "targetName"),
@@ -721,18 +1026,42 @@ internal static class McpCatalog {
                         ReadBool(arguments, "ensureForegroundWindow"),
                         ReadBool(arguments, "allowForegroundInput"),
                         ReadBool(arguments, "allWindows"),
-                        ReadBool(arguments, "all")),
+                        ReadBool(arguments, "all"),
+                        ReadMutationArtifactOptions(arguments)),
                 "type_window_text" => DesktopOperations.TypeWindowText(
                     ReadWindowCriteria(arguments, true),
                     ReadRequiredString(arguments, "text"),
                     ReadBool(arguments, "paste"),
-                    ReadInt(arguments, "delayMs") ?? 0),
+                    ReadInt(arguments, "delayMs") ?? 0,
+                    ReadMutationArtifactOptions(arguments)),
+                "send_window_keys" => DesktopOperations.SendWindowKeys(
+                    ReadWindowCriteria(arguments, true),
+                    ReadStringList(arguments, "keys"),
+                    ReadNullableBool(arguments, "activate") ?? true,
+                    ReadMutationArtifactOptions(arguments)),
                 "list_named_layouts" => DesktopOperations.ListLayouts(),
                 "save_current_layout" => DesktopOperations.SaveLayout(ReadRequiredString(arguments, "name")),
                 "apply_named_layout" => DesktopOperations.ApplyLayout(ReadRequiredString(arguments, "name"), ReadBool(arguments, "validate")),
+                "assert_window_layout" => DesktopOperations.AssertWindowLayout(
+                    ReadRequiredString(arguments, "name"),
+                    ReadInt(arguments, "positionTolerancePx") ?? 50,
+                    ReadInt(arguments, "sizeTolerancePx") ?? 50,
+                    ReadBool(arguments, "includeHidden"),
+                    ReadBool(arguments, "includeEmpty"),
+                    ReadNullableBool(arguments, "checkState") ?? true,
+                    ReadMutationArtifactOptions(arguments)),
                 "list_named_snapshots" => DesktopOperations.ListSnapshots(),
                 "save_current_snapshot" => DesktopOperations.SaveSnapshot(ReadRequiredString(arguments, "name")),
                 "restore_saved_snapshot" => DesktopOperations.RestoreSnapshot(ReadRequiredString(arguments, "name"), ReadBool(arguments, "validate")),
+                "prepare_for_coding" => DesktopOperations.PrepareForCoding(
+                    ReadOptionalString(arguments, "layoutName"),
+                    ReadWorkflowFocusCriteria(arguments),
+                    ReadMutationArtifactOptions(arguments)),
+                "prepare_for_screen_sharing" => DesktopOperations.PrepareForScreenSharing(
+                    ReadOptionalString(arguments, "layoutName"),
+                    ReadWorkflowFocusCriteria(arguments),
+                    ReadMutationArtifactOptions(arguments)),
+                "clean_up_distractions" => DesktopOperations.CleanUpDistractions(ReadMutationArtifactOptions(arguments)),
                 _ => throw new CommandLineException($"Unknown tool '{name}'.")
             };
             error = null;
@@ -780,6 +1109,22 @@ internal static class McpCatalog {
                     }
                 }
             }
+        };
+    }
+
+    private static WindowSelectionCriteria ReadWorkflowFocusCriteria(JsonElement element) {
+        return new WindowSelectionCriteria {
+            TitlePattern = ReadOptionalString(element, "windowTitle") ?? "*",
+            ProcessNamePattern = ReadOptionalString(element, "processName") ?? "*",
+            ClassNamePattern = ReadOptionalString(element, "className") ?? "*",
+            ProcessId = ReadInt(element, "processId"),
+            Handle = ReadOptionalString(element, "handle"),
+            Active = ReadBool(element, "activeWindow"),
+            IncludeHidden = false,
+            IncludeCloaked = false,
+            IncludeOwned = true,
+            IncludeEmptyTitles = false,
+            All = false
         };
     }
 
@@ -835,7 +1180,8 @@ internal static class McpCatalog {
                 criteria,
                 targetName,
                 ReadOptionalString(arguments, "button") ?? "left",
-                ReadBool(arguments, "activate"));
+                ReadBool(arguments, "activate"),
+                ReadMutationArtifactOptions(arguments));
         }
 
         return DesktopOperations.ClickWindowPoint(
@@ -846,7 +1192,8 @@ internal static class McpCatalog {
             ReadDouble(arguments, "yRatio"),
             ReadOptionalString(arguments, "button") ?? "left",
             ReadBool(arguments, "activate"),
-            ReadBool(arguments, "clientArea"));
+            ReadBool(arguments, "clientArea"),
+            ReadMutationArtifactOptions(arguments));
     }
 
     private static object CallDragWindowPoints(JsonElement arguments) {
@@ -859,7 +1206,8 @@ internal static class McpCatalog {
                 ReadRequiredString(arguments, "endTargetName"),
                 ReadOptionalString(arguments, "button") ?? "left",
                 ReadInt(arguments, "stepDelayMs") ?? 0,
-                ReadBool(arguments, "activate"));
+                ReadBool(arguments, "activate"),
+                ReadMutationArtifactOptions(arguments));
         }
 
         return DesktopOperations.DragWindowPoints(
@@ -875,7 +1223,8 @@ internal static class McpCatalog {
             ReadOptionalString(arguments, "button") ?? "left",
             ReadInt(arguments, "stepDelayMs") ?? 0,
             ReadBool(arguments, "activate"),
-            ReadBool(arguments, "clientArea"));
+            ReadBool(arguments, "clientArea"),
+            ReadMutationArtifactOptions(arguments));
     }
 
     private static object CallScrollWindowPoint(JsonElement arguments) {
@@ -887,7 +1236,8 @@ internal static class McpCatalog {
                 criteria,
                 targetName,
                 delta,
-                ReadBool(arguments, "activate"));
+                ReadBool(arguments, "activate"),
+                ReadMutationArtifactOptions(arguments));
         }
 
         return DesktopOperations.ScrollWindowPoint(
@@ -898,7 +1248,8 @@ internal static class McpCatalog {
             ReadDouble(arguments, "yRatio"),
             delta,
             ReadBool(arguments, "activate"),
-            ReadBool(arguments, "clientArea"));
+            ReadBool(arguments, "clientArea"),
+            ReadMutationArtifactOptions(arguments));
     }
 
     private static object CreateTool(string name, string title, string description, object inputSchema, bool readOnly, bool destructive = false, bool idempotent = false) {
@@ -941,6 +1292,37 @@ internal static class McpCatalog {
         return CreateObjectSchema(properties);
     }
 
+    private static object CreateWindowMutationSelectorSchema(bool includeAll, bool includeEmpty) {
+        var properties = new Dictionary<string, object> {
+            ["windowTitle"] = CreateStringSchema("Window title filter."),
+            ["processName"] = CreateStringSchema("Process name filter."),
+            ["className"] = CreateStringSchema("Window class filter."),
+            ["processId"] = CreateIntegerSchema("Process identifier."),
+            ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+            ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+            ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+            ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+            ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows.")
+        };
+
+        if (includeEmpty) {
+            properties["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles.");
+        }
+
+        if (includeAll) {
+            properties["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.");
+        }
+
+        return CreateObjectSchema(AddMutationArtifactProperties(properties));
+    }
+
+    private static Dictionary<string, object> AddMutationArtifactProperties(Dictionary<string, object> properties) {
+        properties["captureBefore"] = CreateBooleanSchema("Capture a best-effort screenshot before the mutation.");
+        properties["captureAfter"] = CreateBooleanSchema("Capture a best-effort screenshot after the mutation.");
+        properties["artifactDirectory"] = CreateStringSchema("Optional directory for mutation screenshots.");
+        return properties;
+    }
+
     private static object CreateObjectSchema(Dictionary<string, object>? properties = null, string[]? required = null) {
         return new {
             type = "object",
@@ -977,12 +1359,47 @@ internal static class McpCatalog {
         };
     }
 
+    private static object CreateArraySchema(string description, object items) {
+        return new {
+            type = "array",
+            description,
+            items
+        };
+    }
+
+    private static string[] ExtractProcessPatternsFromFilePath(string filePath) {
+        string trimmed = filePath.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)) {
+            return Array.Empty<string>();
+        }
+
+        string leaf = trimmed;
+        int lastSlash = Math.Max(trimmed.LastIndexOf('\\'), trimmed.LastIndexOf('/'));
+        if (lastSlash >= 0 && lastSlash < trimmed.Length - 1) {
+            leaf = trimmed.Substring(lastSlash + 1);
+        }
+
+        if (string.IsNullOrWhiteSpace(leaf)) {
+            return Array.Empty<string>();
+        }
+
+        string withoutExtension = leaf.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? leaf.Substring(0, leaf.Length - 4)
+            : leaf;
+
+        if (string.Equals(leaf, withoutExtension, StringComparison.OrdinalIgnoreCase)) {
+            return new[] { leaf };
+        }
+
+        return new[] { leaf, withoutExtension };
+    }
+
     private static string ReadRequiredString(JsonElement element, string propertyName) {
         return ReadOptionalString(element, propertyName) ?? throw new CommandLineException($"Property '{propertyName}' is required.");
     }
 
     private static string? ReadOptionalString(JsonElement element, string propertyName) {
-        if (!element.TryGetProperty(propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
+        if (!TryReadProperty(element, propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
             return null;
         }
 
@@ -990,7 +1407,7 @@ internal static class McpCatalog {
     }
 
     private static IReadOnlyList<string> ReadStringList(JsonElement element, string propertyName) {
-        if (!element.TryGetProperty(propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
+        if (!TryReadProperty(element, propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
             return Array.Empty<string>();
         }
 
@@ -1012,7 +1429,7 @@ internal static class McpCatalog {
     }
 
     private static int? ReadInt(JsonElement element, string propertyName) {
-        if (!element.TryGetProperty(propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
+        if (!TryReadProperty(element, propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
             return null;
         }
 
@@ -1028,7 +1445,7 @@ internal static class McpCatalog {
     }
 
     private static double? ReadDouble(JsonElement element, string propertyName) {
-        if (!element.TryGetProperty(propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
+        if (!TryReadProperty(element, propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
             return null;
         }
 
@@ -1047,8 +1464,23 @@ internal static class McpCatalog {
         return ReadNullableBool(element, propertyName) ?? false;
     }
 
+    private static MutationArtifactOptions? ReadMutationArtifactOptions(JsonElement element) {
+        bool captureBefore = ReadBool(element, "captureBefore");
+        bool captureAfter = ReadBool(element, "captureAfter");
+        string? artifactDirectory = ReadOptionalString(element, "artifactDirectory");
+        if (!captureBefore && !captureAfter && string.IsNullOrWhiteSpace(artifactDirectory)) {
+            return null;
+        }
+
+        return new MutationArtifactOptions {
+            CaptureBefore = captureBefore,
+            CaptureAfter = captureAfter,
+            ArtifactDirectory = artifactDirectory
+        };
+    }
+
     private static bool? ReadNullableBool(JsonElement element, string propertyName) {
-        if (!element.TryGetProperty(propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
+        if (!TryReadProperty(element, propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
             return null;
         }
 
@@ -1065,5 +1497,10 @@ internal static class McpCatalog {
         }
 
         throw new CommandLineException($"Property '{propertyName}' expects a boolean value.");
+    }
+
+    private static bool TryReadProperty(JsonElement element, string propertyName, out JsonElement property) {
+        property = default;
+        return element.ValueKind == JsonValueKind.Object && element.TryGetProperty(propertyName, out property);
     }
 }

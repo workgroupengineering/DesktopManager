@@ -9,15 +9,30 @@ internal static class McpCommands {
     }
 
     private static int Serve(CommandLineArguments arguments) {
+        bool readOnly = arguments.GetBoolFlag("read-only");
+        bool allowMutations = arguments.GetBoolFlag("allow-mutations");
+        bool allowForegroundInput = arguments.GetBoolFlag("allow-foreground-input");
+        bool dryRun = arguments.GetBoolFlag("dry-run");
+        if (readOnly && allowMutations) {
+            throw new CommandLineException("Choose either '--read-only' or '--allow-mutations', not both.");
+        }
+
+        var safetyPolicy = new McpSafetyPolicy(
+            allowMutations,
+            allowForegroundInput,
+            dryRun,
+            arguments.GetOptions("allow-process"),
+            arguments.GetOptions("deny-process"));
         if (arguments.GetBoolFlag("json")) {
             OutputFormatter.WriteJson(new {
                 status = "ready",
                 protocolVersion = "2025-06-18",
-                mode = "stdio"
+                mode = "stdio",
+                safetyPolicy = safetyPolicy.ToModel()
             });
             return 0;
         }
 
-        return new McpServer().Run();
+        return new McpServer(safetyPolicy).Run();
     }
 }

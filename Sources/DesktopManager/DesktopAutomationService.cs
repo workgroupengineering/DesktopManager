@@ -192,6 +192,27 @@ public sealed class DesktopAutomationService {
     }
 
     /// <summary>
+    /// Sends keys to matching windows.
+    /// </summary>
+    public IReadOnlyList<WindowInfo> SendWindowKeys(WindowQueryOptions options, IReadOnlyList<VirtualKey> keys, bool activate, bool all = false) {
+        if (keys == null) {
+            throw new ArgumentNullException(nameof(keys));
+        }
+        if (keys.Count == 0) {
+            throw new ArgumentException("No keys specified.", nameof(keys));
+        }
+
+        IReadOnlyList<WindowInfo> windows = ResolveWindows(options, all);
+        foreach (WindowInfo window in windows) {
+            _windowManager.SendKeys(window, keys, new WindowInputOptions {
+                ActivateWindow = activate
+            });
+        }
+
+        return RefreshWindows(windows);
+    }
+
+    /// <summary>
     /// Clicks a point relative to each matching window.
     /// </summary>
     public IReadOnlyList<WindowInfo> ClickWindowPoint(WindowQueryOptions options, int x, int y, MouseButton button, bool activate, bool all = false) {
@@ -479,6 +500,28 @@ public sealed class DesktopAutomationService {
     public IReadOnlyList<DesktopResolvedWindowTarget> ResolveWindowTargets(WindowQueryOptions options, string targetName, bool all = false) {
         DesktopWindowTargetDefinition definition = GetWindowTarget(targetName);
         return ResolveWindowTargets(options, targetName, definition, all);
+    }
+
+    /// <summary>
+    /// Captures the area described by a named window target against a matching window.
+    /// </summary>
+    public DesktopCapture CaptureWindowTarget(WindowQueryOptions options, string targetName) {
+        if (options == null) {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        DesktopResolvedWindowTarget target = ResolveWindowTargets(options, targetName, all: false).FirstOrDefault()
+            ?? throw new InvalidOperationException($"Named target '{targetName}' could not be resolved against a matching window.");
+        if (!target.ScreenWidth.HasValue || !target.ScreenHeight.HasValue) {
+            throw new InvalidOperationException($"Named target '{targetName}' does not define a capture area. Save it with width/height or widthRatio/heightRatio.");
+        }
+
+        return new DesktopCapture {
+            Kind = "window-target",
+            Bitmap = ScreenshotService.CaptureRegion(target.ScreenX, target.ScreenY, target.ScreenWidth.Value, target.ScreenHeight.Value),
+            Window = target.Geometry.Window,
+            Geometry = target.Geometry
+        };
     }
 
     /// <summary>
@@ -1302,6 +1345,8 @@ public sealed class DesktopAutomationService {
 
     private static DesktopResolvedWindowTarget ResolveWindowTarget(string targetName, DesktopWindowTargetDefinition definition, DesktopWindowGeometry geometry) {
         (int relativeX, int relativeY) = ResolveRelativePoint(geometry, definition.X, definition.Y, definition.XRatio, definition.YRatio, definition.ClientArea);
+        int? relativeWidth = ResolveOptionalAxisSize(geometry, definition.Width, definition.WidthRatio, definition.ClientArea, horizontal: true, nameof(definition.Width), nameof(definition.WidthRatio));
+        int? relativeHeight = ResolveOptionalAxisSize(geometry, definition.Height, definition.HeightRatio, definition.ClientArea, horizontal: false, nameof(definition.Height), nameof(definition.HeightRatio));
         int screenX = definition.ClientArea ? geometry.ClientLeft + relativeX : geometry.WindowLeft + relativeX;
         int screenY = definition.ClientArea ? geometry.ClientTop + relativeY : geometry.WindowTop + relativeY;
 
@@ -1313,13 +1358,21 @@ public sealed class DesktopAutomationService {
                 Y = definition.Y,
                 XRatio = definition.XRatio,
                 YRatio = definition.YRatio,
+                Width = definition.Width,
+                Height = definition.Height,
+                WidthRatio = definition.WidthRatio,
+                HeightRatio = definition.HeightRatio,
                 ClientArea = definition.ClientArea
             },
             Geometry = geometry,
             RelativeX = relativeX,
             RelativeY = relativeY,
+            RelativeWidth = relativeWidth,
+            RelativeHeight = relativeHeight,
             ScreenX = screenX,
-            ScreenY = screenY
+            ScreenY = screenY,
+            ScreenWidth = relativeWidth,
+            ScreenHeight = relativeHeight
         };
     }
 
@@ -1349,6 +1402,8 @@ public sealed class DesktopAutomationService {
     private static void ValidateWindowTargetDefinition(DesktopWindowTargetDefinition definition) {
         ValidateTargetAxis(definition.X, definition.XRatio, nameof(definition.X), nameof(definition.XRatio));
         ValidateTargetAxis(definition.Y, definition.YRatio, nameof(definition.Y), nameof(definition.YRatio));
+        ValidateOptionalTargetSizeAxis(definition.Width, definition.WidthRatio, nameof(definition.Width), nameof(definition.WidthRatio));
+        ValidateOptionalTargetSizeAxis(definition.Height, definition.HeightRatio, nameof(definition.Height), nameof(definition.HeightRatio));
     }
 
     private static void ValidateControlTargetDefinition(DesktopControlTargetDefinition definition) {
@@ -1407,6 +1462,31 @@ public sealed class DesktopAutomationService {
         double ratioValue = ratio!.Value;
         if (ratioValue < 0 || ratioValue > 1) {
             throw new ArgumentOutOfRangeException(ratioName, $"{ratioName} must be between 0 and 1.");
+        }
+    }
+
+    private static void ValidateOptionalTargetSizeAxis(int? size, double? ratio, string sizeName, string ratioName) {
+        bool hasSize = size.HasValue;
+        bool hasRatio = ratio.HasValue;
+        if (!hasSize && !hasRatio) {
+            return;
+        }
+
+        if (hasSize == hasRatio) {
+            throw new ArgumentException($"Provide either {sizeName} or {ratioName}, but not both.");
+        }
+
+        if (hasSize) {
+            if (size!.Value <= 0) {
+                throw new ArgumentOutOfRangeException(sizeName, $"{sizeName} must be greater than zero.");
+            }
+
+            return;
+        }
+
+        double ratioValue = ratio!.Value;
+        if (ratioValue <= 0 || ratioValue > 1) {
+            throw new ArgumentOutOfRangeException(ratioName, $"{ratioName} must be greater than 0 and less than or equal to 1.");
         }
     }
 
@@ -1490,6 +1570,36 @@ public sealed class DesktopAutomationService {
         int height = clientArea ? geometry.ClientHeight : geometry.WindowHeight;
 
         return (ResolveAxisCoordinate(x, xRatio, width, nameof(x), nameof(xRatio)), ResolveAxisCoordinate(y, yRatio, height, nameof(y), nameof(yRatio)));
+    }
+
+    private static int? ResolveOptionalAxisSize(DesktopWindowGeometry geometry, int? size, double? ratio, bool clientArea, bool horizontal, string sizeName, string ratioName) {
+        bool hasSize = size.HasValue;
+        bool hasRatio = ratio.HasValue;
+        if (!hasSize && !hasRatio) {
+            return null;
+        }
+
+        int boundsSize = horizontal
+            ? clientArea ? geometry.ClientWidth : geometry.WindowWidth
+            : clientArea ? geometry.ClientHeight : geometry.WindowHeight;
+        if (hasSize) {
+            if (size!.Value <= 0) {
+                throw new ArgumentOutOfRangeException(sizeName, $"{sizeName} must be greater than zero.");
+            }
+
+            return size.Value;
+        }
+
+        double ratioValue = ratio!.Value;
+        if (ratioValue <= 0 || ratioValue > 1) {
+            throw new ArgumentOutOfRangeException(ratioName, $"{ratioName} must be greater than 0 and less than or equal to 1.");
+        }
+
+        if (boundsSize <= 0) {
+            throw new InvalidOperationException("The target bounds do not expose a usable size.");
+        }
+
+        return Math.Max(1, (int)Math.Round(boundsSize * ratioValue, MidpointRounding.AwayFromZero));
     }
 
     private static int ResolveAxisCoordinate(int? coordinate, double? ratio, int size, string coordinateName, string ratioName) {

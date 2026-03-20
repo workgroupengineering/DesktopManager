@@ -19,6 +19,7 @@ internal static class WindowCommands {
             "minimize" => Minimize(arguments),
             "snap" => Snap(arguments),
             "type" => Type(arguments),
+            "keys" => Keys(arguments),
             "wait" => Wait(arguments),
             _ => throw new CommandLineException($"Unknown window command '{action}'.")
         };
@@ -93,12 +94,13 @@ internal static class WindowCommands {
             arguments.GetIntOption("y"),
             arguments.GetIntOption("width"),
             arguments.GetIntOption("height"),
-            arguments.GetBoolFlag("activate"));
+            arguments.GetBoolFlag("activate"),
+            CreateArtifactOptions(arguments));
         return WriteWindowMutationResult(arguments, result);
     }
 
     private static int Focus(CommandLineArguments arguments) {
-        return WriteWindowMutationResult(arguments, DesktopOperations.FocusWindow(CreateCriteria(arguments, includeEmptyDefault: true)));
+        return WriteWindowMutationResult(arguments, DesktopOperations.FocusWindow(CreateCriteria(arguments, includeEmptyDefault: true), CreateArtifactOptions(arguments)));
     }
 
     private static int Click(CommandLineArguments arguments) {
@@ -110,7 +112,8 @@ internal static class WindowCommands {
                     CreateCriteria(arguments, includeEmptyDefault: true),
                     targetName,
                     arguments.GetOption("button") ?? "left",
-                    arguments.GetBoolFlag("activate")));
+                    arguments.GetBoolFlag("activate"),
+                    CreateArtifactOptions(arguments)));
         }
 
         return WriteWindowMutationResult(
@@ -123,7 +126,8 @@ internal static class WindowCommands {
                 arguments.GetDoubleOption("y-ratio"),
                 arguments.GetOption("button") ?? "left",
                 arguments.GetBoolFlag("activate"),
-                arguments.GetBoolFlag("client-area")));
+                arguments.GetBoolFlag("client-area"),
+                CreateArtifactOptions(arguments)));
     }
 
     private static int Drag(CommandLineArguments arguments) {
@@ -142,7 +146,8 @@ internal static class WindowCommands {
                     endTargetName,
                     arguments.GetOption("button") ?? "left",
                     arguments.GetIntOption("step-delay-ms") ?? 0,
-                    arguments.GetBoolFlag("activate")));
+                    arguments.GetBoolFlag("activate"),
+                    CreateArtifactOptions(arguments)));
         }
 
         return WriteWindowMutationResult(
@@ -160,7 +165,8 @@ internal static class WindowCommands {
                 arguments.GetOption("button") ?? "left",
                 arguments.GetIntOption("step-delay-ms") ?? 0,
                 arguments.GetBoolFlag("activate"),
-                arguments.GetBoolFlag("client-area")));
+                arguments.GetBoolFlag("client-area"),
+                CreateArtifactOptions(arguments)));
     }
 
     private static int Scroll(CommandLineArguments arguments) {
@@ -172,7 +178,8 @@ internal static class WindowCommands {
                     CreateCriteria(arguments, includeEmptyDefault: true),
                     targetName,
                     arguments.GetRequiredIntOption("delta"),
-                    arguments.GetBoolFlag("activate")));
+                    arguments.GetBoolFlag("activate"),
+                    CreateArtifactOptions(arguments)));
         }
 
         return WriteWindowMutationResult(
@@ -185,17 +192,18 @@ internal static class WindowCommands {
                 arguments.GetDoubleOption("y-ratio"),
                 arguments.GetRequiredIntOption("delta"),
                 arguments.GetBoolFlag("activate"),
-                arguments.GetBoolFlag("client-area")));
+                arguments.GetBoolFlag("client-area"),
+                CreateArtifactOptions(arguments)));
     }
 
     private static int Minimize(CommandLineArguments arguments) {
-        return WriteWindowMutationResult(arguments, DesktopOperations.MinimizeWindows(CreateCriteria(arguments, includeEmptyDefault: true)));
+        return WriteWindowMutationResult(arguments, DesktopOperations.MinimizeWindows(CreateCriteria(arguments, includeEmptyDefault: true), CreateArtifactOptions(arguments)));
     }
 
     private static int Snap(CommandLineArguments arguments) {
         return WriteWindowMutationResult(
             arguments,
-            DesktopOperations.SnapWindow(CreateCriteria(arguments, includeEmptyDefault: true), arguments.GetRequiredOption("position")));
+            DesktopOperations.SnapWindow(CreateCriteria(arguments, includeEmptyDefault: true), arguments.GetRequiredOption("position"), CreateArtifactOptions(arguments)));
     }
 
     private static int Type(CommandLineArguments arguments) {
@@ -205,7 +213,24 @@ internal static class WindowCommands {
                 CreateCriteria(arguments, includeEmptyDefault: true),
                 arguments.GetRequiredOption("text"),
                 arguments.GetBoolFlag("paste"),
-                arguments.GetIntOption("delay-ms") ?? 0));
+                arguments.GetIntOption("delay-ms") ?? 0,
+                CreateArtifactOptions(arguments)));
+    }
+
+    private static int Keys(CommandLineArguments arguments) {
+        IReadOnlyList<string> keys = arguments.GetOptions("keys");
+        if (keys.Count == 0) {
+            string single = arguments.GetRequiredOption("keys");
+            keys = new[] { single };
+        }
+
+        return WriteWindowMutationResult(
+            arguments,
+            DesktopOperations.SendWindowKeys(
+                CreateCriteria(arguments, includeEmptyDefault: true),
+                keys,
+                !arguments.GetBoolFlag("no-activate"),
+                CreateArtifactOptions(arguments)));
     }
 
     private static int Wait(CommandLineArguments arguments) {
@@ -232,11 +257,38 @@ internal static class WindowCommands {
             return 0;
         }
 
-        Console.WriteLine($"{payload.Action}: {payload.Count} window(s)");
+        Console.WriteLine($"{payload.Action}: {payload.Count} window(s) success={payload.Success} safety={payload.SafetyMode} elapsed-ms={payload.ElapsedMilliseconds}");
+        if (!string.IsNullOrWhiteSpace(payload.TargetName)) {
+            Console.WriteLine($"target: {payload.TargetKind ?? "selector"} {payload.TargetName}");
+        }
+
+        if (payload.BeforeScreenshots.Count > 0 || payload.AfterScreenshots.Count > 0) {
+            Console.WriteLine($"artifacts: before={payload.BeforeScreenshots.Count} after={payload.AfterScreenshots.Count}");
+        }
+
+        foreach (string warning in payload.ArtifactWarnings) {
+            Console.WriteLine($"warning: {warning}");
+        }
+
         foreach (WindowResult window in payload.Windows) {
             Console.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
         }
         return 0;
+    }
+
+    private static MutationArtifactOptions? CreateArtifactOptions(CommandLineArguments arguments) {
+        bool captureBefore = arguments.GetBoolFlag("capture-before");
+        bool captureAfter = arguments.GetBoolFlag("capture-after");
+        string? artifactDirectory = arguments.GetOption("artifact-directory");
+        if (!captureBefore && !captureAfter && string.IsNullOrWhiteSpace(artifactDirectory)) {
+            return null;
+        }
+
+        return new MutationArtifactOptions {
+            CaptureBefore = captureBefore,
+            CaptureAfter = captureAfter,
+            ArtifactDirectory = artifactDirectory
+        };
     }
 
     private static int WriteAssertionResult(CommandLineArguments arguments, WindowAssertionResult payload, string successText, string failureText) {

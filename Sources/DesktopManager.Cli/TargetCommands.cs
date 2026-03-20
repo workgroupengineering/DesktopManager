@@ -22,6 +22,10 @@ internal static class TargetCommands {
             arguments.GetIntOption("y"),
             arguments.GetDoubleOption("x-ratio"),
             arguments.GetDoubleOption("y-ratio"),
+            arguments.GetIntOption("width"),
+            arguments.GetIntOption("height"),
+            arguments.GetDoubleOption("width-ratio"),
+            arguments.GetDoubleOption("height-ratio"),
             arguments.GetBoolFlag("client-area"));
 
         if (arguments.GetBoolFlag("json")) {
@@ -48,6 +52,10 @@ internal static class TargetCommands {
         Console.WriteLine($"- Y: {result.Target.Y?.ToString() ?? "-"}");
         Console.WriteLine($"- XRatio: {result.Target.XRatio?.ToString() ?? "-"}");
         Console.WriteLine($"- YRatio: {result.Target.YRatio?.ToString() ?? "-"}");
+        Console.WriteLine($"- Width: {result.Target.Width?.ToString() ?? "-"}");
+        Console.WriteLine($"- Height: {result.Target.Height?.ToString() ?? "-"}");
+        Console.WriteLine($"- WidthRatio: {result.Target.WidthRatio?.ToString() ?? "-"}");
+        Console.WriteLine($"- HeightRatio: {result.Target.HeightRatio?.ToString() ?? "-"}");
         if (!string.IsNullOrWhiteSpace(result.Target.Description)) {
             Console.WriteLine($"- Description: {result.Target.Description}");
         }
@@ -86,6 +94,9 @@ internal static class TargetCommands {
             Console.WriteLine($"{result.Name}: {result.Window.Title} ({result.Window.Handle})");
             Console.WriteLine($"- Relative: {result.RelativeX},{result.RelativeY}");
             Console.WriteLine($"- Screen: {result.ScreenX},{result.ScreenY}");
+            if (result.ScreenWidth.HasValue && result.ScreenHeight.HasValue) {
+                Console.WriteLine($"- Area: {result.ScreenWidth}x{result.ScreenHeight}");
+            }
             Console.WriteLine($"- ClientArea: {(result.Target.ClientArea ? "Yes" : "No")}");
         }
         return 0;

@@ -56,7 +56,15 @@ internal sealed class WindowResult {
 
 internal sealed class WindowChangeResult {
     public string Action { get; set; } = string.Empty;
+    public bool Success { get; set; }
     public int Count { get; set; }
+    public int ElapsedMilliseconds { get; set; }
+    public string SafetyMode { get; set; } = string.Empty;
+    public string? TargetName { get; set; }
+    public string? TargetKind { get; set; }
+    public IReadOnlyList<ScreenshotResult> BeforeScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<ScreenshotResult> AfterScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<string> ArtifactWarnings { get; set; } = new List<string>();
     public IReadOnlyList<WindowResult> Windows { get; set; } = new List<WindowResult>();
 }
 
@@ -100,7 +108,15 @@ internal sealed class ControlResult {
 
 internal sealed class ControlActionResult {
     public string Action { get; set; } = string.Empty;
+    public bool Success { get; set; }
     public int Count { get; set; }
+    public int ElapsedMilliseconds { get; set; }
+    public string SafetyMode { get; set; } = string.Empty;
+    public string? TargetName { get; set; }
+    public string? TargetKind { get; set; }
+    public IReadOnlyList<ScreenshotResult> BeforeScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<ScreenshotResult> AfterScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<string> ArtifactWarnings { get; set; } = new List<string>();
     public IReadOnlyList<ControlResult> Controls { get; set; } = new List<ControlResult>();
 }
 
@@ -108,6 +124,18 @@ internal sealed class ControlAssertionResult {
     public bool Matched { get; set; }
     public string Assertion { get; set; } = string.Empty;
     public int Count { get; set; }
+    public IReadOnlyList<ControlResult> Controls { get; set; } = new List<ControlResult>();
+}
+
+internal sealed class ControlValueAssertionResult {
+    public bool Matched { get; set; }
+    public string Assertion { get; set; } = string.Empty;
+    public string Expected { get; set; } = string.Empty;
+    public string MatchMode { get; set; } = string.Empty;
+    public string PropertyName { get; set; } = string.Empty;
+    public int Count { get; set; }
+    public int MatchedCount { get; set; }
+    public string? TargetName { get; set; }
     public IReadOnlyList<ControlResult> Controls { get; set; } = new List<ControlResult>();
 }
 
@@ -183,12 +211,55 @@ internal sealed class NamedStateResult {
     public string? Scope { get; set; }
 }
 
+internal sealed class SavedWindowLayoutEntryResult {
+    public string Title { get; set; } = string.Empty;
+    public uint ProcessId { get; set; }
+    public int Left { get; set; }
+    public int Top { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public string? State { get; set; }
+}
+
+internal sealed class WindowLayoutMismatchResult {
+    public SavedWindowLayoutEntryResult Expected { get; set; } = new();
+    public WindowResult Current { get; set; } = new();
+    public int LeftDelta { get; set; }
+    public int TopDelta { get; set; }
+    public int WidthDelta { get; set; }
+    public int HeightDelta { get; set; }
+    public bool StateMatched { get; set; }
+}
+
+internal sealed class WindowLayoutAssertionResult {
+    public bool Matched { get; set; }
+    public string Assertion { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public int ExpectedCount { get; set; }
+    public int MatchedCount { get; set; }
+    public int MissingCount { get; set; }
+    public int MismatchCount { get; set; }
+    public int PositionTolerancePixels { get; set; }
+    public int SizeTolerancePixels { get; set; }
+    public bool CheckState { get; set; }
+    public IReadOnlyList<SavedWindowLayoutEntryResult> MissingWindows { get; set; } = new List<SavedWindowLayoutEntryResult>();
+    public IReadOnlyList<WindowLayoutMismatchResult> MismatchedWindows { get; set; } = new List<WindowLayoutMismatchResult>();
+    public IReadOnlyList<ScreenshotResult> BeforeScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<ScreenshotResult> AfterScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<string> ArtifactWarnings { get; set; } = new List<string>();
+}
+
 internal sealed class WindowTargetDefinitionResult {
     public string? Description { get; set; }
     public int? X { get; set; }
     public int? Y { get; set; }
     public double? XRatio { get; set; }
     public double? YRatio { get; set; }
+    public int? Width { get; set; }
+    public int? Height { get; set; }
+    public double? WidthRatio { get; set; }
+    public double? HeightRatio { get; set; }
     public bool ClientArea { get; set; }
 }
 
@@ -232,8 +303,12 @@ internal sealed class ResolvedWindowTargetResult {
     public WindowGeometryResult Geometry { get; set; } = new();
     public int RelativeX { get; set; }
     public int RelativeY { get; set; }
+    public int? RelativeWidth { get; set; }
+    public int? RelativeHeight { get; set; }
     public int ScreenX { get; set; }
     public int ScreenY { get; set; }
+    public int? ScreenWidth { get; set; }
+    public int? ScreenHeight { get; set; }
 }
 
 internal sealed class ResolvedControlTargetResult {
@@ -264,6 +339,20 @@ internal sealed class ProcessLaunchResult {
     public WindowResult? MainWindow { get; set; }
 }
 
+internal sealed class LaunchAndWaitResult {
+    public string Action { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public int ElapsedMilliseconds { get; set; }
+    public int WaitTimeoutMilliseconds { get; set; }
+    public int WaitIntervalMilliseconds { get; set; }
+    public ProcessLaunchResult Launch { get; set; } = new();
+    public WaitForWindowResult WindowWait { get; set; } = new();
+    public IReadOnlyList<string> Notes { get; set; } = new List<string>();
+    public IReadOnlyList<ScreenshotResult> BeforeScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<ScreenshotResult> AfterScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<string> ArtifactWarnings { get; set; } = new List<string>();
+}
+
 internal sealed class WaitForWindowResult {
     public int ElapsedMilliseconds { get; set; }
     public int Count { get; set; }
@@ -282,4 +371,26 @@ internal sealed class WindowAssertionResult {
     public int Count { get; set; }
     public IReadOnlyList<WindowResult> Windows { get; set; } = new List<WindowResult>();
     public WindowResult? ActiveWindow { get; set; }
+}
+
+internal sealed class MutationArtifactOptions {
+    public bool CaptureBefore { get; set; }
+    public bool CaptureAfter { get; set; }
+    public string? ArtifactDirectory { get; set; }
+}
+
+internal sealed class WorkflowResult {
+    public string Action { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public int ElapsedMilliseconds { get; set; }
+    public string? LayoutName { get; set; }
+    public bool LayoutApplied { get; set; }
+    public int MinimizedCount { get; set; }
+    public IReadOnlyList<WindowResult> MinimizedWindows { get; set; } = new List<WindowResult>();
+    public WindowResult? ResolvedWindow { get; set; }
+    public WindowResult? FocusedWindow { get; set; }
+    public IReadOnlyList<string> Notes { get; set; } = new List<string>();
+    public IReadOnlyList<ScreenshotResult> BeforeScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<ScreenshotResult> AfterScreenshots { get; set; } = new List<ScreenshotResult>();
+    public IReadOnlyList<string> ArtifactWarnings { get; set; } = new List<string>();
 }

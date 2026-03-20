@@ -59,6 +59,8 @@ Additional operator-focused docs for the newer CLI and MCP surfaces:
 
 - [Docs/DesktopManager.Cli.md](Docs/DesktopManager.Cli.md)
 - [Docs/DesktopManager.Mcp.md](Docs/DesktopManager.Mcp.md)
+- [.agents/skills/desktopmanager-operator/SKILL.md](.agents/skills/desktopmanager-operator/SKILL.md)
+- [.agents/skills/desktopmanager-build/SKILL.md](.agents/skills/desktopmanager-build/SKILL.md)
 
 
 ### Available PowerShell Cmdlets
@@ -89,10 +91,22 @@ Additional operator-focused docs for the newer CLI and MCP surfaces:
 | Invoke-DesktopMouseScroll | Scroll the mouse wheel |
 | Invoke-DesktopScreenshot | Capture monitor or region screenshots |
 | Get-DesktopWindow | Enumerate visible windows |
+| Get-DesktopWindowGeometry | Return outer-window and client-area geometry for matched windows |
 | Get-DesktopWindowControl | Enumerate Win32 or UIA window controls |
+| Get-DesktopWindowControlDiagnostic | Explain Win32 vs UIA control discovery and actionability |
+| Get-DesktopWindowProcessInfo | Return process details for matched windows |
+| Get-DesktopWindowTarget | List saved window-relative targets or resolve one against live windows |
+| Get-DesktopControlTarget | List saved control targets or resolve one against live windows |
+| Invoke-DesktopControlClick | Click a matched control using shared control action routing |
+| Invoke-DesktopWindowClick | Click a window-relative point or saved window target |
+| Invoke-DesktopWindowDrag | Drag between window-relative points or saved targets |
+| Invoke-DesktopWindowScroll | Scroll at a window-relative point or saved target |
+| Send-DesktopControlKey | Send keys to a matched control without reimplementing key routing |
+| Set-DesktopControlTarget | Save a reusable control selector profile |
 | Set-DesktopControlText | Write text directly to a specific control |
 | Set-DesktopWindow | Move, resize or control windows |
 | Set-DesktopWindowSnap | Snap window to common positions |
+| Set-DesktopWindowTarget | Save a reusable window-relative point target |
 | Set-DesktopWindowText | Paste or type text into a window |
 | Wait-DesktopWindow | Wait for a window to appear |
 | Wait-DesktopWindowControl | Wait for a control to appear |
@@ -137,11 +151,23 @@ The table below shows the most relevant API methods behind each PowerShell cmdle
 | Invoke-DesktopMouseScroll | `WindowManager.ScrollMouse` |
 | Invoke-DesktopScreenshot | `ScreenshotService.CaptureScreen`, `ScreenshotService.CaptureRegion` |
 | Get-DesktopWindow | `WindowManager.GetWindows` / `GetWindowsForProcess` |
+| Get-DesktopWindowGeometry | `DesktopAutomationService.GetWindowGeometry` |
 | Get-DesktopWindowControl | `DesktopAutomationService.GetControls` |
-| Set-DesktopControlText | `WindowManager.SetControlText` |
+| Get-DesktopWindowControlDiagnostic | `DesktopAutomationService.GetControlDiagnostics` / `GetControlTargetDiagnostics` |
+| Get-DesktopWindowProcessInfo | `WindowManager.GetWindowProcessInfo` |
+| Get-DesktopWindowTarget | `DesktopAutomationService.ListWindowTargets`, `GetWindowTarget`, `ResolveWindowTargets` |
+| Get-DesktopControlTarget | `DesktopAutomationService.ListControlTargets`, `GetControlTarget`, `ResolveControlTargets` |
+| Invoke-DesktopControlClick | `DesktopAutomationService.ClickControls` / `ClickControlTarget` |
+| Invoke-DesktopWindowClick | `DesktopAutomationService.ClickWindowPoint` / `ClickWindowTarget` |
+| Invoke-DesktopWindowDrag | `DesktopAutomationService.DragWindowPoints` / `DragWindowTargets` |
+| Invoke-DesktopWindowScroll | `DesktopAutomationService.ScrollWindowPoint` / `ScrollWindowTarget` |
+| Send-DesktopControlKey | `DesktopAutomationService.SendControlKeys` / `SendControlTargetKeys` |
+| Set-DesktopControlTarget | `DesktopAutomationService.SaveControlTarget` |
+| Set-DesktopControlText | `DesktopAutomationService.SetControlText` |
 | Set-DesktopWindow | `WindowManager.SetWindowPosition`, `MoveWindowToMonitor`, etc. |
 | Set-DesktopWindowSnap | `WindowManager.SnapWindow` |
-| Set-DesktopWindowText | `WindowInputService` |
+| Set-DesktopWindowTarget | `DesktopAutomationService.SaveWindowTarget` |
+| Set-DesktopWindowText | `WindowManager.TypeText`, `WindowManager.PasteText`, `WindowInputService` |
 | Wait-DesktopWindow | `DesktopAutomationService.WaitForWindows` |
 | Wait-DesktopWindowControl | `DesktopAutomationService.WaitForControls` |
 | Test-DesktopWindow | `DesktopAutomationService.WindowExists` / `ActiveWindowMatches` |
@@ -168,7 +194,8 @@ Install-Module DesktopManager -Force -Verbose
 UI-impacting tests are opt-in to avoid opening windows or changing the desktop during local development. Use the environment variables below to control behavior:
 
 - `RUN_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_UI_TESTS=true`) enables UI tests.
-- `RUN_DESTRUCTIVE_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_DESTRUCTIVE_UI_TESTS=true`) enables tests that change wallpapers, brightness, or resolution.
+- `RUN_DESTRUCTIVE_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_DESTRUCTIVE_UI_TESTS=true`) enables tests that change desktop state, including the live MCP Notepad round-trip harness and tests that change wallpapers, brightness, or resolution.
+- `RUN_EXPERIMENTAL_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_EXPERIMENTAL_UI_TESTS=true`) enables experimental live UI harnesses that are useful for manual validation but are not part of the stable regression pack.
 - `SKIP_UI_TESTS=true` (or `DESKTOPMANAGER_SKIP_UI_TESTS=true`) forces UI tests to skip, even if enabled elsewhere.
 
 ```powershell
@@ -178,9 +205,44 @@ $env:RUN_UI_TESTS = "true"
 # Run tests that change desktop settings
 $env:RUN_DESTRUCTIVE_UI_TESTS = "true"
 
+# Run experimental live UI harnesses
+$env:RUN_EXPERIMENTAL_UI_TESTS = "true"
+
 # Force skip
 $env:SKIP_UI_TESTS = "true"
+
+# Run the live MCP Notepad end-to-end harness (net8 only)
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadRoundTrip
+
+# Run the live MCP target-area capture harness (net8 only)
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadTargetAreaRoundTrip
+
+# Run the live MCP window-move and geometry verification harness (net8 only)
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadWindowMutationRoundTrip
+
+# Run the live MCP workflow harness (net8 only)
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadWorkflowRoundTrip
+
+# Run the live MCP allowlisted process-policy harness (net8 only)
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadAllowedProcessPolicy
+
+# Run the live MCP denied-process policy harness (net8 only)
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadDeniedProcessPolicy
+
+# Run the live MCP dry-run policy harness (net8 only)
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadDryRunPolicy
+
+# Run the stable live MCP desktop pack (net8 only)
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "McpServer_NotepadRoundTrip|McpServer_NotepadTargetAreaRoundTrip|McpServer_NotepadWindowMutationRoundTrip|McpServer_NotepadWorkflowRoundTrip|McpServer_NotepadAllowedProcessPolicy|McpServer_NotepadDeniedProcessPolicy|McpServer_NotepadDryRunPolicy"
+
+# Run the experimental live MCP blocked foreground-input Edge harness (net8 only)
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter McpServer_EdgeForegroundInputPolicy_BlocksOmniboxEnterWithoutServerOptIn
+
+# Run the experimental live MCP foreground-input opt-in Edge harness (net8 only)
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter McpServer_EdgeForegroundInputPolicy_AllowsOmniboxEnterWithServerOptIn
 ```
+
+When the experimental Chromium opt-in harness skips because the omnibox never becomes reliably discoverable, it now leaves a screenshot plus control-diagnostic bundle under `%TEMP%\DesktopManager.Tests\McpE2E\Experimental` and uses temporary named window/control targets so the fallback path matches the shared targeting model. Each bundle now also includes `decision-trace.txt` and `comparison.txt`.
 
 ### Usage
 

@@ -10,6 +10,12 @@ Locale: en-US
 ## Description
 The **DesktopManager** module exposes cmdlets for reading and changing desktop settings such as monitor information, wallpapers and brightness levels.
 
+For the newer window/control automation, target-management, CLI, and MCP surfaces, use the repo-level guides too:
+
+- `README.MD`
+- `Docs/DesktopManager.Cli.md`
+- `Docs/DesktopManager.Mcp.md`
+
 ## DesktopManager Cmdlets
 ### [Get-DesktopMonitors](Get-DesktopMonitors.md)
 List information about the monitors connected to the system.

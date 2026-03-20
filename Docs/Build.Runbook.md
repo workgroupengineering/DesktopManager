@@ -86,4 +86,30 @@ Publish a specific CLI runtime:
 
 ```powershell
 desktopmanager mcp serve
+desktopmanager mcp serve --allow-mutations
+desktopmanager mcp serve --allow-mutations --allow-process notepad
 ```
+
+- Fast MCP contract verification lives in `McpServerTests`.
+- The disposable live-app MCP harness lives in `McpServerEndToEndTests` and is gated by:
+
+```powershell
+$env:RUN_UI_TESTS = "true"
+$env:RUN_DESTRUCTIVE_UI_TESTS = "true"
+$env:RUN_EXPERIMENTAL_UI_TESTS = "true"
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadRoundTrip
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadTargetAreaRoundTrip
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadWindowMutationRoundTrip
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadWorkflowRoundTrip
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadAllowedProcessPolicy
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadDeniedProcessPolicy
+dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadDryRunPolicy
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "McpServer_NotepadRoundTrip|McpServer_NotepadTargetAreaRoundTrip|McpServer_NotepadWindowMutationRoundTrip|McpServer_NotepadWorkflowRoundTrip|McpServer_NotepadAllowedProcessPolicy|McpServer_NotepadDeniedProcessPolicy|McpServer_NotepadDryRunPolicy"
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter McpServer_EdgeForegroundInputPolicy_BlocksOmniboxEnterWithoutServerOptIn
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter McpServer_EdgeForegroundInputPolicy_AllowsOmniboxEnterWithServerOptIn
+```
+
+- Those live MCP desktop tests intentionally run under `net8.0-windows` only because they all drive the shared `DesktopManager.Cli.exe` host and the same real desktop session.
+- The safety-policy harness now covers one allowed scoped mutation, one denied scoped mutation, and one dry-run scoped mutation preview against a disposable Notepad window.
+- The stable live MCP desktop pack now stays on the Notepad-backed flows, while both Chromium-style foreground-input harnesses live behind `RUN_EXPERIMENTAL_UI_TESTS=true` so they can be exercised manually without destabilizing regular regression runs.
+- When the experimental Chromium opt-in harness goes inconclusive, it now keeps a screenshot plus control-diagnostic bundle under `%TEMP%\DesktopManager.Tests\McpE2E\Experimental`, exercises temporary named window/control targets so the fallback path stays aligned with the shared targeting workflow, and writes `decision-trace.txt` plus `comparison.txt` for follow-up analysis.

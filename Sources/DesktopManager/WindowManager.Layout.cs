@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 
@@ -43,6 +44,25 @@ public partial class WindowManager
         /// <param name="options">Input options.</param>
         public void TypeText(WindowInfo windowInfo, string text, WindowInputOptions options) {
             WindowInputService.TypeText(windowInfo, text, options);
+        }
+
+        /// <summary>
+        /// Sends keys to the specified window.
+        /// </summary>
+        /// <param name="windowInfo">The target window.</param>
+        /// <param name="keys">Keys to send.</param>
+        public void SendKeys(WindowInfo windowInfo, params VirtualKey[] keys) {
+            WindowInputService.SendKeys(windowInfo, keys);
+        }
+
+        /// <summary>
+        /// Sends keys to the specified window using input options.
+        /// </summary>
+        /// <param name="windowInfo">The target window.</param>
+        /// <param name="keys">Keys to send.</param>
+        /// <param name="options">Input options.</param>
+        public void SendKeys(WindowInfo windowInfo, IReadOnlyList<VirtualKey> keys, WindowInputOptions options) {
+            WindowInputService.SendKeys(windowInfo, keys, options);
         }
 
         /// <summary>

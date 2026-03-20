@@ -435,6 +435,26 @@ public sealed class DesktopWindowTargetDefinition {
     public double? YRatio { get; set; }
 
     /// <summary>
+    /// Gets or sets the optional target area width in pixels.
+    /// </summary>
+    public int? Width { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional target area height in pixels.
+    /// </summary>
+    public int? Height { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional target area width ratio from 0 to 1.
+    /// </summary>
+    public double? WidthRatio { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional target area height ratio from 0 to 1.
+    /// </summary>
+    public double? HeightRatio { get; set; }
+
+    /// <summary>
     /// Gets or sets whether the target is relative to the client area.
     /// </summary>
     public bool ClientArea { get; set; }
@@ -565,6 +585,16 @@ public sealed class DesktopResolvedWindowTarget {
     public int RelativeY { get; set; }
 
     /// <summary>
+    /// Gets or sets the resolved width relative to the selected bounds when the target defines an area.
+    /// </summary>
+    public int? RelativeWidth { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved height relative to the selected bounds when the target defines an area.
+    /// </summary>
+    public int? RelativeHeight { get; set; }
+
+    /// <summary>
     /// Gets or sets the resolved screen-space X coordinate.
     /// </summary>
     public int ScreenX { get; set; }
@@ -573,6 +603,16 @@ public sealed class DesktopResolvedWindowTarget {
     /// Gets or sets the resolved screen-space Y coordinate.
     /// </summary>
     public int ScreenY { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved screen-space width when the target defines an area.
+    /// </summary>
+    public int? ScreenWidth { get; set; }
+
+    /// <summary>
+    /// Gets or sets the resolved screen-space height when the target defines an area.
+    /// </summary>
+    public int? ScreenHeight { get; set; }
 }
 
 /// <summary>

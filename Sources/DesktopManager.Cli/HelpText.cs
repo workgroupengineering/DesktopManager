@@ -18,6 +18,7 @@ Groups:
   control-target Save and resolve reusable control selector targets
   layout     Save, apply, and list named layouts
   snapshot   Save, restore, and list named snapshots
+  workflow   Run higher-level desktop workflows
   mcp        Host an MCP server over stdio
   help       Show help for a command group
 
@@ -26,6 +27,7 @@ Examples:
   desktopmanager window wait --process notepad --timeout-ms 5000
   desktopmanager control list --window-process notepad
   desktopmanager process start notepad.exe --wait-for-input-idle-ms 1000
+  desktopmanager process start-and-wait notepad.exe --timeout-ms 5000
   desktopmanager screenshot desktop
   desktopmanager target save editor-center --x-ratio 0.5 --y-ratio 0.5 --client-area
   desktopmanager control-target save edge-address --control-type Edit --background-text --uia
@@ -33,6 +35,7 @@ Examples:
   desktopmanager monitor list --json
   desktopmanager layout save coding
   desktopmanager layout apply coding --validate
+  desktopmanager layout assert coding --position-tolerance-px 50 --size-tolerance-px 50
   desktopmanager snapshot save workday
   desktopmanager snapshot restore workday
 
@@ -46,6 +49,7 @@ Use:
   desktopmanager help control-target
   desktopmanager help layout
   desktopmanager help snapshot
+  desktopmanager help workflow
   desktopmanager help mcp
 """;
     }
@@ -57,14 +61,15 @@ Window commands:
   desktopmanager window geometry [selector] [--all] [--json]
   desktopmanager window exists [selector] [--json]
   desktopmanager window active-matches [selector] [--json]
-  desktopmanager window move [selector] [--monitor <index>] [--x <value>] [--y <value>] [--width <value>] [--height <value>] [--activate] [--all] [--json]
-  desktopmanager window click [selector] ((--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) | --target <name>) [--button <left|right>] [--activate] [--client-area] [--all] [--json]
-  desktopmanager window drag [selector] (((--start-x <value> --start-y <value>) | (--start-x-ratio <value> --start-y-ratio <value>)) ((--end-x <value> --end-y <value>) | (--end-x-ratio <value> --end-y-ratio <value>)) | (--start-target <name> --end-target <name>)) [--button <left|right>] [--step-delay-ms <value>] [--activate] [--client-area] [--all] [--json]
-  desktopmanager window scroll [selector] ((--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) | --target <name>) --delta <value> [--activate] [--client-area] [--all] [--json]
-  desktopmanager window focus [selector] [--all] [--json]
-  desktopmanager window minimize [selector] [--all] [--json]
-  desktopmanager window snap [selector] --position <left|right|top-left|top-right|bottom-left|bottom-right> [--all] [--json]
-  desktopmanager window type [selector] --text <value> [--paste] [--delay-ms <value>] [--all] [--json]
+  desktopmanager window move [selector] [--monitor <index>] [--x <value>] [--y <value>] [--width <value>] [--height <value>] [--activate] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager window click [selector] ((--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) | --target <name>) [--button <left|right>] [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager window drag [selector] (((--start-x <value> --start-y <value>) | (--start-x-ratio <value> --start-y-ratio <value>)) ((--end-x <value> --end-y <value>) | (--end-x-ratio <value> --end-y-ratio <value>)) | (--start-target <name> --end-target <name>)) [--button <left|right>] [--step-delay-ms <value>] [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager window scroll [selector] ((--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) | --target <name>) --delta <value> [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager window focus [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager window minimize [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager window snap [selector] --position <left|right|top-left|top-right|bottom-left|bottom-right> [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager window type [selector] --text <value> [--paste] [--delay-ms <value>] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager window keys [selector] --keys <value>[,<value>...] [--no-activate] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
   desktopmanager window wait [selector] [--timeout-ms <value>] [--interval-ms <value>] [--all] [--json]
 
 Selectors:
@@ -75,6 +80,9 @@ Selectors:
   --handle <value>
   --active
   --include-empty
+  --capture-before
+  --capture-after
+  --artifact-directory <path>
 
 Examples:
   desktopmanager window list --title "*Notepad*" --json
@@ -94,6 +102,7 @@ Examples:
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --activate
   desktopmanager window snap --process notepad --position left
   desktopmanager window type --process notepad --text "Hello world"
+  desktopmanager window keys --process msedge --keys VK_RETURN
   desktopmanager window wait --process notepad --timeout-ms 5000
 """;
     }
@@ -101,7 +110,7 @@ Examples:
     public static string GetTargetHelp() {
         return """
 Target commands:
-  desktopmanager target save <name> (--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) [--client-area] [--description <text>] [--json]
+  desktopmanager target save <name> (--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) [(--width <value> --height <value>) | (--width-ratio <value> --height-ratio <value>)] [--client-area] [--description <text>] [--json]
   desktopmanager target get <name> [--json]
   desktopmanager target list [--json]
   desktopmanager target resolve <name> [selector] [--all] [--json]
@@ -117,6 +126,7 @@ Selectors:
 
 Examples:
   desktopmanager target save editor-center --x-ratio 0.5 --y-ratio 0.5 --client-area
+  desktopmanager target save edge-editor-pane --x-ratio 0.1 --y-ratio 0.15 --width-ratio 0.8 --height-ratio 0.7 --client-area
   desktopmanager target save browser-top-right --x-ratio 0.9 --y-ratio 0.1 --client-area --description "Toolbar area"
   desktopmanager target get editor-center --json
   desktopmanager target list
@@ -177,10 +187,11 @@ Control commands:
   desktopmanager control list [window-selector] ([control-selector] | --target <name>) [--all] [--all-windows] [--json]
   desktopmanager control diagnose [window-selector] ([control-selector] | --target <name>) [--sample-limit <value>] [--action-probe] [--all-windows] [--json]
   desktopmanager control exists [window-selector] ([control-selector] | --target <name>) [--all] [--all-windows] [--json]
+  desktopmanager control assert-value [window-selector] ([control-selector] | --target <name>) --expected-value <value> [--contains] [--all] [--all-windows] [--json]
   desktopmanager control wait [window-selector] ([control-selector] | --target <name>) [--timeout-ms <value>] [--interval-ms <value>] [--all] [--all-windows] [--json]
-  desktopmanager control click [window-selector] ([control-selector] | --target <name>) [--button <left|right>] [--all] [--all-windows] [--json]
-  desktopmanager control set-text [window-selector] ([control-selector] | --target <name>) --text <value> [--allow-foreground-input] [--all] [--all-windows] [--json]
-  desktopmanager control send-keys [window-selector] ([control-selector] | --target <name>) --keys <VK_A,VK_B> [--keys <VK_C>] [--allow-foreground-input] [--all] [--all-windows] [--json]
+  desktopmanager control click [window-selector] ([control-selector] | --target <name>) [--button <left|right>] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--all-windows] [--json]
+  desktopmanager control set-text [window-selector] ([control-selector] | --target <name>) --text <value> [--allow-foreground-input] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--all-windows] [--json]
+  desktopmanager control send-keys [window-selector] ([control-selector] | --target <name>) --keys <VK_A,VK_B> [--keys <VK_C>] [--allow-foreground-input] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--all-windows] [--json]
 
 Window selectors:
   --window-title <pattern>
@@ -213,6 +224,11 @@ Control selectors:
   --allow-foreground-input
   --action-probe
   --target <name>
+  --expected-value <value>
+  --contains
+  --capture-before
+  --capture-after
+  --artifact-directory <path>
 
 Examples:
   desktopmanager control list --window-process notepad --json
@@ -221,6 +237,7 @@ Examples:
   desktopmanager control diagnose --window-process msedge --uia --ensure-foreground --sample-limit 5 --json
   desktopmanager control diagnose --window-title "Codex" --target codex-sidebar-toggle --sample-limit 5 --json
   desktopmanager control exists --window-active --uia --control-type Button --text-pattern "Hide sidebar" --enabled --focusable --ensure-foreground
+  desktopmanager control assert-value --window-process msedge --target edge-address --expected-value "https://evotec.xyz" --contains
   desktopmanager control list --window-process msedge --uia --background-click --json
   desktopmanager control list --window-process msedge --uia --foreground-fallback --json
   desktopmanager control list --window-title "Codex" --target codex-sidebar-toggle --json
@@ -234,6 +251,33 @@ Examples:
   desktopmanager control click --window-process notepad --class Edit
   desktopmanager control set-text --window-process notepad --class Edit --text "Hello world"
   desktopmanager control send-keys --window-process notepad --class Edit --keys VK_CONTROL,VK_A
+""";
+    }
+
+    public static string GetWorkflowHelp() {
+        return """
+Workflow commands:
+  desktopmanager workflow prepare-coding [--layout <name>] [focus-selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--json]
+  desktopmanager workflow prepare-screen-sharing [--layout <name>] [focus-selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--json]
+  desktopmanager workflow clean-up-distractions [--capture-before] [--capture-after] [--artifact-directory <path>] [--json]
+
+Focus selectors:
+  --title <pattern>
+  --process <pattern>
+  --class <pattern>
+  --pid <id>
+  --handle <value>
+  --active
+  --include-empty
+  --capture-before
+  --capture-after
+  --artifact-directory <path>
+
+Examples:
+  desktopmanager workflow prepare-coding --layout coding
+  desktopmanager workflow prepare-coding --process code --capture-after --json
+  desktopmanager workflow prepare-screen-sharing --layout meeting --process msedge --capture-before --capture-after --json
+  desktopmanager workflow clean-up-distractions --capture-after --json
 """;
     }
 
@@ -253,11 +297,13 @@ Examples:
         return """
 Process commands:
   desktopmanager process start <file> [--arguments <text>] [--working-directory <path>] [--wait-for-input-idle-ms <value>] [--wait-for-window-ms <value>] [--wait-for-window-interval-ms <value>] [--window-title <pattern>] [--window-class <pattern>] [--require-window] [--json]
+  desktopmanager process start-and-wait <file> [--arguments <text>] [--working-directory <path>] [--wait-for-input-idle-ms <value>] [--launch-wait-for-window-ms <value>] [--launch-wait-for-window-interval-ms <value>] [--launch-window-title <pattern>] [--launch-window-class <pattern>] [--window-title <pattern>] [--window-class <pattern>] [--include-hidden] [--include-empty] [--timeout-ms <value>] [--interval-ms <value>] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
 
 Examples:
   desktopmanager process start notepad.exe --wait-for-input-idle-ms 1000
   desktopmanager process start notepad.exe --wait-for-window-ms 5000
   desktopmanager process start notepad.exe --wait-for-window-ms 5000 --window-title "Untitled - Notepad" --require-window
+  desktopmanager process start-and-wait notepad.exe --window-title "*Notepad*" --timeout-ms 5000 --capture-after --json
   desktopmanager process start code --arguments "." --working-directory C:\Support\GitHub\DesktopManager
 """;
     }
@@ -266,13 +312,16 @@ Examples:
         return """
 Screenshot commands:
   desktopmanager screenshot desktop [--monitor <index>] [--device-id <value>] [--device-name <value>] [--left <value> --top <value> --width <value> --height <value>] [--output <path>] [--json]
-  desktopmanager screenshot window [selector] [--active] [--output <path>] [--json]
+  desktopmanager screenshot window [selector] [--target <name>] [--active] [--output <path>] [--json]
+  desktopmanager screenshot target <name> [selector] [--active] [--output <path>] [--json]
 
 Examples:
   desktopmanager screenshot desktop
   desktopmanager screenshot desktop --monitor 0 --output .\monitor0.png
   desktopmanager screenshot window --active --output .\active-window.png
   desktopmanager screenshot window --process notepad --output .\notepad.png
+  desktopmanager screenshot window --process msedge --target edge-editor-pane --output .\edge-editor-pane.png
+  desktopmanager screenshot target edge-editor-pane --process msedge --json
 """;
     }
 
@@ -281,6 +330,7 @@ Examples:
 Layout commands:
   desktopmanager layout save <name> [--json]
   desktopmanager layout apply <name> [--validate] [--json]
+  desktopmanager layout assert <name> [--position-tolerance-px <value>] [--size-tolerance-px <value>] [--ignore-state] [--include-hidden] [--include-empty] [--capture-before] [--capture-after] [--artifact-directory <path>] [--json]
   desktopmanager layout list [--json]
 
 Named layouts are stored under the current user's AppData profile.
@@ -302,9 +352,13 @@ to grow into broader desktop state capture later.
     public static string GetMcpHelp() {
         return """
 MCP commands:
-  desktopmanager mcp serve
+  desktopmanager mcp serve [--read-only] [--allow-mutations] [--allow-process <pattern>] [--deny-process <pattern>] [--allow-foreground-input] [--dry-run] [--json]
 
 This command group hosts a stdio MCP server that exposes tools, resources, and prompts.
+By default the server is read-only. Use --allow-mutations to enable mutating tools.
+Use --allow-process and --deny-process to constrain live desktop mutations to specific process patterns.
+Use --allow-foreground-input only when you intentionally want focused foreground fallback
+for zero-handle UIA text or key actions. Use --dry-run to preview mutating calls safely.
 """;
     }
 }

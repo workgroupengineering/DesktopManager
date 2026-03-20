@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading;
@@ -115,6 +116,53 @@ public static class WindowInputService {
         }
 
         EnsureTextApplied(window, text);
+
+        if (settings.RestoreFocus && previousForeground != IntPtr.Zero && previousForeground != window.Handle) {
+            MonitorNativeMethods.SetForegroundWindow(previousForeground);
+        }
+    }
+
+    /// <summary>
+    /// Sends one or more keys to the specified window.
+    /// </summary>
+    /// <param name="window">Target window.</param>
+    /// <param name="keys">Keys to send.</param>
+    public static void SendKeys(WindowInfo window, params VirtualKey[] keys) {
+        SendKeys(window, keys, null);
+    }
+
+    /// <summary>
+    /// Sends one or more keys to the specified window using input options.
+    /// </summary>
+    /// <param name="window">Target window.</param>
+    /// <param name="keys">Keys to send.</param>
+    /// <param name="options">Input options.</param>
+    public static void SendKeys(WindowInfo window, IReadOnlyList<VirtualKey> keys, WindowInputOptions? options) {
+        ValidateWindow(window);
+        if (keys == null) {
+            throw new ArgumentNullException(nameof(keys));
+        }
+        if (keys.Count == 0) {
+            throw new ArgumentException("No keys specified", nameof(keys));
+        }
+
+        WindowInputOptions settings = options ?? new WindowInputOptions();
+        NormalizeOptions(settings);
+
+        IntPtr previousForeground = IntPtr.Zero;
+        if (settings.ActivateWindow || settings.RestoreFocus) {
+            previousForeground = MonitorNativeMethods.GetForegroundWindow();
+        }
+
+        if (settings.ActivateWindow) {
+            TryActivateWindow(window.Handle, settings.ActivationRetryCount, settings.ActivationRetryDelayMilliseconds);
+        }
+
+        if (MonitorNativeMethods.GetForegroundWindow() != window.Handle) {
+            throw new InvalidOperationException("Window must own the foreground before sending window-level keys.");
+        }
+
+        KeyboardInputService.SendToForeground(keys is VirtualKey[] keyArray ? keyArray : keys.ToArray());
 
         if (settings.RestoreFocus && previousForeground != IntPtr.Zero && previousForeground != window.Handle) {
             MonitorNativeMethods.SetForegroundWindow(previousForeground);

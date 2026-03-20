@@ -10,6 +10,9 @@ namespace DesktopManager;
 internal sealed class UiAutomationControlService {
     private const int EnumeratedControlsCacheMilliseconds = 750;
     private const int ActionMatchCacheMilliseconds = 5000;
+    private const int ForegroundTextVerificationMilliseconds = 1000;
+    private const int ForegroundTextVerificationIntervalMilliseconds = 50;
+    private const int ForegroundInputSettleMilliseconds = 75;
     private static readonly ConcurrentDictionary<IntPtr, IntPtr> PreferredSearchRoots = new();
     private static readonly ConcurrentDictionary<string, CachedControlCollection> EnumeratedControlsCache = new();
     private static readonly ConcurrentDictionary<string, CachedActionMatch> ActionMatchCache = new();
@@ -440,9 +443,19 @@ internal sealed class UiAutomationControlService {
             return false;
         }
 
+        if (TryReplaceFocusedTextWithPaste(window, control, value)) {
+            return true;
+        }
+
         KeyboardInputService.SendToForeground(VirtualKey.VK_CONTROL, VirtualKey.VK_A);
-        KeyboardInputService.SendTextToForeground(value);
-        return true;
+        Thread.Sleep(ForegroundInputSettleMilliseconds);
+        if (value.Length == 0) {
+            KeyboardInputService.SendToForeground(VirtualKey.VK_DELETE);
+        } else {
+            KeyboardInputService.SendTextToForeground(value);
+        }
+
+        return WaitForResolvedValue(window, control, value);
     }
 
     private bool TrySendKeysCore(WindowInfo window, WindowControlInfo control, IReadOnlyList<VirtualKey> keys, bool ensureForegroundWindow) {
@@ -1034,7 +1047,7 @@ internal sealed class UiAutomationControlService {
             SupportsBackgroundClick = hasNativeHandle || hasInvokeAction,
             SupportsBackgroundText = hasNativeHandle || hasDirectTextAction,
             SupportsBackgroundKeys = hasNativeHandle,
-            SupportsForegroundInputFallback = !hasNativeHandle && (isKeyboardFocusable ?? false),
+            SupportsForegroundInputFallback = SupportsForegroundFallback(hasNativeHandle, isKeyboardFocusable, isEnabled, controlType, className),
             Left = left,
             Top = top,
             Width = width,
@@ -1048,6 +1061,65 @@ internal sealed class UiAutomationControlService {
             ReadPatternValue(element, "System.Windows.Automation.RangeValuePattern") ??
             ReadPatternValue(element, "System.Windows.Automation.LegacyIAccessiblePattern") ??
             string.Empty;
+    }
+
+    private bool TryReplaceFocusedTextWithPaste(WindowInfo window, WindowControlInfo control, string value) {
+        string clipboardBackup = string.Empty;
+        bool restoreClipboard = false;
+
+        try {
+            restoreClipboard = ClipboardHelper.TryGetText(out clipboardBackup);
+            ClipboardHelper.SetText(value);
+        } catch {
+            return false;
+        }
+
+        try {
+            KeyboardInputService.SendToForeground(VirtualKey.VK_CONTROL, VirtualKey.VK_A);
+            Thread.Sleep(ForegroundInputSettleMilliseconds);
+            KeyboardInputService.SendToForeground(VirtualKey.VK_CONTROL, VirtualKey.VK_V);
+            return WaitForResolvedValue(window, control, value);
+        } finally {
+            if (restoreClipboard) {
+                try {
+                    ClipboardHelper.SetText(clipboardBackup);
+                } catch {
+                    // Preserve the successful input result even if clipboard restoration fails.
+                }
+            }
+        }
+    }
+
+    private bool WaitForResolvedValue(WindowInfo window, WindowControlInfo control, string expectedValue) {
+        DateTime deadlineUtc = DateTime.UtcNow.AddMilliseconds(ForegroundTextVerificationMilliseconds);
+        while (DateTime.UtcNow <= deadlineUtc) {
+            string? currentValue = TryReadResolvedValue(window, control);
+            if (currentValue != null && string.Equals(currentValue, expectedValue, StringComparison.Ordinal)) {
+                control.Value = expectedValue;
+                if (string.IsNullOrWhiteSpace(control.Text) || IsLikelyEditableControl(control.ControlType, control.ClassName)) {
+                    control.Text = expectedValue;
+                }
+
+                return true;
+            }
+
+            Thread.Sleep(ForegroundTextVerificationIntervalMilliseconds);
+        }
+
+        return false;
+    }
+
+    private string? TryReadResolvedValue(WindowInfo window, WindowControlInfo control) {
+        UiAutomationElementMatchResult refreshedMatch = ResolveMatchingElement(window.Handle, control);
+        if (refreshedMatch.Element == null) {
+            return null;
+        }
+
+        try {
+            return ReadValue(refreshedMatch.Element);
+        } catch {
+            return null;
+        }
     }
 
     private bool HasPattern(object element, string patternTypeName) {
@@ -1094,6 +1166,30 @@ internal sealed class UiAutomationControlService {
 
     private static string ReadString(object instance, string propertyName) {
         return instance.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance)?.GetValue(instance) as string ?? string.Empty;
+    }
+
+    internal static bool SupportsForegroundFallback(bool hasNativeHandle, bool? isKeyboardFocusable, bool? isEnabled, string controlType, string className) {
+        if (hasNativeHandle) {
+            return false;
+        }
+
+        if (isEnabled.HasValue && !isEnabled.Value) {
+            return false;
+        }
+
+        if (isKeyboardFocusable.HasValue) {
+            return isKeyboardFocusable.Value;
+        }
+
+        return IsLikelyEditableControl(controlType, className);
+    }
+
+    internal static bool IsLikelyEditableControl(string controlType, string className) {
+        return string.Equals(controlType, "Edit", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(controlType, "Document", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(controlType, "ComboBox", StringComparison.OrdinalIgnoreCase) ||
+            className.IndexOf("Edit", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            className.IndexOf("TextBox", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static int ReadInt32(object instance, string propertyName) {

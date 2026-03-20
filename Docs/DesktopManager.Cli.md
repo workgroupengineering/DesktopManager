@@ -17,6 +17,7 @@ desktopmanager window exists
 desktopmanager window active-matches
 desktopmanager window wait
 desktopmanager window type
+desktopmanager window keys
 desktopmanager window move
 desktopmanager window click
 desktopmanager window drag
@@ -36,9 +37,11 @@ desktopmanager control send-keys
 desktopmanager monitor list
 
 desktopmanager process start
+desktopmanager process start-and-wait
 
 desktopmanager screenshot desktop
 desktopmanager screenshot window
+desktopmanager screenshot target
 
 desktopmanager target save
 desktopmanager target get
@@ -52,13 +55,21 @@ desktopmanager control-target resolve
 
 desktopmanager layout save
 desktopmanager layout apply
+desktopmanager layout assert
 desktopmanager layout list
 
 desktopmanager snapshot save
 desktopmanager snapshot restore
 desktopmanager snapshot list
 
+desktopmanager workflow prepare-coding
+desktopmanager workflow prepare-screen-sharing
+desktopmanager workflow clean-up-distractions
+
 desktopmanager mcp serve
+desktopmanager mcp serve --allow-mutations
+desktopmanager mcp serve --allow-mutations --allow-process notepad
+desktopmanager mcp serve --dry-run
 ```
 
 ## Current behavior
@@ -72,9 +83,11 @@ desktopmanager mcp serve
 - snapshots currently reuse the window layout format and are therefore windows-only for now.
 - `process start` launches a desktop application and can optionally wait for input idle and for a launched window to appear.
 - `process start` can now also validate the launched window by title or class and optionally require that a real matching window be found before returning.
+- `process start-and-wait` now packages the safer unattended launch flow: start the app, bind the follow-up wait to the launched process, return the resolved window result, and optionally capture before/after evidence.
 - `window wait` polls for a matching window and returns when one appears.
 - `window exists` and `window active-matches` provide non-mutating verification commands.
 - `control exists` and `control wait` provide the same inspect-first verification model for controls.
+- `control assert-value` adds a stronger reusable assertion when a workflow depends on the resolved field content, not just control presence.
 - `control diagnose` explains which discovery path was used, how many Win32 and UIA controls were actually found, and what each probed UIA root returned.
 - `control diagnose` can now also take `--target <name>`, so saved control targets and ad-hoc selectors share the same diagnostics path.
 - `control diagnose --action-probe` adds a read-only UIA action-resolution probe for the first matched UIA control, so you can verify cached action-match reuse without clicking anything.
@@ -88,13 +101,24 @@ desktopmanager mcp serve
 - `control set-text` and handle-backed `control send-keys` now use shared direct-to-control message routing instead of relying on foreground focus.
 - UIA control actions now reuse the same shared fallback-root search strategy as UIA discovery, which reduces “listed but not actionable” mismatches when modern apps expose controls under Chromium-style child roots.
 - zero-handle UIA text and key fallback paths are now shared too, but they are intentionally opt-in because they rely on focused foreground input for modern apps.
+- when zero-handle UIA text fallback is enabled, the shared library now prefers a focused replace-and-paste flow with verification before it falls back to raw typed input, which is notably more reliable for Chromium-style edit fields.
 - `window type` sends text to the target window, either by simulated typing or clipboard paste.
+- `window keys` sends key chords or single keys to the target window after activating it, which is the safer shared follow-up path for Enter, Escape, and similar actions when modern controls stop being structurally reusable after text entry.
+- mutating `window` and `control` commands can now return shared verification metadata: `success`, `elapsedMilliseconds`, `safetyMode`, optional target name/kind, best-effort before/after screenshots, and artifact warnings.
+- those mutating commands now also accept `--capture-before`, `--capture-after`, and `--artifact-directory` so CLI, MCP, and agent workflows can ask for evidence without changing the core action logic.
+- `workflow prepare-coding` can optionally apply a named layout and then focus a likely editor or terminal window.
+- `workflow prepare-screen-sharing` can optionally apply a named layout, minimize common distractions, and then focus a likely sharing window.
+- `workflow clean-up-distractions` exposes the same shared distraction-minimizing logic as a standalone structured step.
+- workflow results can include `resolvedWindow` for the explicit target window when the workflow can resolve it, but callers should still treat focus and target resolution as best-effort and rely on `Notes` when Windows blocks the normal path.
+- `layout assert` now verifies that the current desktop satisfies a saved named layout within configurable geometry tolerances and optional state matching, which makes saved layouts reusable as assertions instead of restore-only state.
 - `window click`, `window drag`, and `window scroll` provide shared window-relative fallbacks for modern apps when structural control discovery is unavailable.
 - `window` commands support exact handle targeting and active-window targeting for safer selection when multiple windows match.
 - `window geometry` returns both outer-window and client-area bounds, which makes screenshot-assisted targeting much easier.
 - `window click`, `window drag`, and `window scroll` now also support normalized ratios from `0` to `1` for less brittle targeting.
 - `target save` lets you persist a reusable client-area or window-relative point once and reuse it from `window click`, `window drag`, and `window scroll`.
+- `target save` can now also persist a reusable target area via `width`/`height` or `widthRatio`/`heightRatio`, which makes screenshot-assisted visual targeting much more reusable.
 - `target resolve` shows the exact screen-space point a named target maps to for a live window.
+- `screenshot target` and `screenshot window --target <name>` can now capture a resolved named target area directly.
 - `control-target save` lets you persist a reusable control selector and capability profile once, then resolve it later against live windows.
 - `control-target resolve` shows which live control a saved target matches, including its current capabilities and parent window.
 - `control click`, `control set-text`, and `control send-keys` can now reuse a saved control target via `--target`.
@@ -108,15 +132,26 @@ desktopmanager mcp serve
 - `process start` now prefers windows from the launched process and then newer post-launch window handles for the target app, which is safer than binding to any older matching window.
 - `process start --require-window` is now a useful shared primitive for unattended workflows that need a validated target window instead of a best-effort launcher result.
 - `mcp serve` hosts a stdio MCP server.
+- `mcp serve` now defaults to read-only inspection so agents can connect safely before any mutation is enabled.
+- `mcp serve --allow-mutations` enables mutating MCP tools for an intentional session.
+- `mcp serve --allow-process <pattern>` and `--deny-process <pattern>` constrain live desktop mutations to specific process patterns.
+- `mcp serve --allow-foreground-input` is a second explicit opt-in for zero-handle UIA text/key fallback that may need focused foreground input.
+- `mcp serve --dry-run` previews mutating tool calls without changing desktop or saved state.
+- when process filters are active, broad layout/snapshot/workflow mutations that cannot be scoped to one process are intentionally blocked.
 
 ## Why this shape
 
 - `window`, `monitor`, `layout`, and `snapshot` scale better than flat verbs.
 - `process` and `screenshot` add the first inspect-launch-wait loop needed for desktop automation.
+- `process start-and-wait` turns that inspect-launch-wait loop into one shared structured result instead of leaving the correlation logic to every caller.
 - `control` and `window type` add the first direct interaction layer for classic desktop controls.
+- `window keys` rounds out the shared whole-window input path for accelerators and commit keys without forcing agents back into ad-hoc foreground hacks.
 - `window click`, `window drag`, and `window scroll` give CLI, MCP, and PowerShell the same coordinate-based fallback path when UIA-heavy apps stay opaque.
 - `target` turns screenshot-assisted coordinate fallback into reusable state instead of one-off manual ratios.
+- area-capable `target` definitions now let the shared core reuse visual regions, not just click points.
 - `control-target` turns modern-app control discovery into reusable state instead of repeating long UIA selector sets each time.
+- `workflow` packages a few multi-step desktop routines into shared structured results instead of leaving them as prompts or one-off agent logic.
+- `layout assert` turns named layouts into reusable verification assets, not just restore assets.
 - when a saved control target points at a modern Chromium-style app, the first resolution can still take a couple of seconds because shared UIA discovery is the expensive part of the workflow.
 - those fallbacks now also support client-area coordinates, which are usually a better fit for browser and editor content than raw outer-window coordinates.
 - screenshot JSON now includes window geometry metadata for window captures, so agents can map screenshots to client-area coordinates without extra probing.
@@ -132,3 +167,24 @@ desktopmanager mcp serve
 - preferred UIA root reuse only helps inside a long-lived process like MCP or an in-process wait loop. Separate one-shot CLI invocations still start fresh.
 - the short-lived UIA control cache is also process-local, so it mainly helps MCP, in-process waits, and repeated diagnostics inside the same host session.
 - For opaque modern apps, the most reliable fallback flow is now: `screenshot window --json`, inspect `Geometry`, then use ratio-based `window click`, `window drag`, or `window scroll` with `--client-area`.
+
+## Screenshot-Assisted Target Flow
+
+When a modern app exposes unstable structure, prefer this repeatable flow:
+
+```text
+desktopmanager screenshot window --process msedge --json
+desktopmanager target save edge-editor-pane --x-ratio 0.1 --y-ratio 0.15 --width-ratio 0.8 --height-ratio 0.7 --client-area
+desktopmanager target resolve edge-editor-pane --process msedge --json
+desktopmanager screenshot target edge-editor-pane --process msedge --json
+desktopmanager window click --process msedge --target edge-editor-pane
+```
+
+For reusable drags or scrolling, save more than one target and then reuse them from `window drag` or `window scroll` instead of repeating raw coordinates.
+
+When you want mutation evidence too, add artifact flags to the action step:
+
+```text
+desktopmanager control set-text --window-process msedge --target edge-address --text "https://evotec.xyz" --allow-foreground-input --capture-before --capture-after --json
+desktopmanager window click --process msedge --target edge-editor-center --capture-before --capture-after --artifact-directory .\artifacts --json
+```

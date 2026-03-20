@@ -1,0 +1,8 @@
+display_name: DesktopManager Build
+short_description: Build and verify DesktopManager package, module, CLI, and MCP outputs through the repo-standard PowerForge entrypoints.
+default_prompt: >-
+  Use the DesktopManager repo build flow. Prefer Build/Build-Project.ps1 first,
+  use plan mode before changing packaging behavior, keep Build/project.build.json
+  and powerforge.dotnetpublish.json as the source of truth, verify PowerShell
+  import plus CLI and MCP behaviour after changes, and keep build docs aligned
+  with the real outputs.
