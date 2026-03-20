@@ -719,11 +719,12 @@ public class McpServerEndToEndTests {
                 Assert.Inconclusive($"Edge did not expose a reusable omnibox control through MCP in this session, so the experimental foreground-input success harness could not complete. Diagnostic bundle: {bundlePath}");
             }
 
+            string resolvedNavigationSafetyMode = navigationSafetyMode!;
             Assert.IsTrue(
-                navigationSafetyMode.IndexOf("foreground", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                string.Equals(navigationSafetyMode, "window-key-input", StringComparison.OrdinalIgnoreCase),
+                resolvedNavigationSafetyMode.IndexOf("foreground", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                string.Equals(resolvedNavigationSafetyMode, "window-key-input", StringComparison.OrdinalIgnoreCase),
                 "Expected the Edge navigation safety mode to reflect either explicit foreground control input or the shared window-level key fallback.");
-            decisionTrace.Add("Navigation safety mode: " + navigationSafetyMode);
+            decisionTrace.Add("Navigation safety mode: " + resolvedNavigationSafetyMode);
 
             try {
                 JsonElement targetWindowWait = client.CallTool(requestId++, "wait_for_window", new {
