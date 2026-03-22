@@ -554,15 +554,7 @@ internal static partial class DesktopOperations {
                 RequireWindow = requireWindow
             });
 
-            return new ProcessLaunchResult {
-                FilePath = result.FilePath,
-                Arguments = result.Arguments,
-                WorkingDirectory = result.WorkingDirectory,
-                ProcessId = result.ProcessId,
-                ResolvedProcessId = result.ResolvedProcessId,
-                HasExited = result.HasExited,
-                MainWindow = result.MainWindow == null ? null : MapWindow(result.MainWindow)
-            };
+            return BuildProcessLaunchResult(result);
         });
     }
 
@@ -652,6 +644,18 @@ internal static partial class DesktopOperations {
         };
     }
 
+    internal static ProcessLaunchResult BuildProcessLaunchResult(DesktopProcessLaunchInfo result) {
+        return new ProcessLaunchResult {
+            FilePath = result.FilePath,
+            Arguments = result.Arguments,
+            WorkingDirectory = result.WorkingDirectory,
+            ProcessId = result.ProcessId,
+            ResolvedProcessId = result.ResolvedProcessId,
+            HasExited = result.HasExited,
+            MainWindow = result.MainWindow == null ? null : MapWindow(result.MainWindow)
+        };
+    }
+
     private static WindowResult MapWindow(WindowInfo window) {
         return new WindowResult {
             Title = window.Title,
@@ -670,7 +674,7 @@ internal static partial class DesktopOperations {
         };
     }
 
-    private static WindowGeometryResult MapWindowGeometry(DesktopWindowGeometry geometry) {
+    internal static WindowGeometryResult MapWindowGeometry(DesktopWindowGeometry geometry) {
         return new WindowGeometryResult {
             Window = MapWindow(geometry.Window),
             WindowLeft = geometry.WindowLeft,
@@ -740,7 +744,7 @@ internal static partial class DesktopOperations {
         };
     }
 
-    private static ResolvedWindowTargetResult MapResolvedWindowTarget(DesktopResolvedWindowTarget target) {
+    internal static ResolvedWindowTargetResult MapResolvedWindowTarget(DesktopResolvedWindowTarget target) {
         return new ResolvedWindowTargetResult {
             Name = target.Name,
             Target = MapWindowTargetDefinition(target.Definition),
@@ -757,7 +761,7 @@ internal static partial class DesktopOperations {
         };
     }
 
-    private static ResolvedControlTargetResult MapResolvedControlTarget(DesktopResolvedControlTarget target) {
+    internal static ResolvedControlTargetResult MapResolvedControlTarget(DesktopResolvedControlTarget target) {
         return new ResolvedControlTargetResult {
             Name = target.Name,
             Target = MapControlTargetDefinition(target.Definition),
@@ -796,7 +800,7 @@ internal static partial class DesktopOperations {
         };
     }
 
-    private static ControlDiagnosticResult MapControlDiagnostics(DesktopControlDiscoveryDiagnostics diagnostics) {
+    internal static ControlDiagnosticResult MapControlDiagnostics(DesktopControlDiscoveryDiagnostics diagnostics) {
         return new ControlDiagnosticResult {
             Window = MapWindow(diagnostics.Window),
             RequiresUiAutomation = diagnostics.RequiresUiAutomation,
@@ -937,7 +941,7 @@ internal static partial class DesktopOperations {
             !string.IsNullOrWhiteSpace(criteria.Handle);
     }
 
-    private static WindowQueryOptions CreateWindowQuery(WindowSelectionCriteria criteria) {
+    internal static WindowQueryOptions CreateWindowQuery(WindowSelectionCriteria criteria) {
         return new WindowQueryOptions {
             TitlePattern = criteria.TitlePattern,
             ProcessNamePattern = criteria.ProcessNamePattern,
@@ -952,7 +956,7 @@ internal static partial class DesktopOperations {
         };
     }
 
-    private static WindowControlQueryOptions CreateControlQuery(ControlSelectionCriteria criteria) {
+    internal static WindowControlQueryOptions CreateControlQuery(ControlSelectionCriteria criteria) {
         return new WindowControlQueryOptions {
             ClassNamePattern = criteria.ClassNamePattern,
             TextPattern = criteria.TextPattern,

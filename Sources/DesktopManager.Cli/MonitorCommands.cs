@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DesktopManager.Cli;
@@ -22,7 +23,11 @@ internal static class MonitorCommands {
             return 0;
         }
 
-        var rows = results
+        return WriteMonitorResults(results, Console.Out);
+    }
+
+    internal static int WriteMonitorResults(IReadOnlyList<MonitorResult> results, TextWriter writer) {
+        IReadOnlyList<IReadOnlyList<string>> rows = results
             .Select(monitor => (IReadOnlyList<string>)new[] {
                 monitor.Index.ToString(),
                 monitor.IsPrimary ? "Yes" : "No",
@@ -33,7 +38,7 @@ internal static class MonitorCommands {
             })
             .ToArray();
 
-        OutputFormatter.WriteTable(new[] { "Idx", "Primary", "Connected", "Bounds", "DeviceName", "Device" }, rows);
+        OutputFormatter.WriteTable(writer, new[] { "Idx", "Primary", "Connected", "Bounds", "DeviceName", "Device" }, rows);
         return 0;
     }
 }

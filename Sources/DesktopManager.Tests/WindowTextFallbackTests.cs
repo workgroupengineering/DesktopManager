@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace DesktopManager.Tests;
@@ -20,7 +19,6 @@ public class WindowTextFallbackTests {
     
     [TestMethod]
     [TestCategory("UITest")]
-    [Ignore("Disabled: UI test with Notepad - window enumeration needs fixing")]
     /// <summary>
     /// Ensures SendMessageTimeout fallback works when bitness differs.
     /// </summary>
@@ -32,50 +30,39 @@ public class WindowTextFallbackTests {
             Assert.Inconclusive("Test requires 64-bit process");
         }
 
-        if (TestHelper.ShouldSkipUITests()) {
-            Assert.Inconclusive("UI tests skipped in local development. Set RUN_UI_TESTS=true to run.");
+        TestHelper.RequireOwnedWindowUiTests();
+        string title = $"Window Text Fallback Harness {Guid.NewGuid():N}";
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create(title);
+
+        string expected = title;
+
+        string? deploymentDir = TestContext?.DeploymentDirectory;
+        if (string.IsNullOrEmpty(deploymentDir)) {
+            deploymentDir = AppContext.BaseDirectory;
         }
-        
-        using var proc = TestHelper.StartHiddenNotepad();
-        if (proc == null) {
-            Assert.Inconclusive("Failed to start notepad");
+
+        string helperDir = Path.Combine(deploymentDir, "WindowTextHelper32");
+        string helperPath = Path.Combine(helperDir, "WindowTextHelper32.exe");
+        if (!File.Exists(helperPath)) {
+            helperDir = Path.Combine(AppContext.BaseDirectory, "WindowTextHelper32");
+            helperPath = Path.Combine(helperDir, "WindowTextHelper32.exe");
+        }
+        if (!File.Exists(helperPath)) {
+            Assert.Inconclusive("Helper executable not found");
         }
 
-        try {
-            var manager = new WindowManager();
-            var window = manager.GetWindows(processId: proc.Id).First();
-            string expected = window.Title;
-
-            string? deploymentDir = TestContext?.DeploymentDirectory;
-            if (string.IsNullOrEmpty(deploymentDir)) {
-                deploymentDir = AppContext.BaseDirectory;
-            }
-
-            string helperDir = Path.Combine(deploymentDir, "WindowTextHelper32");
-            string helperPath = Path.Combine(helperDir, "WindowTextHelper32.exe");
-            if (!File.Exists(helperPath)) {
-                helperDir = Path.Combine(AppContext.BaseDirectory, "WindowTextHelper32");
-                helperPath = Path.Combine(helperDir, "WindowTextHelper32.exe");
-            }
-            if (!File.Exists(helperPath)) {
-                Assert.Inconclusive("Helper executable not found");
-            }
-
-            using var helper = Process.Start(new ProcessStartInfo(helperPath, window.Handle.ToInt64().ToString()) {
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                WorkingDirectory = helperDir
-            });
-            if (helper == null) {
-                Assert.Inconclusive("Failed to start helper");
-            }
-
-            string output = helper.StandardOutput.ReadToEnd().Trim();
-            helper.WaitForExit();
-
-            Assert.AreEqual(expected, output);
-        } finally {
-            TestHelper.SafeKillProcess(proc);
+        using var helper = Process.Start(new ProcessStartInfo(helperPath, harness.Window.Handle.ToInt64().ToString()) {
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            WorkingDirectory = helperDir
+        });
+        if (helper == null) {
+            Assert.Inconclusive("Failed to start helper");
         }
+
+        string output = helper.StandardOutput.ReadToEnd().Trim();
+        helper.WaitForExit();
+
+        Assert.AreEqual(expected, output);
     }
 }

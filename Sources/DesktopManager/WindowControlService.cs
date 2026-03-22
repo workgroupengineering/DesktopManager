@@ -67,7 +67,18 @@ public static class WindowControlService {
             throw new ArgumentException("Invalid control handle", nameof(control));
         }
 
+        bool originalState = GetCheckState(control);
+        if (originalState == check) {
+            return;
+        }
+
         SendMessageWithTimeout(control.Handle, MonitorNativeMethods.BM_SETCHECK, check ? 1u : 0u, 0u);
+        if (GetCheckStateForHandle(control.Handle) == check) {
+            return;
+        }
+
+        // Some controls ignore BM_SETCHECK unless they are toggled through their standard click path.
+        SendMessageWithTimeout(control.Handle, MonitorNativeMethods.BM_CLICK, 0u, 0u);
     }
 
     /// <summary>
@@ -88,18 +99,15 @@ public static class WindowControlService {
             throw new ArgumentException("Invalid control handle", nameof(control));
         }
 
-        var buffer = new StringBuilder(text);
-        IntPtr result = MonitorNativeMethods.SendMessageTimeout(
-            control.Handle,
-            MonitorNativeMethods.WM_SETTEXT,
-            IntPtr.Zero,
-            buffer,
-            MonitorNativeMethods.SMTO_ABORTIFHUNG,
-            MessageTimeoutMilliseconds,
-            out _);
-        if (result == IntPtr.Zero) {
+        if (!TrySendStringMessageWithTimeout(control.Handle, MonitorNativeMethods.WM_SETTEXT, IntPtr.Zero, text)) {
             MonitorNativeMethods.SendMessage(control.Handle, MonitorNativeMethods.WM_SETTEXT, IntPtr.Zero, text);
         }
+
+        if (ControlTextMatches(control.Handle, text)) {
+            return;
+        }
+
+        ReplaceAllText(control.Handle, text);
     }
 
     /// <summary>
@@ -121,22 +129,21 @@ public static class WindowControlService {
         }
 
         var heldModifiers = new List<VirtualKey>();
+        var printableBuffer = new StringBuilder();
         for (int index = 0; index < keys.Length; index++) {
             VirtualKey key = keys[index];
             bool hasTrailingKey = index < keys.Length - 1;
             if (IsModifierKey(key) && hasTrailingKey) {
+                FlushPrintableBuffer(control.Handle, printableBuffer);
                 SendMessageWithTimeout(control.Handle, MonitorNativeMethods.WM_KEYDOWN, (uint)key, 0);
                 heldModifiers.Add(key);
                 continue;
             }
 
-            if (IsPrintableKey(key) && heldModifiers.Count == 0) {
-                uint end = unchecked((uint)0xFFFFFFFF);
-                SendMessageWithTimeout(control.Handle, MonitorNativeMethods.EM_SETSEL, end, end);
-                if (!TrySendMessageWithTimeout(control.Handle, MonitorNativeMethods.WM_CHAR, (uint)key, 0)) {
-                    MonitorNativeMethods.PostMessage(control.Handle, MonitorNativeMethods.WM_CHAR, (uint)key, 0);
-                }
+            if (TryGetPrintableCharacter(key, heldModifiers.Count == 0, out char character)) {
+                printableBuffer.Append(character);
             } else {
+                FlushPrintableBuffer(control.Handle, printableBuffer);
                 SendMessageWithTimeout(control.Handle, MonitorNativeMethods.WM_KEYDOWN, (uint)key, 0);
                 SendMessageWithTimeout(control.Handle, MonitorNativeMethods.WM_KEYUP, (uint)key, 0);
             }
@@ -144,6 +151,7 @@ public static class WindowControlService {
             ReleaseHeldModifiers(control.Handle, heldModifiers);
         }
 
+        FlushPrintableBuffer(control.Handle, printableBuffer);
         ReleaseHeldModifiers(control.Handle, heldModifiers);
     }
 
@@ -164,6 +172,30 @@ public static class WindowControlService {
     private static bool IsPrintableKey(VirtualKey key) {
         return (key >= VirtualKey.VK_SPACE && key <= VirtualKey.VK_Z) ||
             (key >= VirtualKey.VK_0 && key <= VirtualKey.VK_9);
+    }
+
+    internal static bool TryGetPrintableCharacter(VirtualKey key, bool noModifiersHeld, out char character) {
+        character = '\0';
+        if (!noModifiersHeld || !IsPrintableKey(key)) {
+            return false;
+        }
+
+        if (key >= VirtualKey.VK_A && key <= VirtualKey.VK_Z) {
+            character = (char)('A' + (key - VirtualKey.VK_A));
+            return true;
+        }
+
+        if (key >= VirtualKey.VK_0 && key <= VirtualKey.VK_9) {
+            character = (char)('0' + (key - VirtualKey.VK_0));
+            return true;
+        }
+
+        if (key == VirtualKey.VK_SPACE) {
+            character = ' ';
+            return true;
+        }
+
+        return false;
     }
 
     private static bool IsModifierKey(VirtualKey key) {
@@ -188,8 +220,39 @@ public static class WindowControlService {
         heldModifiers.Clear();
     }
 
+    private static void FlushPrintableBuffer(IntPtr handle, StringBuilder printableBuffer) {
+        if (printableBuffer.Length == 0) {
+            return;
+        }
+
+        ReplaceSelectedText(handle, printableBuffer.ToString(), appendToEnd: true);
+        printableBuffer.Clear();
+    }
+
+    private static void ReplaceAllText(IntPtr handle, string text) {
+        ReplaceSelectedText(handle, text, appendToEnd: false);
+    }
+
+    private static void ReplaceSelectedText(IntPtr handle, string text, bool appendToEnd) {
+        uint start = appendToEnd ? unchecked((uint)0xFFFFFFFF) : 0u;
+        uint end = unchecked((uint)0xFFFFFFFF);
+        SendMessageWithTimeout(handle, MonitorNativeMethods.EM_SETSEL, start, end);
+        if (!TrySendStringMessageWithTimeout(handle, MonitorNativeMethods.EM_REPLACESEL, new IntPtr(1), text)) {
+            MonitorNativeMethods.SendMessage(handle, MonitorNativeMethods.EM_REPLACESEL, new IntPtr(1), text);
+        }
+    }
+
+    private static bool ControlTextMatches(IntPtr handle, string expectedText) {
+        return string.Equals(WindowTextHelper.GetWindowText(handle), expectedText, StringComparison.Ordinal);
+    }
+
     private static void SendMessageWithTimeout(IntPtr handle, uint message, uint wParam, uint lParam) {
         TrySendMessageWithTimeout(handle, message, wParam, lParam);
+    }
+
+    private static bool GetCheckStateForHandle(IntPtr handle) {
+        int state = (int)MonitorNativeMethods.SendMessage(handle, MonitorNativeMethods.BM_GETCHECK, 0u, 0u);
+        return state != 0;
     }
 
     private static bool TrySendMessageWithTimeout(IntPtr handle, uint message, uint wParam, uint lParam) {
@@ -198,6 +261,18 @@ public static class WindowControlService {
             message,
             new IntPtr(unchecked((int)wParam)),
             new IntPtr(unchecked((int)lParam)),
+            MonitorNativeMethods.SMTO_ABORTIFHUNG,
+            MessageTimeoutMilliseconds,
+            out _);
+        return result != IntPtr.Zero;
+    }
+
+    private static bool TrySendStringMessageWithTimeout(IntPtr handle, uint message, IntPtr wParam, string text) {
+        IntPtr result = MonitorNativeMethods.SendMessageTimeout(
+            handle,
+            message,
+            wParam,
+            text,
             MonitorNativeMethods.SMTO_ABORTIFHUNG,
             MessageTimeoutMilliseconds,
             out _);

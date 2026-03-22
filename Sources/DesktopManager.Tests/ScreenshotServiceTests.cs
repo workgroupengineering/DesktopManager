@@ -2,10 +2,7 @@ using System;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Diagnostics;
-#if NETFRAMEWORK
 using System.Windows.Forms;
-#endif
 using DesktopManager;
 
 namespace DesktopManager.Tests;
@@ -60,7 +57,7 @@ public class ScreenshotServiceTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
-        TestHelper.RequireInteractive();
+        TestHelper.RequireOwnedWindowUiTests();
 
         using var bmp = ScreenshotService.CaptureScreen();
         Assert.IsNotNull(bmp);
@@ -89,7 +86,7 @@ public class ScreenshotServiceTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
-        TestHelper.RequireInteractive();
+        TestHelper.RequireOwnedWindowUiTests();
 
         using var bmp = ScreenshotService.CaptureMonitor(index: 0);
         Assert.IsNotNull(bmp);
@@ -99,7 +96,6 @@ public class ScreenshotServiceTests {
 
     [TestMethod]
     [TestCategory("UITest")]
-    [Ignore("Disabled: UI test with Notepad - window enumeration needs fixing")]
     /// <summary>
     /// CaptureWindow size matches window bounds.
     /// </summary>
@@ -108,34 +104,17 @@ public class ScreenshotServiceTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
-        if (TestHelper.ShouldSkipUITests()) {
-            Assert.Inconclusive("UI tests skipped in local development. Set RUN_UI_TESTS=true to run.");
-        }
+        TestHelper.RequireOwnedWindowUiTests();
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("Screenshot Window Harness");
 
-        Process? process = null;
-        
-        try {
-            process = TestHelper.StartHiddenNotepad();
-            if (process == null) {
-                Assert.Inconclusive("Failed to start Notepad");
-            }
-
-            var manager = new WindowManager();
-            var window = manager.WaitWindow("*Notepad*", 10000);
-            Assert.IsNotNull(window);
-
-            Assert.IsTrue(MonitorNativeMethods.GetWindowRect(window.Handle, out RECT rect));
-            using var bmp = ScreenshotService.CaptureWindow(window.Handle);
-            Assert.AreEqual(rect.Right - rect.Left, bmp.Width);
-            Assert.AreEqual(rect.Bottom - rect.Top, bmp.Height);
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        Assert.IsTrue(MonitorNativeMethods.GetWindowRect(harness.Window.Handle, out RECT rect));
+        using var bmp = ScreenshotService.CaptureWindow(harness.Window.Handle);
+        Assert.AreEqual(rect.Right - rect.Left, bmp.Width);
+        Assert.AreEqual(rect.Bottom - rect.Top, bmp.Height);
     }
 
     [TestMethod]
     [TestCategory("UITest")]
-    [Ignore("Disabled: UI test with Notepad - window enumeration needs fixing")]
     /// <summary>
     /// CaptureControl size matches control bounds.
     /// </summary>
@@ -144,31 +123,20 @@ public class ScreenshotServiceTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
-        if (TestHelper.ShouldSkipUITests()) {
-            Assert.Inconclusive("UI tests skipped in local development. Set RUN_UI_TESTS=true to run.");
-        }
+        TestHelper.RequireOwnedWindowUiTests();
+        using TextBox textBox = new() { Text = "Capture" };
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("Screenshot Control Harness", form => form.Controls.Add(textBox));
+        textBox.CreateControl();
+        Application.DoEvents();
 
-        Process? process = null;
-        
-        try {
-            process = TestHelper.StartHiddenNotepad();
-            if (process == null) {
-                Assert.Inconclusive("Failed to start Notepad");
-            }
+        var enumerator = new ControlEnumerator();
+        var controls = enumerator.EnumerateControls(harness.Window.Handle);
+        var edit = controls.FirstOrDefault(c => c.Handle == textBox.Handle);
+        Assert.IsNotNull(edit, "Edit control not found");
 
-            var manager = new WindowManager();
-            var window = manager.WaitWindow("*Notepad*", 10000);
-            var enumerator = new ControlEnumerator();
-            var controls = enumerator.EnumerateControls(window.Handle);
-            var edit = controls.FirstOrDefault(c => c.ClassName == "Edit");
-            Assert.IsNotNull(edit, "Edit control not found");
-
-            Assert.IsTrue(MonitorNativeMethods.GetWindowRect(edit.Handle, out RECT rect));
-            using var bmp = ScreenshotService.CaptureControl(edit.Handle);
-            Assert.AreEqual(rect.Right - rect.Left, bmp.Width);
-            Assert.AreEqual(rect.Bottom - rect.Top, bmp.Height);
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        Assert.IsTrue(MonitorNativeMethods.GetWindowRect(edit.Handle, out RECT rect));
+        using var bmp = ScreenshotService.CaptureControl(edit.Handle);
+        Assert.AreEqual(rect.Right - rect.Left, bmp.Width);
+        Assert.AreEqual(rect.Bottom - rect.Top, bmp.Height);
     }
 }

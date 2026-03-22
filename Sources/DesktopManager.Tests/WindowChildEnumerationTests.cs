@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -16,24 +16,25 @@ public class WindowChildEnumerationTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireOwnedWindowUiTests();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using TextBox textBox = new() { Text = "Child" };
+        using Button button = new() { Text = "Go" };
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("Child Enumeration Harness", form => {
+            form.Controls.Add(textBox);
+            form.Controls.Add(button);
+        });
+        textBox.CreateControl();
+        button.CreateControl();
+        Application.DoEvents();
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
-
-            var manager = new WindowManager();
-            var children = manager.GetChildWindows(window, includeHidden: true);
-            if (children.Count == 0) {
-                Assert.Inconclusive("No child windows were returned for the test window");
-            }
-        } finally {
-            TestHelper.SafeKillProcess(process);
+        var manager = new WindowManager();
+        var children = manager.GetChildWindows(harness.Window, includeHidden: true);
+        if (children.Count == 0) {
+            Assert.Inconclusive("No child windows were returned for the test window");
         }
+
+        Assert.IsTrue(children.Exists(child => child.Handle == textBox.Handle));
+        Assert.IsTrue(children.Exists(child => child.Handle == button.Handle));
     }
 }

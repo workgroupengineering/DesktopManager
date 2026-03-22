@@ -1,7 +1,7 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -14,31 +14,24 @@ public class ControlEnumeratorTests {
     
     [TestMethod]
     [TestCategory("UITest")]
-    [Ignore("Disabled: UI test with Notepad - window enumeration needs fixing")]
-    public void Enumerate_NotepadControls_ReturnsEdit() {
+    public void Enumerate_WinFormsControls_ReturnsEdit() {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
 
-        if (TestHelper.ShouldSkipUITests()) {
-            Assert.Inconclusive("UI tests skipped in local development. Set RUN_UI_TESTS=true to run.");
-        }
+        TestHelper.RequireOwnedWindowUiTests();
+        using Form form = new() { Text = "Control Enumerator Form", ShowInTaskbar = false };
+        using TextBox textBox = new() { Text = "DesktopManager" };
+        form.Controls.Add(textBox);
+        form.Show();
+        textBox.CreateControl();
+        Application.DoEvents();
 
-        Process? process = null;
-        
-        try {
-            process = TestHelper.StartHiddenNotepad();
-            if (process == null) {
-                Assert.Inconclusive("Failed to start Notepad");
-            }
+        var enumerator = new ControlEnumerator();
+        var controls = enumerator.EnumerateControls(form.Handle);
 
-            var manager = new WindowManager();
-            var window = manager.WaitWindow("*Notepad*", 10000);
-            var enumerator = new ControlEnumerator();
-            var controls = enumerator.EnumerateControls(window.Handle);
-            Assert.IsTrue(controls.Any(c => c.ClassName == "Edit"));
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        WindowControlInfo? textBoxControl = controls.FirstOrDefault(c => c.Handle == textBox.Handle);
+        Assert.IsNotNull(textBoxControl);
+        StringAssert.Contains(textBoxControl.ClassName, "EDIT", StringComparison.OrdinalIgnoreCase);
     }
 }

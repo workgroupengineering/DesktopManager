@@ -297,13 +297,14 @@ Examples:
         return """
 Process commands:
   desktopmanager process start <file> [--arguments <text>] [--working-directory <path>] [--wait-for-input-idle-ms <value>] [--wait-for-window-ms <value>] [--wait-for-window-interval-ms <value>] [--window-title <pattern>] [--window-class <pattern>] [--require-window] [--json]
-  desktopmanager process start-and-wait <file> [--arguments <text>] [--working-directory <path>] [--wait-for-input-idle-ms <value>] [--launch-wait-for-window-ms <value>] [--launch-wait-for-window-interval-ms <value>] [--launch-window-title <pattern>] [--launch-window-class <pattern>] [--window-title <pattern>] [--window-class <pattern>] [--include-hidden] [--include-empty] [--timeout-ms <value>] [--interval-ms <value>] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager process start-and-wait <file> [--arguments <text>] [--working-directory <path>] [--wait-for-input-idle-ms <value>] [--launch-wait-for-window-ms <value>] [--launch-wait-for-window-interval-ms <value>] [--launch-window-title <pattern>] [--launch-window-class <pattern>] [--window-title <pattern>] [--window-class <pattern>] [--include-hidden] [--include-empty] [--follow-process-family] [--timeout-ms <value>] [--interval-ms <value>] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
 
 Examples:
   desktopmanager process start notepad.exe --wait-for-input-idle-ms 1000
   desktopmanager process start notepad.exe --wait-for-window-ms 5000
   desktopmanager process start notepad.exe --wait-for-window-ms 5000 --window-title "Untitled - Notepad" --require-window
   desktopmanager process start-and-wait notepad.exe --window-title "*Notepad*" --timeout-ms 5000 --capture-after --json
+  desktopmanager process start-and-wait msedge.exe --window-title "*Edge*" --follow-process-family --timeout-ms 10000 --json
   desktopmanager process start code --arguments "." --working-directory C:\Support\GitHub\DesktopManager
 """;
     }

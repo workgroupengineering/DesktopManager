@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 namespace DesktopManager.Cli;
 
@@ -13,15 +14,16 @@ internal static class ScreenshotCommands {
     }
 
     private static int Desktop(CommandLineArguments arguments) {
+        DesktopScreenshotCommandOptions options = CreateDesktopOptions(arguments);
         ScreenshotResult result = DesktopOperations.CaptureDesktopScreenshot(
-            arguments.GetIntOption("monitor"),
-            arguments.GetOption("device-id"),
-            arguments.GetOption("device-name"),
-            arguments.GetIntOption("left"),
-            arguments.GetIntOption("top"),
-            arguments.GetIntOption("width"),
-            arguments.GetIntOption("height"),
-            arguments.GetOption("output"));
+            options.MonitorIndex,
+            options.DeviceId,
+            options.DeviceName,
+            options.Left,
+            options.Top,
+            options.Width,
+            options.Height,
+            options.OutputPath);
         return WriteScreenshotResult(arguments, result);
     }
 
@@ -29,54 +31,21 @@ internal static class ScreenshotCommands {
         string? targetName = arguments.GetOption("target");
         if (!string.IsNullOrWhiteSpace(targetName)) {
             ScreenshotResult targetResult = DesktopOperations.CaptureWindowTargetScreenshot(
-                new WindowSelectionCriteria {
-                    TitlePattern = arguments.GetOption("title") ?? "*",
-                    ProcessNamePattern = arguments.GetOption("process") ?? "*",
-                    ClassNamePattern = arguments.GetOption("class") ?? "*",
-                    ProcessId = arguments.GetIntOption("pid"),
-                    Handle = arguments.GetOption("handle"),
-                    Active = arguments.GetBoolFlag("active"),
-                    IncludeHidden = true,
-                    IncludeCloaked = true,
-                    IncludeOwned = true,
-                    IncludeEmptyTitles = true
-                },
+                CreateWindowCriteria(arguments),
                 targetName,
                 arguments.GetOption("output"));
             return WriteScreenshotResult(arguments, targetResult);
         }
 
         ScreenshotResult result = DesktopOperations.CaptureWindowScreenshot(
-            new WindowSelectionCriteria {
-                TitlePattern = arguments.GetOption("title") ?? "*",
-                ProcessNamePattern = arguments.GetOption("process") ?? "*",
-                ClassNamePattern = arguments.GetOption("class") ?? "*",
-                ProcessId = arguments.GetIntOption("pid"),
-                Handle = arguments.GetOption("handle"),
-                Active = arguments.GetBoolFlag("active"),
-                IncludeHidden = true,
-                IncludeCloaked = true,
-                IncludeOwned = true,
-                IncludeEmptyTitles = true
-            },
+            CreateWindowCriteria(arguments),
             arguments.GetOption("output"));
         return WriteScreenshotResult(arguments, result);
     }
 
     private static int Target(CommandLineArguments arguments) {
         ScreenshotResult result = DesktopOperations.CaptureWindowTargetScreenshot(
-            new WindowSelectionCriteria {
-                TitlePattern = arguments.GetOption("title") ?? "*",
-                ProcessNamePattern = arguments.GetOption("process") ?? "*",
-                ClassNamePattern = arguments.GetOption("class") ?? "*",
-                ProcessId = arguments.GetIntOption("pid"),
-                Handle = arguments.GetOption("handle"),
-                Active = arguments.GetBoolFlag("active"),
-                IncludeHidden = true,
-                IncludeCloaked = true,
-                IncludeOwned = true,
-                IncludeEmptyTitles = true
-            },
+            CreateWindowCriteria(arguments),
             arguments.GetRequiredCommandPart(2, "target name"),
             arguments.GetOption("output"));
         return WriteScreenshotResult(arguments, result);
@@ -88,18 +57,50 @@ internal static class ScreenshotCommands {
             return 0;
         }
 
-        Console.WriteLine($"screenshot: {result.Kind}");
-        Console.WriteLine($"- Path: {result.Path}");
-        Console.WriteLine($"- Size: {result.Width}x{result.Height}");
+        return WriteScreenshotResult(result, Console.Out);
+    }
+
+    internal static int WriteScreenshotResult(ScreenshotResult result, TextWriter writer) {
+        writer.WriteLine($"screenshot: {result.Kind}");
+        writer.WriteLine($"- Path: {result.Path}");
+        writer.WriteLine($"- Size: {result.Width}x{result.Height}");
         if (result.Window != null) {
-            Console.WriteLine($"- Window: {result.Window.Title}");
+            writer.WriteLine($"- Window: {result.Window.Title}");
         }
         if (result.Geometry != null) {
-            Console.WriteLine($"- Client: {result.Geometry.ClientWidth}x{result.Geometry.ClientHeight} at offset {result.Geometry.ClientOffsetLeft},{result.Geometry.ClientOffsetTop}");
+            writer.WriteLine($"- Client: {result.Geometry.ClientWidth}x{result.Geometry.ClientHeight} at offset {result.Geometry.ClientOffsetLeft},{result.Geometry.ClientOffsetTop}");
         }
         if (result.MonitorIndex.HasValue) {
-            Console.WriteLine($"- Monitor: {result.MonitorIndex}");
+            writer.WriteLine($"- Monitor: {result.MonitorIndex}");
         }
         return 0;
+    }
+
+    internal static WindowSelectionCriteria CreateWindowCriteria(CommandLineArguments arguments) {
+        return new WindowSelectionCriteria {
+            TitlePattern = arguments.GetOption("title") ?? "*",
+            ProcessNamePattern = arguments.GetOption("process") ?? "*",
+            ClassNamePattern = arguments.GetOption("class") ?? "*",
+            ProcessId = arguments.GetIntOption("pid"),
+            Handle = arguments.GetOption("handle"),
+            Active = arguments.GetBoolFlag("active"),
+            IncludeHidden = true,
+            IncludeCloaked = true,
+            IncludeOwned = true,
+            IncludeEmptyTitles = true
+        };
+    }
+
+    internal static DesktopScreenshotCommandOptions CreateDesktopOptions(CommandLineArguments arguments) {
+        return new DesktopScreenshotCommandOptions {
+            MonitorIndex = arguments.GetIntOption("monitor"),
+            DeviceId = arguments.GetOption("device-id"),
+            DeviceName = arguments.GetOption("device-name"),
+            Left = arguments.GetIntOption("left"),
+            Top = arguments.GetIntOption("top"),
+            Width = arguments.GetIntOption("width"),
+            Height = arguments.GetIntOption("height"),
+            OutputPath = arguments.GetOption("output")
+        };
     }
 }

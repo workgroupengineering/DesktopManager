@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DesktopManager.Cli;
@@ -30,15 +32,7 @@ internal static class SnapshotCommands {
             return 0;
         }
 
-        if (names.Count == 0) {
-            Console.WriteLine("No named snapshots found.");
-            return 0;
-        }
-
-        foreach (string name in names.OrderBy(value => value)) {
-            Console.WriteLine(name);
-        }
-        return 0;
+        return WriteSnapshotNames(names, Console.Out);
     }
 
     private static int WritePathResult(CommandLineArguments arguments, NamedStateResult payload) {
@@ -47,10 +41,26 @@ internal static class SnapshotCommands {
             return 0;
         }
 
-        Console.WriteLine($"{payload.Action}: {payload.Name}");
-        Console.WriteLine(payload.Path);
+        return WritePathResult(payload, Console.Out);
+    }
+
+    internal static int WriteSnapshotNames(IReadOnlyList<string> names, TextWriter writer) {
+        if (names.Count == 0) {
+            writer.WriteLine("No named snapshots found.");
+            return 0;
+        }
+
+        foreach (string name in names.OrderBy(value => value)) {
+            writer.WriteLine(name);
+        }
+        return 0;
+    }
+
+    internal static int WritePathResult(NamedStateResult payload, TextWriter writer) {
+        writer.WriteLine($"{payload.Action}: {payload.Name}");
+        writer.WriteLine(payload.Path);
         if (!string.IsNullOrWhiteSpace(payload.Scope)) {
-            Console.WriteLine($"scope: {payload.Scope}");
+            writer.WriteLine($"scope: {payload.Scope}");
         }
         return 0;
     }

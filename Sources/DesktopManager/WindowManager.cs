@@ -130,7 +130,7 @@ public partial class WindowManager {
 
                 if (!string.IsNullOrEmpty(options.ProcessNamePattern) && options.ProcessNamePattern != "*") {
                     try {
-                        var process = Process.GetProcessById((int)windowProcessId);
+                        using var process = Process.GetProcessById((int)windowProcessId);
                         if (!MatchesWildcard(process.ProcessName, options.ProcessNamePattern)) {
                             continue;
                         }
@@ -253,8 +253,9 @@ public partial class WindowManager {
         /// </summary>
         /// <param name="process">Process whose windows to retrieve.</param>
         /// <param name="includeHidden">Whether to include hidden windows.</param>
+        /// <param name="includeRelatedProcesses">Whether helper processes with the same name should also be searched when the exact process has no windows.</param>
         /// <returns>List of windows owned by the process.</returns>
-        public List<WindowInfo> GetWindowsForProcess(Process process, bool includeHidden = false) {
+        public List<WindowInfo> GetWindowsForProcess(Process process, bool includeHidden = false, bool includeRelatedProcesses = false) {
             if (process == null) {
                 throw new ArgumentNullException(nameof(process));
             }
@@ -271,8 +272,9 @@ public partial class WindowManager {
                 }
             }
             
-            // For modern Windows apps, also check child processes
-            if (windows.Count == 0) {
+            // Some modern apps surface a window from a broker or helper process.
+            // Keep this behavior opt-in so the default method stays exact-process safe.
+            if (windows.Count == 0 && includeRelatedProcesses) {
                 try {
                     // Get all processes with the same name
                     var relatedProcesses = Process.GetProcessesByName(process.ProcessName);
@@ -291,6 +293,16 @@ public partial class WindowManager {
             return windows;
         }
 
+        /// <summary>
+        /// Gets windows belonging to the specified process or related helper processes with the same name.
+        /// </summary>
+        /// <param name="process">Process whose windows to retrieve.</param>
+        /// <param name="includeHidden">Whether to include hidden windows.</param>
+        /// <returns>List of windows owned by the process family.</returns>
+        public List<WindowInfo> GetWindowsForProcessFamily(Process process, bool includeHidden = false) {
+            return GetWindowsForProcess(process, includeHidden, includeRelatedProcesses: true);
+        }
+        
         /// <summary>
         /// Gets the position of a window.
         /// </summary>

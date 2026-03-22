@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -16,28 +16,20 @@ public class WindowStateHelpersTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager State Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+        var manager = new WindowManager();
+        bool initialMinimized = IsMinimized(harness.Window.Handle);
 
-            var manager = new WindowManager();
-            bool initialMinimized = IsMinimized(window.Handle);
+        manager.MinimizeWindows(new[] { harness.Window }, ignoreErrors: false);
+        Application.DoEvents();
+        Assert.IsTrue(IsMinimized(harness.Window.Handle) || initialMinimized);
 
-            manager.MinimizeWindows(new[] { window }, ignoreErrors: false);
-            Assert.IsTrue(IsMinimized(window.Handle) || initialMinimized);
-
-            manager.RestoreWindows(new[] { window }, ignoreErrors: false);
-            Assert.IsFalse(IsMinimized(window.Handle));
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        manager.RestoreWindows(new[] { harness.Window }, ignoreErrors: false);
+        Application.DoEvents();
+        Assert.IsFalse(IsMinimized(harness.Window.Handle));
     }
 
     [TestMethod]
@@ -48,33 +40,24 @@ public class WindowStateHelpersTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager OnScreen Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+        var manager = new WindowManager();
+        manager.SetWindowPosition(harness.Window, -5000, -5000);
 
-            var manager = new WindowManager();
-            manager.SetWindowPosition(window, -5000, -5000);
+        bool moved = manager.EnsureWindowOnScreen(harness.Window);
+        Application.DoEvents();
+        Assert.IsTrue(moved);
 
-            bool moved = manager.EnsureWindowOnScreen(window);
-            Assert.IsTrue(moved);
-
-            Assert.IsTrue(MonitorNativeMethods.GetWindowRect(window.Handle, out RECT rect));
-            var monitors = new Monitors().GetMonitors();
-            if (monitors.Count == 0) {
-                Assert.Inconclusive("No monitors found for verification");
-            }
-
-            Assert.IsTrue(IsRectOnAnyMonitor(rect, monitors));
-        } finally {
-            TestHelper.SafeKillProcess(process);
+        Assert.IsTrue(MonitorNativeMethods.GetWindowRect(harness.Window.Handle, out RECT rect));
+        var monitors = new Monitors().GetMonitors();
+        if (monitors.Count == 0) {
+            Assert.Inconclusive("No monitors found for verification");
         }
+
+        Assert.IsTrue(IsRectOnAnyMonitor(rect, monitors));
     }
 
     private static bool IsMinimized(IntPtr handle) {

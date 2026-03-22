@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace DesktopManager.Tests;
 
@@ -8,71 +9,55 @@ namespace DesktopManager.Tests;
 /// <summary>
 /// Test class for WindowTopMostActivationTests.
 /// </summary>
-public class WindowTopMostActivationTests
-{
+public class WindowTopMostActivationTests {
     [TestMethod]
     [TestCategory("UITest")]
     /// <summary>
     /// Test for SetWindowTopMost_TogglesState.
     /// </summary>
-    public void SetWindowTopMost_TogglesState()
-    {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
+    public void SetWindowTopMost_TogglesState() {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        // Launch a notepad instance that we can control
-        System.Diagnostics.Process? notepadProcess = null;
-        WindowInfo? window = null;
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out notepadProcess, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start notepad for testing");
-                return;
-            }
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager TopMost Harness");
 
-            var manager = new WindowManager();
+        var manager = new WindowManager();
 
-            long originalStyle = MonitorNativeMethods.GetWindowLongPtr(window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
-            bool wasTop = (originalStyle & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
+        long originalStyle = MonitorNativeMethods.GetWindowLongPtr(harness.Window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
+        bool wasTop = (originalStyle & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
 
-            // Set to opposite of current state
-            manager.SetWindowTopMost(window, !wasTop);
-            
-            // Give the system time to process the change
-            System.Threading.Thread.Sleep(100);
-            
-            long toggled = MonitorNativeMethods.GetWindowLongPtr(window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
-            bool newIsTop = (toggled & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
-            
-            Assert.AreEqual(!wasTop, newIsTop, $"Expected topmost to change from {wasTop} to {!wasTop}, but got {newIsTop}");
-            
-            // Test changing back
-            manager.SetWindowTopMost(window, wasTop);
-            System.Threading.Thread.Sleep(100);
-            
-            long restored = MonitorNativeMethods.GetWindowLongPtr(window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
-            bool restoredIsTop = (restored & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
-            
-            Assert.AreEqual(wasTop, restoredIsTop, $"Expected topmost to restore to {wasTop}, but got {restoredIsTop}");
-            
-        } finally {
-            TestHelper.SafeKillProcess(notepadProcess);
-        }
+        // Set to opposite of current state
+        manager.SetWindowTopMost(harness.Window, !wasTop);
+
+        // Give the system time to process the change
+        Thread.Sleep(100);
+
+        long toggled = MonitorNativeMethods.GetWindowLongPtr(harness.Window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
+        bool newIsTop = (toggled & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
+
+        Assert.AreEqual(!wasTop, newIsTop, $"Expected topmost to change from {wasTop} to {!wasTop}, but got {newIsTop}");
+
+        // Test changing back
+        manager.SetWindowTopMost(harness.Window, wasTop);
+        Thread.Sleep(100);
+
+        long restored = MonitorNativeMethods.GetWindowLongPtr(harness.Window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
+        bool restoredIsTop = (restored & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
+
+        Assert.AreEqual(wasTop, restoredIsTop, $"Expected topmost to restore to {wasTop}, but got {restoredIsTop}");
     }
 
     [TestMethod]
     /// <summary>
     /// Test for ActivateWindow_BringsToFront.
     /// </summary>
-    public void ActivateWindow_BringsToFront()
-    {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
+    public void ActivateWindow_BringsToFront() {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
         var manager = new WindowManager();
         var originalForeground = MonitorNativeMethods.GetForegroundWindow();
@@ -93,7 +78,7 @@ public class WindowTopMostActivationTests
             manager.ActivateWindow(window);
 
             // Give Windows time to process the activation
-            System.Threading.Thread.Sleep(100);
+            Thread.Sleep(100);
 
             var newForeground = MonitorNativeMethods.GetForegroundWindow();
             if (newForeground == IntPtr.Zero) {

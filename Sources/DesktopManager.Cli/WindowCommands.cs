@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DesktopManager.Cli;
@@ -31,7 +32,7 @@ internal static class WindowCommands {
             if (arguments.GetBoolFlag("json")) {
                 OutputFormatter.WriteJson(Array.Empty<object>());
             } else {
-                Console.WriteLine("No matching windows found.");
+                WriteNoMatchingWindows(Console.Out);
             }
             return 0;
         }
@@ -41,7 +42,11 @@ internal static class WindowCommands {
             return 0;
         }
 
-        var rows = windows
+        return WriteWindowListResults(windows, Console.Out);
+    }
+
+    internal static int WriteWindowListResults(IReadOnlyList<WindowResult> windows, TextWriter writer) {
+        IReadOnlyList<IReadOnlyList<string>> rows = windows
             .Select(window => (IReadOnlyList<string>)new[] {
                 window.ProcessId.ToString(),
                 window.Handle.Replace("0x", string.Empty, StringComparison.OrdinalIgnoreCase),
@@ -51,7 +56,8 @@ internal static class WindowCommands {
                 window.Title
             })
             .ToArray();
-        OutputFormatter.WriteTable(new[] { "PID", "Handle", "Mon", "Visible", "State", "Title" }, rows);
+
+        OutputFormatter.WriteTable(writer, new[] { "PID", "Handle", "Mon", "Visible", "State", "Title" }, rows);
         return 0;
     }
 
@@ -68,17 +74,10 @@ internal static class WindowCommands {
         }
 
         if (geometries.Count == 0) {
-            Console.WriteLine("No matching windows found.");
-            return 0;
+            return WriteNoMatchingWindows(Console.Out);
         }
 
-        foreach (WindowGeometryResult geometry in geometries) {
-            Console.WriteLine($"window: {geometry.Window.Title} ({geometry.Window.Handle})");
-            Console.WriteLine($"- Window: {geometry.WindowLeft},{geometry.WindowTop} {geometry.WindowWidth}x{geometry.WindowHeight}");
-            Console.WriteLine($"- Client: {geometry.ClientLeft},{geometry.ClientTop} {geometry.ClientWidth}x{geometry.ClientHeight}");
-            Console.WriteLine($"- ClientOffset: {geometry.ClientOffsetLeft},{geometry.ClientOffsetTop}");
-        }
-        return 0;
+        return WriteWindowGeometryResults(geometries, Console.Out);
     }
 
     private static int ActiveMatches(CommandLineArguments arguments) {
@@ -244,11 +243,7 @@ internal static class WindowCommands {
             return 0;
         }
 
-        Console.WriteLine($"wait: {result.Count} window(s) after {result.ElapsedMilliseconds}ms");
-        foreach (WindowResult window in result.Windows) {
-            Console.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
-        }
-        return 0;
+        return WriteWaitResult(result, Console.Out);
     }
 
     private static int WriteWindowMutationResult(CommandLineArguments arguments, WindowChangeResult payload) {
@@ -257,22 +252,46 @@ internal static class WindowCommands {
             return 0;
         }
 
-        Console.WriteLine($"{payload.Action}: {payload.Count} window(s) success={payload.Success} safety={payload.SafetyMode} elapsed-ms={payload.ElapsedMilliseconds}");
+        return WriteWindowMutationResult(payload, Console.Out);
+    }
+
+    internal static int WriteWindowMutationResult(WindowChangeResult payload, TextWriter writer) {
+        writer.WriteLine($"{payload.Action}: {payload.Count} window(s) success={payload.Success} safety={payload.SafetyMode} elapsed-ms={payload.ElapsedMilliseconds}");
         if (!string.IsNullOrWhiteSpace(payload.TargetName)) {
-            Console.WriteLine($"target: {payload.TargetKind ?? "selector"} {payload.TargetName}");
+            writer.WriteLine($"target: {payload.TargetKind ?? "selector"} {payload.TargetName}");
         }
 
         if (payload.BeforeScreenshots.Count > 0 || payload.AfterScreenshots.Count > 0) {
-            Console.WriteLine($"artifacts: before={payload.BeforeScreenshots.Count} after={payload.AfterScreenshots.Count}");
+            writer.WriteLine($"artifacts: before={payload.BeforeScreenshots.Count} after={payload.AfterScreenshots.Count}");
         }
 
         foreach (string warning in payload.ArtifactWarnings) {
-            Console.WriteLine($"warning: {warning}");
+            writer.WriteLine($"warning: {warning}");
         }
 
         foreach (WindowResult window in payload.Windows) {
-            Console.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
+            writer.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
         }
+
+        return 0;
+    }
+
+    internal static int WriteWindowGeometryResults(IReadOnlyList<WindowGeometryResult> geometries, TextWriter writer) {
+        foreach (WindowGeometryResult geometry in geometries) {
+            writer.WriteLine($"window: {geometry.Window.Title} ({geometry.Window.Handle})");
+            writer.WriteLine($"- Window: {geometry.WindowLeft},{geometry.WindowTop} {geometry.WindowWidth}x{geometry.WindowHeight}");
+            writer.WriteLine($"- Client: {geometry.ClientLeft},{geometry.ClientTop} {geometry.ClientWidth}x{geometry.ClientHeight}");
+            writer.WriteLine($"- ClientOffset: {geometry.ClientOffsetLeft},{geometry.ClientOffsetTop}");
+        }
+        return 0;
+    }
+
+    internal static int WriteWaitResult(WaitForWindowResult result, TextWriter writer) {
+        writer.WriteLine($"wait: {result.Count} window(s) after {result.ElapsedMilliseconds}ms");
+        foreach (WindowResult window in result.Windows) {
+            writer.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
+        }
+
         return 0;
     }
 
@@ -295,20 +314,31 @@ internal static class WindowCommands {
         if (arguments.GetBoolFlag("json")) {
             OutputFormatter.WriteJson(payload);
         } else {
-            Console.WriteLine(payload.Matched ? successText : failureText);
-            if (payload.ActiveWindow != null) {
-                Console.WriteLine($"Active: {payload.ActiveWindow.Title} [PID {payload.ActiveWindow.ProcessId}]");
-            }
-
-            foreach (WindowResult window in payload.Windows) {
-                Console.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
-            }
+            return WriteAssertionResult(payload, successText, failureText, Console.Out);
         }
 
         return payload.Matched ? 0 : 2;
     }
 
-    private static WindowSelectionCriteria CreateCriteria(CommandLineArguments arguments, bool includeEmptyDefault) {
+    internal static int WriteAssertionResult(WindowAssertionResult payload, string successText, string failureText, TextWriter writer) {
+        writer.WriteLine(payload.Matched ? successText : failureText);
+        if (payload.ActiveWindow != null) {
+            writer.WriteLine($"Active: {payload.ActiveWindow.Title} [PID {payload.ActiveWindow.ProcessId}]");
+        }
+
+        foreach (WindowResult window in payload.Windows) {
+            writer.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
+        }
+
+        return payload.Matched ? 0 : 2;
+    }
+
+    internal static int WriteNoMatchingWindows(TextWriter writer) {
+        writer.WriteLine("No matching windows found.");
+        return 0;
+    }
+
+    internal static WindowSelectionCriteria CreateCriteria(CommandLineArguments arguments, bool includeEmptyDefault) {
         return new WindowSelectionCriteria {
             TitlePattern = arguments.GetOption("title") ?? "*",
             ProcessNamePattern = arguments.GetOption("process") ?? "*",

@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
+using System.IO;
 
 namespace DesktopManager.Cli;
 
@@ -33,9 +35,7 @@ internal static class TargetCommands {
             return 0;
         }
 
-        Console.WriteLine($"save: {result.Name}");
-        Console.WriteLine(result.Path);
-        return 0;
+        return WriteSavedTargetResult(result, Console.Out);
     }
 
     private static int Get(CommandLineArguments arguments) {
@@ -45,21 +45,7 @@ internal static class TargetCommands {
             return 0;
         }
 
-        Console.WriteLine(result.Name);
-        Console.WriteLine($"- Path: {result.Path}");
-        Console.WriteLine($"- ClientArea: {(result.Target.ClientArea ? "Yes" : "No")}");
-        Console.WriteLine($"- X: {result.Target.X?.ToString() ?? "-"}");
-        Console.WriteLine($"- Y: {result.Target.Y?.ToString() ?? "-"}");
-        Console.WriteLine($"- XRatio: {result.Target.XRatio?.ToString() ?? "-"}");
-        Console.WriteLine($"- YRatio: {result.Target.YRatio?.ToString() ?? "-"}");
-        Console.WriteLine($"- Width: {result.Target.Width?.ToString() ?? "-"}");
-        Console.WriteLine($"- Height: {result.Target.Height?.ToString() ?? "-"}");
-        Console.WriteLine($"- WidthRatio: {result.Target.WidthRatio?.ToString() ?? "-"}");
-        Console.WriteLine($"- HeightRatio: {result.Target.HeightRatio?.ToString() ?? "-"}");
-        if (!string.IsNullOrWhiteSpace(result.Target.Description)) {
-            Console.WriteLine($"- Description: {result.Target.Description}");
-        }
-        return 0;
+        return WriteTargetResult(result, Console.Out);
     }
 
     private static int List(CommandLineArguments arguments) {
@@ -69,15 +55,7 @@ internal static class TargetCommands {
             return 0;
         }
 
-        if (names.Count == 0) {
-            Console.WriteLine("No named targets found.");
-            return 0;
-        }
-
-        foreach (string name in names.OrderBy(value => value, StringComparer.OrdinalIgnoreCase)) {
-            Console.WriteLine(name);
-        }
-        return 0;
+        return WriteTargetNames(names, Console.Out);
     }
 
     private static int Resolve(CommandLineArguments arguments) {
@@ -90,19 +68,59 @@ internal static class TargetCommands {
             return 0;
         }
 
-        foreach (ResolvedWindowTargetResult result in results) {
-            Console.WriteLine($"{result.Name}: {result.Window.Title} ({result.Window.Handle})");
-            Console.WriteLine($"- Relative: {result.RelativeX},{result.RelativeY}");
-            Console.WriteLine($"- Screen: {result.ScreenX},{result.ScreenY}");
-            if (result.ScreenWidth.HasValue && result.ScreenHeight.HasValue) {
-                Console.WriteLine($"- Area: {result.ScreenWidth}x{result.ScreenHeight}");
-            }
-            Console.WriteLine($"- ClientArea: {(result.Target.ClientArea ? "Yes" : "No")}");
+        return WriteResolvedTargets(results, Console.Out);
+    }
+
+    internal static int WriteTargetResult(WindowTargetResult result, TextWriter writer) {
+        writer.WriteLine(result.Name);
+        writer.WriteLine($"- Path: {result.Path}");
+        writer.WriteLine($"- ClientArea: {(result.Target.ClientArea ? "Yes" : "No")}");
+        writer.WriteLine($"- X: {result.Target.X?.ToString() ?? "-"}");
+        writer.WriteLine($"- Y: {result.Target.Y?.ToString() ?? "-"}");
+        writer.WriteLine($"- XRatio: {result.Target.XRatio?.ToString() ?? "-"}");
+        writer.WriteLine($"- YRatio: {result.Target.YRatio?.ToString() ?? "-"}");
+        writer.WriteLine($"- Width: {result.Target.Width?.ToString() ?? "-"}");
+        writer.WriteLine($"- Height: {result.Target.Height?.ToString() ?? "-"}");
+        writer.WriteLine($"- WidthRatio: {result.Target.WidthRatio?.ToString() ?? "-"}");
+        writer.WriteLine($"- HeightRatio: {result.Target.HeightRatio?.ToString() ?? "-"}");
+        if (!string.IsNullOrWhiteSpace(result.Target.Description)) {
+            writer.WriteLine($"- Description: {result.Target.Description}");
         }
         return 0;
     }
 
-    private static WindowSelectionCriteria CreateCriteria(CommandLineArguments arguments, bool includeEmptyDefault) {
+    internal static int WriteSavedTargetResult(WindowTargetResult result, TextWriter writer) {
+        writer.WriteLine($"save: {result.Name}");
+        writer.WriteLine(result.Path);
+        return 0;
+    }
+
+    internal static int WriteTargetNames(IReadOnlyList<string> names, TextWriter writer) {
+        if (names.Count == 0) {
+            writer.WriteLine("No named targets found.");
+            return 0;
+        }
+
+        foreach (string name in names.OrderBy(value => value, StringComparer.OrdinalIgnoreCase)) {
+            writer.WriteLine(name);
+        }
+        return 0;
+    }
+
+    internal static int WriteResolvedTargets(IReadOnlyList<ResolvedWindowTargetResult> results, TextWriter writer) {
+        foreach (ResolvedWindowTargetResult result in results) {
+            writer.WriteLine($"{result.Name}: {result.Window.Title} ({result.Window.Handle})");
+            writer.WriteLine($"- Relative: {result.RelativeX},{result.RelativeY}");
+            writer.WriteLine($"- Screen: {result.ScreenX},{result.ScreenY}");
+            if (result.ScreenWidth.HasValue && result.ScreenHeight.HasValue) {
+                writer.WriteLine($"- Area: {result.ScreenWidth}x{result.ScreenHeight}");
+            }
+            writer.WriteLine($"- ClientArea: {(result.Target.ClientArea ? "Yes" : "No")}");
+        }
+        return 0;
+    }
+
+    internal static WindowSelectionCriteria CreateCriteria(CommandLineArguments arguments, bool includeEmptyDefault) {
         return new WindowSelectionCriteria {
             TitlePattern = arguments.GetOption("title") ?? "*",
             ProcessNamePattern = arguments.GetOption("process") ?? "*",

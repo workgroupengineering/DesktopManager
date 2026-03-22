@@ -9,6 +9,31 @@ namespace DesktopManager;
 /// Provides naming and storage conventions for DesktopManager state files and captures.
 /// </summary>
 public static class DesktopStateStore {
+    private static readonly HashSet<string> ReservedDeviceNames = new(StringComparer.OrdinalIgnoreCase) {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        "COM1",
+        "COM2",
+        "COM3",
+        "COM4",
+        "COM5",
+        "COM6",
+        "COM7",
+        "COM8",
+        "COM9",
+        "LPT1",
+        "LPT2",
+        "LPT3",
+        "LPT4",
+        "LPT5",
+        "LPT6",
+        "LPT7",
+        "LPT8",
+        "LPT9"
+    };
+
     /// <summary>
     /// Gets the captures directory.
     /// </summary>
@@ -83,8 +108,11 @@ public static class DesktopStateStore {
             ? Path.Combine(GetCapturesDirectory(), $"{prefix}-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}.png")
             : outputPath!;
 
-        if (string.IsNullOrWhiteSpace(Path.GetExtension(path))) {
+        string extension = Path.GetExtension(path);
+        if (string.IsNullOrWhiteSpace(extension)) {
             path += ".png";
+        } else if (!extension.Equals(".png", StringComparison.OrdinalIgnoreCase)) {
+            path = Path.ChangeExtension(path, ".png");
         }
 
         string fullPath = Path.GetFullPath(path);
@@ -125,9 +153,12 @@ public static class DesktopStateStore {
             buffer.Add(character);
         }
 
-        string sanitized = new string(buffer.ToArray());
+        string sanitized = new string(buffer.ToArray()).TrimEnd(' ', '.');
         if (string.IsNullOrWhiteSpace(sanitized)) {
             throw new ArgumentException($"The name '{name}' does not produce a valid file name.", nameof(name));
+        }
+        if (ReservedDeviceNames.Contains(sanitized)) {
+            throw new ArgumentException($"The name '{name}' resolves to a reserved Windows file name.", nameof(name));
         }
 
         return sanitized;

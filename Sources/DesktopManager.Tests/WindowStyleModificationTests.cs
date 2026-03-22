@@ -1,7 +1,7 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace DesktopManager.Tests;
 
@@ -39,33 +39,23 @@ public class WindowStyleModificationTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Style Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+        var manager = new WindowManager();
+        long original = manager.GetWindowStyle(harness.Window, true);
+        bool isTop = (original & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
 
-            var manager = new WindowManager();
-            long original = manager.GetWindowStyle(window, true);
-            bool isTop = (original & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
+        manager.SetWindowStyle(harness.Window, MonitorNativeMethods.WS_EX_TOPMOST, !isTop, true);
 
-            manager.SetWindowStyle(window, MonitorNativeMethods.WS_EX_TOPMOST, !isTop, true);
+        // Give the system time to process the change
+        Thread.Sleep(100);
 
-            // Give the system time to process the change
-            System.Threading.Thread.Sleep(100);
+        long toggled = manager.GetWindowStyle(harness.Window, true);
+        bool newIsTop = (toggled & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
 
-            long toggled = manager.GetWindowStyle(window, true);
-            bool newIsTop = (toggled & MonitorNativeMethods.WS_EX_TOPMOST) != 0;
-
-            Assert.AreEqual(!isTop, newIsTop);
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        Assert.AreEqual(!isTop, newIsTop);
     }
 }
 

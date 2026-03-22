@@ -72,6 +72,7 @@ public class McpServerTests {
         AssertToolHasProperty(toolsByName["save_window_target"], "heightRatio");
         AssertToolHasProperty(toolsByName["screenshot_window"], "targetName");
         AssertToolHasProperty(toolsByName["launch_and_wait_for_window"], "timeoutMs");
+        AssertToolHasProperty(toolsByName["launch_and_wait_for_window"], "followProcessFamily");
         AssertToolHasProperty(toolsByName["send_window_keys"], "keys");
         AssertToolHasProperty(toolsByName["assert_window_layout"], "positionTolerancePx");
 
@@ -354,6 +355,26 @@ public class McpServerTests {
 
     [TestMethod]
     /// <summary>
+    /// Ensures control-key foreground-input fallback requires explicit MCP server opt-in too.
+    /// </summary>
+    public void McpServer_ForegroundInputFallback_SendControlKeys_RequiresServerOptIn() {
+        using var client = McpTestClient.Start("mcp serve --allow-mutations");
+        client.SendRequest(1, "initialize", new Dictionary<string, object?> {
+            ["protocolVersion"] = "2025-06-18"
+        });
+
+        JsonElement toolError = client.CallToolExpectError(2, "send_control_keys", new Dictionary<string, object?> {
+            ["windowTitle"] = "*DesktopManagerTests*",
+            ["controlType"] = "Edit",
+            ["keys"] = new[] { "ENTER" },
+            ["allowForegroundInput"] = true
+        });
+
+        StringAssert.Contains(toolError.GetProperty("message").GetString() ?? string.Empty, "--allow-foreground-input");
+    }
+
+    [TestMethod]
+    /// <summary>
     /// Ensures dry-run mode returns a structured preview without mutating persistent state.
     /// </summary>
     public void McpServer_DryRun_PreviewsMutatingToolsWithoutWritingState() {
@@ -382,6 +403,29 @@ public class McpServerTests {
                 File.Delete(path);
             }
         }
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures dry-run foreground-input requests preserve the explicit fallback flag in the preview result.
+    /// </summary>
+    public void McpServer_DryRun_ForegroundInputPreview_ReportsRequestedFallback() {
+        using var client = McpTestClient.Start("mcp serve --dry-run");
+        JsonElement initializeResult = client.SendRequest(1, "initialize", new Dictionary<string, object?> {
+            ["protocolVersion"] = "2025-06-18"
+        });
+        Assert.IsTrue(initializeResult.GetProperty("safetyPolicy").GetProperty("dryRun").GetBoolean());
+
+        JsonElement result = client.CallTool(2, "send_control_keys", new Dictionary<string, object?> {
+            ["processName"] = "DesktopManager.TestApp",
+            ["targetName"] = "CommandBar",
+            ["keys"] = new[] { "ENTER" },
+            ["allowForegroundInput"] = true
+        });
+
+        Assert.IsTrue(result.GetProperty("dryRun").GetBoolean());
+        Assert.IsTrue(result.GetProperty("requestedForegroundInputFallback").GetBoolean());
+        Assert.AreEqual("dry-run", result.GetProperty("safetyMode").GetString());
     }
 
     [TestMethod]

@@ -204,22 +204,38 @@ internal static partial class DesktopOperations {
                 : Array.Empty<ScreenshotResult>();
 
             stopwatch.Stop();
-            return new WorkflowResult {
-                Action = action,
-                Success = outcome.Success,
-                ElapsedMilliseconds = (int)stopwatch.ElapsedMilliseconds,
-                LayoutName = layoutName,
-                LayoutApplied = outcome.LayoutApplied,
-                MinimizedCount = outcome.MinimizedWindows.Count,
-                MinimizedWindows = outcome.MinimizedWindows,
-                ResolvedWindow = outcome.ResolvedWindow,
-                FocusedWindow = outcome.FocusedWindow,
-                Notes = notes,
-                BeforeScreenshots = beforeScreenshots,
-                AfterScreenshots = afterScreenshots,
-                ArtifactWarnings = warnings
-            };
+            return BuildWorkflowResult(
+                action,
+                outcome.Success,
+                (int)stopwatch.ElapsedMilliseconds,
+                layoutName,
+                outcome.LayoutApplied,
+                outcome.MinimizedWindows,
+                outcome.ResolvedWindow,
+                outcome.FocusedWindow,
+                notes,
+                beforeScreenshots,
+                afterScreenshots,
+                warnings);
         });
+    }
+
+    internal static WorkflowResult BuildWorkflowResult(string action, bool success, int elapsedMilliseconds, string? layoutName, bool layoutApplied, IReadOnlyList<WindowResult> minimizedWindows, WindowResult? resolvedWindow, WindowResult? focusedWindow, IReadOnlyList<string> notes, IReadOnlyList<ScreenshotResult> beforeScreenshots, IReadOnlyList<ScreenshotResult> afterScreenshots, IReadOnlyList<string> artifactWarnings) {
+        return new WorkflowResult {
+            Action = action,
+            Success = success,
+            ElapsedMilliseconds = elapsedMilliseconds,
+            LayoutName = layoutName,
+            LayoutApplied = layoutApplied,
+            MinimizedCount = minimizedWindows.Count,
+            MinimizedWindows = minimizedWindows,
+            ResolvedWindow = resolvedWindow,
+            FocusedWindow = focusedWindow,
+            Notes = notes,
+            BeforeScreenshots = beforeScreenshots,
+            AfterScreenshots = afterScreenshots,
+            ArtifactWarnings = artifactWarnings
+        };
     }
 
     private static IReadOnlyList<ScreenshotResult> CaptureDesktopArtifacts(string action, string phase, MutationArtifactOptions options, List<string> warnings) {

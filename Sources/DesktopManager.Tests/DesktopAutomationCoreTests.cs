@@ -60,6 +60,28 @@ public class DesktopAutomationCoreTests {
 
     [TestMethod]
     /// <summary>
+    /// Ensures screenshot paths normalize non-PNG extensions to PNG.
+    /// </summary>
+    public void DesktopStateStore_ResolveCapturePath_ReplacesNonPngExtension() {
+        string testRoot = Path.Combine(Path.GetTempPath(), "DesktopManager.Tests", Guid.NewGuid().ToString("N"));
+        string requestedPath = Path.Combine(testRoot, "capture-output.jpg");
+
+        try {
+            string resolvedPath = DesktopStateStore.ResolveCapturePath("desktop", requestedPath);
+            string expectedPath = Path.GetFullPath(Path.Combine(testRoot, "capture-output.png"));
+
+            Assert.AreEqual(expectedPath, resolvedPath, true);
+            Assert.AreEqual(".png", Path.GetExtension(resolvedPath), true);
+            Assert.IsTrue(Directory.Exists(testRoot));
+        } finally {
+            if (Directory.Exists(testRoot)) {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [TestMethod]
+    /// <summary>
     /// Ensures target paths use json storage.
     /// </summary>
     public void DesktopStateStore_GetTargetPath_UsesJsonExtension() {
@@ -67,6 +89,24 @@ public class DesktopAutomationCoreTests {
 
         Assert.AreEqual(".json", Path.GetExtension(path), true);
         StringAssert.Contains(path, Path.DirectorySeparatorChar + "targets" + Path.DirectorySeparatorChar);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures reserved Windows device names are rejected for saved state.
+    /// </summary>
+    public void DesktopStateStore_GetTargetPath_ReservedDeviceName_ThrowsArgumentException() {
+        Assert.ThrowsException<ArgumentException>(() => DesktopStateStore.GetTargetPath("CON"));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures trailing spaces and dots are normalized away from saved state names.
+    /// </summary>
+    public void DesktopStateStore_GetTargetPath_TrailingDotsAndSpaces_AreTrimmed() {
+        string path = DesktopStateStore.GetTargetPath("editor-center. ");
+
+        Assert.AreEqual("editor-center.json", Path.GetFileName(path), true);
     }
 
     [TestMethod]
@@ -285,7 +325,23 @@ public class DesktopAutomationCoreTests {
 
     [TestMethod]
     /// <summary>
-    /// Ensures process launch can require a window when no match appears.
+    /// Ensures process launch can require a real user-facing window when none appears.
+    /// </summary>
+    public void DesktopAutomationService_LaunchProcess_RequireWindowWithoutUserFacingWindow_ThrowsTimeoutException() {
+        var automation = new DesktopAutomationService();
+
+        Assert.ThrowsException<TimeoutException>(() => automation.LaunchProcess(new DesktopProcessStartOptions {
+            FilePath = "cmd.exe",
+            Arguments = "/c exit",
+            WaitForWindowMilliseconds = 1,
+            WaitForWindowIntervalMilliseconds = 1,
+            RequireWindow = true
+        }));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures process launch can require a matching window selector when no match appears.
     /// </summary>
     public void DesktopAutomationService_LaunchProcess_RequireWindowWithImpossibleSelector_ThrowsTimeoutException() {
         var automation = new DesktopAutomationService();
@@ -293,6 +349,7 @@ public class DesktopAutomationCoreTests {
         Assert.ThrowsException<TimeoutException>(() => automation.LaunchProcess(new DesktopProcessStartOptions {
             FilePath = "cmd.exe",
             Arguments = "/c exit",
+            WindowTitlePattern = "__DesktopManager_NoSuchWindow__",
             WaitForWindowMilliseconds = 1,
             WaitForWindowIntervalMilliseconds = 1,
             RequireWindow = true
@@ -403,6 +460,130 @@ public class DesktopAutomationCoreTests {
         Assert.ThrowsException<InvalidOperationException>(() => automation.SendControlKeys(new WindowControlInfo {
             Handle = new IntPtr(1)
         }, new[] { VirtualKey.VK_A }));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures zero-handle UI Automation text routing requires an explicitly fallback-capable control.
+    /// </summary>
+    public void DesktopAutomationService_ValidateUiAutomationTextFallback_UnsupportedControl_ReturnsError() {
+        string? error = DesktopAutomationService.ValidateUiAutomationTextFallback(new WindowControlInfo {
+            Source = WindowControlSource.UiAutomation,
+            Handle = IntPtr.Zero,
+            ControlType = "Edit",
+            ClassName = "TextBox",
+            SupportsForegroundInputFallback = false
+        }, allowForegroundInputFallback: true);
+
+        StringAssert.Contains(error, "does not expose direct value setting");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures zero-handle UI Automation text routing requires an explicit foreground-input opt-in.
+    /// </summary>
+    public void DesktopAutomationService_ValidateUiAutomationTextFallback_MissingOptIn_ReturnsError() {
+        string? error = DesktopAutomationService.ValidateUiAutomationTextFallback(new WindowControlInfo {
+            Source = WindowControlSource.UiAutomation,
+            Handle = IntPtr.Zero,
+            ControlType = "Edit",
+            ClassName = "TextBox",
+            SupportsForegroundInputFallback = true
+        }, allowForegroundInputFallback: false);
+
+        StringAssert.Contains(error, "Enable foreground input fallback");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures zero-handle UI Automation text routing allows explicitly approved foreground fallback.
+    /// </summary>
+    public void DesktopAutomationService_ValidateUiAutomationTextFallback_AllowedControl_ReturnsNull() {
+        string? error = DesktopAutomationService.ValidateUiAutomationTextFallback(new WindowControlInfo {
+            Source = WindowControlSource.UiAutomation,
+            Handle = IntPtr.Zero,
+            ControlType = "Edit",
+            ClassName = "TextBox",
+            SupportsForegroundInputFallback = true
+        }, allowForegroundInputFallback: true);
+
+        Assert.IsNull(error);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures handle-backed controls bypass the zero-handle UI Automation text fallback checks.
+    /// </summary>
+    public void DesktopAutomationService_ValidateUiAutomationTextFallback_HandleBackedControl_ReturnsNull() {
+        string? error = DesktopAutomationService.ValidateUiAutomationTextFallback(new WindowControlInfo {
+            Source = WindowControlSource.UiAutomation,
+            Handle = new IntPtr(123),
+            SupportsForegroundInputFallback = true
+        }, allowForegroundInputFallback: false);
+
+        Assert.IsNull(error);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures zero-handle UI Automation key routing requires a fallback-capable control.
+    /// </summary>
+    public void DesktopAutomationService_ValidateUiAutomationKeyFallback_UnsupportedControl_ReturnsError() {
+        string? error = DesktopAutomationService.ValidateUiAutomationKeyFallback(new WindowControlInfo {
+            Source = WindowControlSource.UiAutomation,
+            Handle = IntPtr.Zero,
+            ControlType = "Edit",
+            ClassName = "TextBox",
+            SupportsForegroundInputFallback = false
+        }, allowForegroundInputFallback: true);
+
+        StringAssert.Contains(error, "cannot receive foreground fallback key input");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures zero-handle UI Automation key routing requires an explicit foreground-input opt-in.
+    /// </summary>
+    public void DesktopAutomationService_ValidateUiAutomationKeyFallback_MissingOptIn_ReturnsError() {
+        string? error = DesktopAutomationService.ValidateUiAutomationKeyFallback(new WindowControlInfo {
+            Source = WindowControlSource.UiAutomation,
+            Handle = IntPtr.Zero,
+            ControlType = "Edit",
+            ClassName = "TextBox",
+            SupportsForegroundInputFallback = true
+        }, allowForegroundInputFallback: false);
+
+        StringAssert.Contains(error, "does not expose a Win32 handle");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures zero-handle UI Automation key routing allows explicitly approved foreground fallback.
+    /// </summary>
+    public void DesktopAutomationService_ValidateUiAutomationKeyFallback_AllowedControl_ReturnsNull() {
+        string? error = DesktopAutomationService.ValidateUiAutomationKeyFallback(new WindowControlInfo {
+            Source = WindowControlSource.UiAutomation,
+            Handle = IntPtr.Zero,
+            ControlType = "Edit",
+            ClassName = "TextBox",
+            SupportsForegroundInputFallback = true
+        }, allowForegroundInputFallback: true);
+
+        Assert.IsNull(error);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures Win32 controls bypass the zero-handle UI Automation key fallback checks.
+    /// </summary>
+    public void DesktopAutomationService_ValidateUiAutomationKeyFallback_Win32Control_ReturnsNull() {
+        string? error = DesktopAutomationService.ValidateUiAutomationKeyFallback(new WindowControlInfo {
+            Source = WindowControlSource.Win32,
+            Handle = IntPtr.Zero,
+            SupportsForegroundInputFallback = false
+        }, allowForegroundInputFallback: false);
+
+        Assert.IsNull(error);
     }
 
     [TestMethod]

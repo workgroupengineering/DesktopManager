@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DesktopManager.Cli;
@@ -26,9 +27,7 @@ internal static class ControlTargetCommands {
             return 0;
         }
 
-        Console.WriteLine($"save: {result.Name}");
-        Console.WriteLine(result.Path);
-        return 0;
+        return WriteSavedTargetResult(result, Console.Out);
     }
 
     private static int Get(CommandLineArguments arguments) {
@@ -38,21 +37,7 @@ internal static class ControlTargetCommands {
             return 0;
         }
 
-        Console.WriteLine(result.Name);
-        Console.WriteLine($"- Path: {result.Path}");
-        Console.WriteLine($"- Class: {result.Target.ClassNamePattern}");
-        Console.WriteLine($"- Text: {result.Target.TextPattern}");
-        Console.WriteLine($"- Value: {result.Target.ValuePattern}");
-        Console.WriteLine($"- ControlType: {result.Target.ControlTypePattern}");
-        Console.WriteLine($"- AutomationId: {result.Target.AutomationIdPattern}");
-        Console.WriteLine($"- BackgroundClick: {result.Target.SupportsBackgroundClick?.ToString() ?? "-"}");
-        Console.WriteLine($"- BackgroundText: {result.Target.SupportsBackgroundText?.ToString() ?? "-"}");
-        Console.WriteLine($"- BackgroundKeys: {result.Target.SupportsBackgroundKeys?.ToString() ?? "-"}");
-        Console.WriteLine($"- ForegroundFallback: {result.Target.SupportsForegroundInputFallback?.ToString() ?? "-"}");
-        if (!string.IsNullOrWhiteSpace(result.Target.Description)) {
-            Console.WriteLine($"- Description: {result.Target.Description}");
-        }
-        return 0;
+        return WriteTargetResult(result, Console.Out);
     }
 
     private static int List(CommandLineArguments arguments) {
@@ -62,16 +47,7 @@ internal static class ControlTargetCommands {
             return 0;
         }
 
-        if (names.Count == 0) {
-            Console.WriteLine("No named control targets found.");
-            return 0;
-        }
-
-        foreach (string name in names.OrderBy(value => value, StringComparer.OrdinalIgnoreCase)) {
-            Console.WriteLine(name);
-        }
-
-        return 0;
+        return WriteTargetNames(names, Console.Out);
     }
 
     private static int Resolve(CommandLineArguments arguments) {
@@ -85,18 +61,58 @@ internal static class ControlTargetCommands {
             return 0;
         }
 
+        return WriteResolvedTargets(results, Console.Out);
+    }
+
+    internal static int WriteSavedTargetResult(ControlTargetResult result, TextWriter writer) {
+        writer.WriteLine($"save: {result.Name}");
+        writer.WriteLine(result.Path);
+        return 0;
+    }
+
+    internal static int WriteTargetResult(ControlTargetResult result, TextWriter writer) {
+        writer.WriteLine(result.Name);
+        writer.WriteLine($"- Path: {result.Path}");
+        writer.WriteLine($"- Class: {result.Target.ClassNamePattern}");
+        writer.WriteLine($"- Text: {result.Target.TextPattern}");
+        writer.WriteLine($"- Value: {result.Target.ValuePattern}");
+        writer.WriteLine($"- ControlType: {result.Target.ControlTypePattern}");
+        writer.WriteLine($"- AutomationId: {result.Target.AutomationIdPattern}");
+        writer.WriteLine($"- BackgroundClick: {result.Target.SupportsBackgroundClick?.ToString() ?? "-"}");
+        writer.WriteLine($"- BackgroundText: {result.Target.SupportsBackgroundText?.ToString() ?? "-"}");
+        writer.WriteLine($"- BackgroundKeys: {result.Target.SupportsBackgroundKeys?.ToString() ?? "-"}");
+        writer.WriteLine($"- ForegroundFallback: {result.Target.SupportsForegroundInputFallback?.ToString() ?? "-"}");
+        if (!string.IsNullOrWhiteSpace(result.Target.Description)) {
+            writer.WriteLine($"- Description: {result.Target.Description}");
+        }
+        return 0;
+    }
+
+    internal static int WriteTargetNames(IReadOnlyList<string> names, TextWriter writer) {
+        if (names.Count == 0) {
+            writer.WriteLine("No named control targets found.");
+            return 0;
+        }
+
+        foreach (string name in names.OrderBy(value => value, StringComparer.OrdinalIgnoreCase)) {
+            writer.WriteLine(name);
+        }
+        return 0;
+    }
+
+    internal static int WriteResolvedTargets(IReadOnlyList<ResolvedControlTargetResult> results, TextWriter writer) {
         foreach (ResolvedControlTargetResult result in results) {
-            Console.WriteLine($"{result.Name}: {result.Window.Title} ({result.Window.Handle})");
-            Console.WriteLine($"- Control: {result.Control.ControlType} {result.Control.Text}");
-            Console.WriteLine($"- Handle: {result.Control.Handle}");
-            Console.WriteLine($"- BackgroundText: {result.Control.SupportsBackgroundText}");
-            Console.WriteLine($"- ForegroundFallback: {result.Control.SupportsForegroundInputFallback}");
+            writer.WriteLine($"{result.Name}: {result.Window.Title} ({result.Window.Handle})");
+            writer.WriteLine($"- Control: {result.Control.ControlType} {result.Control.Text}");
+            writer.WriteLine($"- Handle: {result.Control.Handle}");
+            writer.WriteLine($"- BackgroundText: {result.Control.SupportsBackgroundText}");
+            writer.WriteLine($"- ForegroundFallback: {result.Control.SupportsForegroundInputFallback}");
         }
 
         return 0;
     }
 
-    private static WindowSelectionCriteria CreateWindowCriteria(CommandLineArguments arguments, bool includeEmptyDefault) {
+    internal static WindowSelectionCriteria CreateWindowCriteria(CommandLineArguments arguments, bool includeEmptyDefault) {
         return new WindowSelectionCriteria {
             TitlePattern = arguments.GetOption("title") ?? "*",
             ProcessNamePattern = arguments.GetOption("process") ?? "*",
@@ -112,7 +128,7 @@ internal static class ControlTargetCommands {
         };
     }
 
-    private static ControlSelectionCriteria CreateControlCriteria(CommandLineArguments arguments) {
+    internal static ControlSelectionCriteria CreateControlCriteria(CommandLineArguments arguments) {
         return new ControlSelectionCriteria {
             ClassNamePattern = arguments.GetOption("class") ?? "*",
             TextPattern = arguments.GetOption("text-pattern") ?? "*",

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DesktopManager.Cli;
@@ -38,11 +39,14 @@ internal static class ControlCommands {
         }
 
         if (controls.Count == 0) {
-            Console.WriteLine("No matching controls found.");
-            return 0;
+            return WriteNoMatchingControls(Console.Out);
         }
 
-        var rows = controls
+        return WriteControlListResults(controls, Console.Out);
+    }
+
+    internal static int WriteControlListResults(IReadOnlyList<ControlResult> controls, TextWriter writer) {
+        IReadOnlyList<IReadOnlyList<string>> rows = controls
             .Select(control => (IReadOnlyList<string>)new[] {
                 control.ParentWindow.ProcessId.ToString(),
                 control.Id.ToString(),
@@ -67,7 +71,18 @@ internal static class ControlCommands {
                 control.ParentWindow.Title
             })
             .ToArray();
-        OutputFormatter.WriteTable(new[] { "PID", "Id", "Handle", "Source", "Type", "X", "Y", "Width", "Height", "Enabled", "Focusable", "Offscreen", "BgClick", "BgText", "BgKeys", "FgFallback", "AutomationId", "Class", "Text", "Value", "Window" }, rows);
+
+        OutputFormatter.WriteTable(writer, new[] { "PID", "Id", "Handle", "Source", "Type", "X", "Y", "Width", "Height", "Enabled", "Focusable", "Offscreen", "BgClick", "BgText", "BgKeys", "FgFallback", "AutomationId", "Class", "Text", "Value", "Window" }, rows);
+        return 0;
+    }
+
+    internal static int WriteNoMatchingControls(TextWriter writer) {
+        writer.WriteLine("No matching controls found.");
+        return 0;
+    }
+
+    internal static int WriteNoMatchingDiagnosticWindows(TextWriter writer) {
+        writer.WriteLine("No matching windows found for control diagnostics.");
         return 0;
     }
 
@@ -108,33 +123,10 @@ internal static class ControlCommands {
         }
 
         if (diagnostics.Count == 0) {
-            Console.WriteLine("No matching windows found for control diagnostics.");
-            return 0;
+            return WriteNoMatchingDiagnosticWindows(Console.Out);
         }
 
-        foreach (ControlDiagnosticResult diagnostic in diagnostics) {
-            Console.WriteLine($"window: {diagnostic.Window.Title} ({diagnostic.Window.Handle})");
-            Console.WriteLine($"effective-source: {diagnostic.EffectiveSource}");
-            Console.WriteLine($"elapsed-ms: {diagnostic.ElapsedMilliseconds}");
-            Console.WriteLine($"uia: required={diagnostic.RequiresUiAutomation} available={diagnostic.UiAutomationAvailable} requested={diagnostic.UseUiAutomation} include={diagnostic.IncludeUiAutomation}");
-            Console.WriteLine($"preparation: attempted={diagnostic.PreparationAttempted} succeeded={diagnostic.PreparationSucceeded} ensureForeground={diagnostic.EnsureForegroundWindow}");
-            Console.WriteLine($"fallback-roots: count={diagnostic.UiAutomationFallbackRootCount} used={diagnostic.UsedUiAutomationFallbackRoots} cached={diagnostic.UsedCachedUiAutomationControls} preferred={diagnostic.PreferredUiAutomationRootHandle} reused={diagnostic.UsedPreferredUiAutomationRoot}");
-            Console.WriteLine($"counts: win32={diagnostic.Win32ControlCount} uia={diagnostic.UiAutomationControlCount} effective={diagnostic.EffectiveControlCount} matched={diagnostic.MatchedControlCount}");
-            if (diagnostic.UiAutomationActionProbe != null) {
-                Console.WriteLine($"action-probe: attempted={diagnostic.UiAutomationActionProbe.Attempted} resolved={diagnostic.UiAutomationActionProbe.Resolved} cached={diagnostic.UiAutomationActionProbe.UsedCachedActionMatch} preferred={diagnostic.UiAutomationActionProbe.UsedPreferredRoot} root={diagnostic.UiAutomationActionProbe.RootHandle} score={diagnostic.UiAutomationActionProbe.Score} mode={diagnostic.UiAutomationActionProbe.SearchMode} elapsed-ms={diagnostic.UiAutomationActionProbe.ElapsedMilliseconds}");
-            }
-            foreach (UiAutomationRootDiagnosticResult root in diagnostic.UiAutomationRoots) {
-                Console.WriteLine($"root[{root.Order}]: handle={root.Handle} class={root.ClassName} primary={root.IsPrimaryRoot} preferred={root.IsPreferredRoot} cached={root.UsedCachedControls} includeRoot={root.IncludeRoot} elementResolved={root.ElementResolved} count={root.ControlCount} error={root.Error ?? string.Empty}");
-                foreach (ControlResult sample in root.SampleControls) {
-                    Console.WriteLine($"  * {sample.Source} {sample.ControlType} {sample.AutomationId} {sample.Text}");
-                }
-            }
-            foreach (ControlResult sample in diagnostic.SampleControls) {
-                Console.WriteLine($"- {sample.Source} {sample.ControlType} {sample.AutomationId} {sample.Text}");
-            }
-            Console.WriteLine();
-        }
-
+        WriteDiagnosticResults(diagnostics, Console.Out);
         return 0;
     }
 
@@ -160,11 +152,7 @@ internal static class ControlCommands {
             return 0;
         }
 
-        Console.WriteLine($"wait: {result.Count} control(s) after {result.ElapsedMilliseconds}ms");
-        foreach (ControlResult control in result.Controls) {
-            Console.WriteLine($"- {control.ControlType} {control.Text} in {control.ParentWindow.Title}");
-        }
-        return 0;
+        return WriteWaitResult(result, Console.Out);
     }
 
     private static int AssertValue(CommandLineArguments arguments) {
@@ -193,12 +181,7 @@ internal static class ControlCommands {
         if (arguments.GetBoolFlag("json")) {
             OutputFormatter.WriteJson(result);
         } else {
-            Console.WriteLine(result.Matched ? "Control value assertion passed." : "Control value assertion failed.");
-            Console.WriteLine($"assertion: {result.PropertyName} {result.MatchMode} \"{result.Expected}\"");
-            Console.WriteLine($"matched: {result.MatchedCount}/{result.Count}");
-            foreach (ControlResult control in result.Controls) {
-                Console.WriteLine($"- {control.ControlType} value=\"{control.Value}\" text=\"{control.Text}\" in {control.ParentWindow.Title}");
-            }
+            return WriteValueAssertionResult(result, Console.Out);
         }
 
         return result.Matched ? 0 : 2;
@@ -281,23 +264,84 @@ internal static class ControlCommands {
             return 0;
         }
 
-        Console.WriteLine($"{result.Action}: {result.Count} control(s) success={result.Success} safety={result.SafetyMode} elapsed-ms={result.ElapsedMilliseconds}");
+        return WriteActionResult(result, Console.Out);
+    }
+
+    internal static int WriteActionResult(ControlActionResult result, TextWriter writer) {
+        writer.WriteLine($"{result.Action}: {result.Count} control(s) success={result.Success} safety={result.SafetyMode} elapsed-ms={result.ElapsedMilliseconds}");
         if (!string.IsNullOrWhiteSpace(result.TargetName)) {
-            Console.WriteLine($"target: {result.TargetKind ?? "selector"} {result.TargetName}");
+            writer.WriteLine($"target: {result.TargetKind ?? "selector"} {result.TargetName}");
         }
 
         if (result.BeforeScreenshots.Count > 0 || result.AfterScreenshots.Count > 0) {
-            Console.WriteLine($"artifacts: before={result.BeforeScreenshots.Count} after={result.AfterScreenshots.Count}");
+            writer.WriteLine($"artifacts: before={result.BeforeScreenshots.Count} after={result.AfterScreenshots.Count}");
         }
 
         foreach (string warning in result.ArtifactWarnings) {
-            Console.WriteLine($"warning: {warning}");
+            writer.WriteLine($"warning: {warning}");
         }
 
         foreach (ControlResult control in result.Controls) {
-            Console.WriteLine($"- {control.ClassName} [{control.Id}] in {control.ParentWindow.Title}");
+            writer.WriteLine($"- {control.ClassName} [{control.Id}] in {control.ParentWindow.Title}");
         }
         return 0;
+    }
+
+    internal static int WriteWaitResult(WaitForControlResult result, TextWriter writer) {
+        writer.WriteLine($"wait: {result.Count} control(s) after {result.ElapsedMilliseconds}ms");
+        foreach (ControlResult control in result.Controls) {
+            writer.WriteLine($"- {control.ControlType} {control.Text} in {control.ParentWindow.Title}");
+        }
+
+        return 0;
+    }
+
+    internal static int WriteValueAssertionResult(ControlValueAssertionResult result, TextWriter writer) {
+        writer.WriteLine(result.Matched ? "Control value assertion passed." : "Control value assertion failed.");
+        writer.WriteLine($"assertion: {result.PropertyName} {result.MatchMode} \"{result.Expected}\"");
+        writer.WriteLine($"matched: {result.MatchedCount}/{result.Count}");
+        foreach (ControlResult control in result.Controls) {
+            writer.WriteLine($"- {control.ControlType} value=\"{control.Value}\" text=\"{control.Text}\" in {control.ParentWindow.Title}");
+        }
+
+        return result.Matched ? 0 : 2;
+    }
+
+    internal static int WriteAssertionResult(ControlAssertionResult result, string successText, string failureText, TextWriter writer) {
+        writer.WriteLine(result.Matched ? successText : failureText);
+        foreach (ControlResult control in result.Controls) {
+            writer.WriteLine($"- {control.ControlType} {control.Text} in {control.ParentWindow.Title}");
+        }
+
+        return result.Matched ? 0 : 2;
+    }
+
+    internal static void WriteDiagnosticResults(IReadOnlyList<ControlDiagnosticResult> diagnostics, TextWriter writer) {
+        foreach (ControlDiagnosticResult diagnostic in diagnostics) {
+            writer.WriteLine($"window: {diagnostic.Window.Title} ({diagnostic.Window.Handle})");
+            writer.WriteLine($"effective-source: {diagnostic.EffectiveSource}");
+            writer.WriteLine($"elapsed-ms: {diagnostic.ElapsedMilliseconds}");
+            writer.WriteLine($"uia: required={diagnostic.RequiresUiAutomation} available={diagnostic.UiAutomationAvailable} requested={diagnostic.UseUiAutomation} include={diagnostic.IncludeUiAutomation}");
+            writer.WriteLine($"preparation: attempted={diagnostic.PreparationAttempted} succeeded={diagnostic.PreparationSucceeded} ensureForeground={diagnostic.EnsureForegroundWindow}");
+            writer.WriteLine($"fallback-roots: count={diagnostic.UiAutomationFallbackRootCount} used={diagnostic.UsedUiAutomationFallbackRoots} cached={diagnostic.UsedCachedUiAutomationControls} preferred={diagnostic.PreferredUiAutomationRootHandle} reused={diagnostic.UsedPreferredUiAutomationRoot}");
+            writer.WriteLine($"counts: win32={diagnostic.Win32ControlCount} uia={diagnostic.UiAutomationControlCount} effective={diagnostic.EffectiveControlCount} matched={diagnostic.MatchedControlCount}");
+            if (diagnostic.UiAutomationActionProbe != null) {
+                writer.WriteLine($"action-probe: attempted={diagnostic.UiAutomationActionProbe.Attempted} resolved={diagnostic.UiAutomationActionProbe.Resolved} cached={diagnostic.UiAutomationActionProbe.UsedCachedActionMatch} preferred={diagnostic.UiAutomationActionProbe.UsedPreferredRoot} root={diagnostic.UiAutomationActionProbe.RootHandle} score={diagnostic.UiAutomationActionProbe.Score} mode={diagnostic.UiAutomationActionProbe.SearchMode} elapsed-ms={diagnostic.UiAutomationActionProbe.ElapsedMilliseconds}");
+            }
+
+            foreach (UiAutomationRootDiagnosticResult root in diagnostic.UiAutomationRoots) {
+                writer.WriteLine($"root[{root.Order}]: handle={root.Handle} class={root.ClassName} primary={root.IsPrimaryRoot} preferred={root.IsPreferredRoot} cached={root.UsedCachedControls} includeRoot={root.IncludeRoot} elementResolved={root.ElementResolved} count={root.ControlCount} error={root.Error ?? string.Empty}");
+                foreach (ControlResult sample in root.SampleControls) {
+                    writer.WriteLine($"  * {sample.Source} {sample.ControlType} {sample.AutomationId} {sample.Text}");
+                }
+            }
+
+            foreach (ControlResult sample in diagnostic.SampleControls) {
+                writer.WriteLine($"- {sample.Source} {sample.ControlType} {sample.AutomationId} {sample.Text}");
+            }
+
+            writer.WriteLine();
+        }
     }
 
     private static MutationArtifactOptions? CreateArtifactOptions(CommandLineArguments arguments) {
@@ -319,16 +363,13 @@ internal static class ControlCommands {
         if (arguments.GetBoolFlag("json")) {
             OutputFormatter.WriteJson(result);
         } else {
-            Console.WriteLine(result.Matched ? successText : failureText);
-            foreach (ControlResult control in result.Controls) {
-                Console.WriteLine($"- {control.ControlType} {control.Text} in {control.ParentWindow.Title}");
-            }
+            return WriteAssertionResult(result, successText, failureText, Console.Out);
         }
 
         return result.Matched ? 0 : 2;
     }
 
-    private static WindowSelectionCriteria CreateWindowCriteria(CommandLineArguments arguments) {
+    internal static WindowSelectionCriteria CreateWindowCriteria(CommandLineArguments arguments) {
         return new WindowSelectionCriteria {
             TitlePattern = arguments.GetOption("window-title") ?? arguments.GetOption("title") ?? "*",
             ProcessNamePattern = arguments.GetOption("window-process") ?? arguments.GetOption("process") ?? "*",
@@ -343,7 +384,7 @@ internal static class ControlCommands {
         };
     }
 
-    private static ControlSelectionCriteria CreateControlCriteria(CommandLineArguments arguments) {
+    internal static ControlSelectionCriteria CreateControlCriteria(CommandLineArguments arguments) {
         return new ControlSelectionCriteria {
             ClassNamePattern = arguments.GetOption("class") ?? "*",
             TextPattern = arguments.GetOption("text-pattern") ?? "*",
