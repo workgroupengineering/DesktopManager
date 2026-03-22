@@ -655,6 +655,16 @@ public sealed class DesktopCapture : IDisposable {
     public Bitmap Bitmap { get; set; } = null!;
 
     /// <summary>
+    /// Gets the captured bitmap width.
+    /// </summary>
+    public int Width => Bitmap.Width;
+
+    /// <summary>
+    /// Gets the captured bitmap height.
+    /// </summary>
+    public int Height => Bitmap.Height;
+
+    /// <summary>
     /// Gets or sets the captured window when applicable.
     /// </summary>
     public WindowInfo? Window { get; set; }
@@ -673,6 +683,14 @@ public sealed class DesktopCapture : IDisposable {
     /// Gets or sets the captured monitor device name when applicable.
     /// </summary>
     public string? MonitorDeviceName { get; set; }
+
+    /// <summary>
+    /// Saves the captured bitmap using the output path extension.
+    /// </summary>
+    /// <param name="path">Destination file path.</param>
+    public void Save(string path) {
+        Bitmap.Save(path);
+    }
 
     /// <summary>
     /// Disposes the underlying bitmap.

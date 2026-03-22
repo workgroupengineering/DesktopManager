@@ -521,7 +521,7 @@ WindowKeepAlive.Instance.StopAll();
 
 ### C# API Highlights
 
-DesktopManager ships as a .NET library targeting `net472`, `netstandard2.0` and `net8.0`. The main entry points are:
+DesktopManager ships as a .NET library targeting `net472`, `netstandard2.0`, `net8.0-windows`, and `net10.0-windows`. The main entry points are:
 
 - `Monitors` for monitor enumeration, wallpaper management, brightness, resolution, orientation and slideshow control.
 - `WindowManager` for window enumeration, positioning, resizing and layout persistence.

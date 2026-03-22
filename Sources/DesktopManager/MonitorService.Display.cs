@@ -571,7 +571,11 @@ public partial class MonitorService {
             }
 
             IntPtr unk = Marshal.GetIUnknownForObject(collection);
+#if NET10_0_OR_GREATER
+            Marshal.QueryInterface(unk, in iidShellItemArray, out IntPtr arrayPtr);
+#else
             Marshal.QueryInterface(unk, ref iidShellItemArray, out IntPtr arrayPtr);
+#endif
             Marshal.Release(unk);
             return arrayPtr;
         } finally {

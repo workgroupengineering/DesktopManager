@@ -1,8 +1,6 @@
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -919,12 +917,12 @@ internal static partial class DesktopOperations {
 
     private static ScreenshotResult SaveScreenshot(DesktopCapture capture, string prefix, string? outputPath) {
         string path = DesktopStateStore.ResolveCapturePath(prefix, outputPath);
-        capture.Bitmap.Save(path, ImageFormat.Png);
+        capture.Save(path);
         return new ScreenshotResult {
             Kind = capture.Kind,
             Path = path,
-            Width = capture.Bitmap.Width,
-            Height = capture.Bitmap.Height,
+            Width = capture.Width,
+            Height = capture.Height,
             MonitorIndex = capture.MonitorIndex,
             MonitorDeviceName = capture.MonitorDeviceName,
             Window = capture.Window == null ? null : MapWindow(capture.Window),

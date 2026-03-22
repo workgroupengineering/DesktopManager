@@ -102,7 +102,7 @@ public class CliApplicationTests {
 
         Assert.AreEqual(1, exitCode);
         Assert.AreEqual(string.Empty, standardOutput);
-        StringAssert.Contains(standardError, $"Error: Unknown {group} command ''.");
+        StringAssert.Contains(standardError, $"Error: Missing required {group} command.");
         StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
     }
 

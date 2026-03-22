@@ -18,6 +18,9 @@ internal static class CliApplication {
 
             string group = parsed.GetCommandPart(0)?.ToLowerInvariant() ?? string.Empty;
             string action = parsed.GetCommandPart(1)?.ToLowerInvariant() ?? string.Empty;
+            if (RequiresAction(group) && string.IsNullOrWhiteSpace(action)) {
+                throw new CommandLineException($"Missing required {group} command.");
+            }
 
             return group switch {
                 "window" => WindowCommands.Run(action, parsed),
@@ -43,6 +46,23 @@ internal static class CliApplication {
             error.WriteLine($"Unhandled error: {ex.Message}");
             return 1;
         }
+    }
+
+    internal static bool RequiresAction(string? group) {
+        return group?.ToLowerInvariant() switch {
+            "window" => true,
+            "control" => true,
+            "monitor" => true,
+            "process" => true,
+            "screenshot" => true,
+            "target" => true,
+            "control-target" => true,
+            "layout" => true,
+            "snapshot" => true,
+            "workflow" => true,
+            "mcp" => true,
+            _ => false
+        };
     }
 
     internal static string GetHelpText(string? topic) {

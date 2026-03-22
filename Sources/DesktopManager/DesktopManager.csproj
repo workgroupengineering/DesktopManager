@@ -4,7 +4,7 @@
         <AssemblyName>DesktopManager</AssemblyName>
         <AssemblyTitle>DesktopManager</AssemblyTitle>
 
-        <TargetFrameworks>net472;net8.0-windows</TargetFrameworks>
+        <TargetFrameworks>net472;netstandard2.0;net8.0-windows;net10.0-windows</TargetFrameworks>
         <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
         <Company>Evotec</Company>
         <Authors>Przemyslaw Klys</Authors>
@@ -12,7 +12,7 @@
         <IsPublishable>True</IsPublishable>
         <Copyright>(c) 2011 - 2025 Przemyslaw Klys @ Evotec. All rights reserved.</Copyright>
         <RepositoryUrl>https://github.com/evotecit/DesktopManager</RepositoryUrl>
-        <VersionPrefix>3.6.0</VersionPrefix>
+        <VersionPrefix>3.6.1</VersionPrefix>
         <DebugType>portable</DebugType>
         <!--
       Turns off reference assembly generation
@@ -34,7 +34,7 @@
         <PackageId>DesktopManager</PackageId>
         <PackageIcon>DesktopManager.png</PackageIcon>
         <PackageTags>
-            desktop;net472;net48;net80
+            desktop;net472;net48;netstandard20;net80;net100
         </PackageTags>
         <PackageProjectUrl>https://github.com/EvotecIT/DesktopManager</PackageProjectUrl>
         <PackageReadmeFile>README.MD</PackageReadmeFile>
@@ -45,10 +45,17 @@
     </ItemGroup>
 
   <ItemGroup>
-      <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />   
-      <PackageReference Include="System.Drawing.Common" Version="8.0.17" />     
+      <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
       <PackageReference Include="System.Text.Json" Version="8.0.5" />
       <PackageReference Include="System.Net.Http" Version="4.3.4" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+      <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.0'">
+      <PackageReference Include="System.Drawing.Common" Version="8.0.17" />
   </ItemGroup>
 
 
@@ -75,7 +82,7 @@
         <Using Include="System.Collections.Generic" />
     </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.0'">
       <PackageReference Include="Microsoft.Win32.SystemEvents" Version="8.0.0" />
   </ItemGroup>
 

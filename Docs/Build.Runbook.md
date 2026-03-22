@@ -81,7 +81,7 @@ Publish a specific CLI runtime:
 
 - `Build-Project.ps1` is the only package and release entrypoint in this repo.
 - `Build-Project.ps1 -Plan` skips the module build execution because the module path does not expose the same standalone plan surface here.
-- The CLI publish target packages `Sources/DesktopManager.Cli/DesktopManager.Cli.csproj` as `desktopmanager.exe`.
+- The CLI publish targets package `Sources/DesktopManager.Cli/DesktopManager.Cli.csproj` as `desktopmanager.exe` for both `net8.0-windows` and `net10.0-windows`.
 - The CLI includes the MCP server entrypoint exposed by:
 
 ```powershell
@@ -109,7 +109,7 @@ dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-w
 dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter McpServer_EdgeForegroundInputPolicy_AllowsOmniboxEnterWithServerOptIn
 ```
 
-- Those live MCP desktop tests intentionally run under `net8.0-windows` only because they all drive the shared `DesktopManager.Cli.exe` host and the same real desktop session.
+- Those live MCP desktop tests intentionally run under `net8.0-windows` in the runbook examples because they all drive the shared `DesktopManager.Cli.exe` host and the same real desktop session; the same flows can also be exercised under `net10.0-windows` when validating the newer runtime target.
 - The safety-policy harness now covers one allowed scoped mutation, one denied scoped mutation, and one dry-run scoped mutation preview against a disposable Notepad window.
 - The stable live MCP desktop pack now stays on the Notepad-backed flows, while both Chromium-style foreground-input harnesses live behind `RUN_EXPERIMENTAL_UI_TESTS=true` so they can be exercised manually without destabilizing regular regression runs.
 - When the experimental Chromium opt-in harness goes inconclusive, it now keeps a screenshot plus control-diagnostic bundle under `%TEMP%\DesktopManager.Tests\McpE2E\Experimental`, exercises temporary named window/control targets so the fallback path stays aligned with the shared targeting workflow, and writes `decision-trace.txt` plus `comparison.txt` for follow-up analysis.
