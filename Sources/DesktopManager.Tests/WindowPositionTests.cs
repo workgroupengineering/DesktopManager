@@ -1,7 +1,7 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -18,28 +18,19 @@ public class WindowPositionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Position RoundTrip Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+        var manager = new WindowManager();
+        var original = manager.GetWindowPosition(harness.Window);
 
-            var manager = new WindowManager();
-            var original = manager.GetWindowPosition(window);
+        manager.SetWindowPosition(harness.Window, original.Left, original.Top);
+        Application.DoEvents();
+        var updated = manager.GetWindowPosition(harness.Window);
 
-            manager.SetWindowPosition(window, original.Left, original.Top);
-            var updated = manager.GetWindowPosition(window);
-
-            Assert.AreEqual(original.Left, updated.Left);
-            Assert.AreEqual(original.Top, updated.Top);
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        Assert.AreEqual(original.Left, updated.Left);
+        Assert.AreEqual(original.Top, updated.Top);
     }
 
     [TestMethod]
@@ -50,31 +41,22 @@ public class WindowPositionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager ZOrder Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+        var manager = new WindowManager();
+        var windowsBefore = manager.GetWindows(includeHidden: true);
+        int indexBefore = windowsBefore.FindIndex(w => w.Handle == harness.Window.Handle);
 
-            var manager = new WindowManager();
-            var windowsBefore = manager.GetWindows(includeHidden: true);
-            int indexBefore = windowsBefore.FindIndex(w => w.Handle == window.Handle);
+        var original = manager.GetWindowPosition(harness.Window);
+        manager.SetWindowPosition(harness.Window, original.Left + 1, original.Top + 1);
+        Application.DoEvents();
 
-            var original = manager.GetWindowPosition(window);
-            manager.SetWindowPosition(window, original.Left + 1, original.Top + 1);
+        var windowsAfterMove = manager.GetWindows(includeHidden: true);
+        int indexAfterMove = windowsAfterMove.FindIndex(w => w.Handle == harness.Window.Handle);
 
-            var windowsAfterMove = manager.GetWindows(includeHidden: true);
-            int indexAfterMove = windowsAfterMove.FindIndex(w => w.Handle == window.Handle);
-
-            Assert.AreEqual(indexBefore, indexAfterMove);
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        Assert.AreEqual(indexBefore, indexAfterMove);
     }
 
     [TestMethod]
@@ -99,31 +81,20 @@ public class WindowPositionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Same Monitor Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
-
-            var manager = new WindowManager();
-            var monitors = new Monitors().GetMonitors(index: window.MonitorIndex);
-            var monitor = monitors.FirstOrDefault();
-            if (monitor == null) {
-                Assert.Inconclusive("Monitor not found");
-                return;
-            }
-
-            bool moved = manager.MoveWindowToMonitor(window, monitor);
-
-            Assert.IsFalse(moved);
-        } finally {
-            TestHelper.SafeKillProcess(process);
+        var manager = new WindowManager();
+        var monitors = new Monitors().GetMonitors(index: harness.Window.MonitorIndex);
+        var monitor = monitors.FirstOrDefault();
+        if (monitor == null) {
+            Assert.Inconclusive("Monitor not found");
         }
+
+        bool moved = manager.MoveWindowToMonitor(harness.Window, monitor);
+
+        Assert.IsFalse(moved);
     }
 
     [TestMethod]
@@ -134,30 +105,20 @@ public class WindowPositionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
         var monitors = new Monitors().GetMonitors();
         if (monitors.Count < 2) {
             Assert.Inconclusive("Need at least two monitors");
         }
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Different Monitor Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+        var manager = new WindowManager();
+        var target = monitors.First(m => m.Index != harness.Window.MonitorIndex);
 
-            var manager = new WindowManager();
-            var target = monitors.First(m => m.Index != window.MonitorIndex);
+        bool moved = manager.MoveWindowToMonitor(harness.Window, target);
 
-            bool moved = manager.MoveWindowToMonitor(window, target);
-
-            Assert.IsTrue(moved);
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        Assert.IsTrue(moved);
     }
 }

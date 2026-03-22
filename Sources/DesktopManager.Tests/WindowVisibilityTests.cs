@@ -1,7 +1,7 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -18,30 +18,22 @@ public class WindowVisibilityTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Visibility Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+        var manager = new WindowManager();
+        bool wasVisible = MonitorNativeMethods.IsWindowVisible(harness.Window.Handle);
 
-            var manager = new WindowManager();
-            bool wasVisible = MonitorNativeMethods.IsWindowVisible(window.Handle);
+        manager.ShowWindow(harness.Window, !wasVisible);
+        Application.DoEvents();
+        bool toggled = MonitorNativeMethods.IsWindowVisible(harness.Window.Handle);
+        Assert.AreEqual(!wasVisible, toggled);
 
-            manager.ShowWindow(window, !wasVisible);
-            bool toggled = MonitorNativeMethods.IsWindowVisible(window.Handle);
-            Assert.AreEqual(!wasVisible, toggled);
-
-            manager.ShowWindow(window, wasVisible);
-            bool reverted = MonitorNativeMethods.IsWindowVisible(window.Handle);
-            Assert.AreEqual(wasVisible, reverted);
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        manager.ShowWindow(harness.Window, wasVisible);
+        Application.DoEvents();
+        bool reverted = MonitorNativeMethods.IsWindowVisible(harness.Window.Handle);
+        Assert.AreEqual(wasVisible, reverted);
     }
 
     [TestMethod]

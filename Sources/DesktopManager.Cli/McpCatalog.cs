@@ -605,6 +605,7 @@ internal static class McpCatalog {
                     ["windowClass"] = CreateStringSchema("Optional final window class filter."),
                     ["includeHidden"] = CreateBooleanSchema("Include hidden windows while waiting."),
                     ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles while waiting."),
+                    ["followProcessFamily"] = CreateBooleanSchema("When launch-time correlation did not resolve a concrete window process, allow the final wait to follow the launched app's same-name process family."),
                     ["all"] = CreateBooleanSchema("Return all matching windows instead of the first match."),
                     ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait for the final window in milliseconds."),
                     ["intervalMs"] = CreateIntegerSchema("Polling interval while waiting for the final window.")
@@ -893,6 +894,7 @@ internal static class McpCatalog {
                     ReadBool(arguments, "includeHidden"),
                     ReadBool(arguments, "includeEmpty"),
                     ReadBool(arguments, "all"),
+                    ReadBool(arguments, "followProcessFamily"),
                     ReadInt(arguments, "timeoutMs") ?? 10000,
                     ReadInt(arguments, "intervalMs") ?? 200,
                     ReadMutationArtifactOptions(arguments)),

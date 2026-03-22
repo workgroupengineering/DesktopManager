@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -84,7 +85,6 @@ public class WindowManagerFilterTests {
 
     [TestMethod]
     [TestCategory("UITest")]
-    [Ignore("Disabled: UI test with Notepad - window enumeration needs fixing")]
     /// <summary>
     /// Ensures filtering by process ID returns matching window.
     /// </summary>
@@ -93,25 +93,18 @@ public class WindowManagerFilterTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
-        if (TestHelper.ShouldSkipUITests()) {
-            Assert.Inconclusive("UI tests skipped in local development. Set RUN_UI_TESTS=true to run.");
-        }
+        TestHelper.RequireOwnedWindowUiTests();
 
-        using var proc = TestHelper.StartHiddenNotepad();
-        if (proc == null) {
-            Assert.Inconclusive("Failed to start notepad");
-        }
+        string title = $"ProcessId Filter Harness {Guid.NewGuid():N}";
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create(title);
+        using var process = Process.GetCurrentProcess();
 
-        try {
-            var manager = new WindowManager();
-            var windows = manager.GetWindows(processId: proc.Id);
-            Assert.IsTrue(windows.Any());
+        var manager = new WindowManager();
+        var windows = manager.GetWindows(processId: process.Id, includeHidden: true);
+        Assert.IsTrue(windows.Any(w => w.Handle == harness.Window.Handle));
 
-            var windows2 = manager.GetWindowsForProcess(proc);
-            Assert.IsTrue(windows2.Any());
-        } finally {
-            TestHelper.SafeKillProcess(proc);
-        }
+        var windows2 = manager.GetWindowsForProcess(process, includeHidden: true);
+        Assert.IsTrue(windows2.Any(w => w.Handle == harness.Window.Handle));
     }
 
     [TestMethod]
@@ -123,49 +116,16 @@ public class WindowManagerFilterTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
+        TestHelper.RequireOwnedWindowUiTests();
+        string title = $"Class Filter Harness {Guid.NewGuid():N}";
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create(title);
+
         var manager = new WindowManager();
-        var windows = manager.GetWindows(includeHidden: true);
-        if (windows.Count == 0) {
-            Assert.Inconclusive("No windows found to test");
-        }
-
-        // Find a window with a stable class name that we can reliably filter by
-        WindowInfo? selectedWindow = null;
-        string? selectedClassName = null;
-        
-        foreach (var w in windows) {
-            try {
-                var sb = new StringBuilder(256);
-                MonitorNativeMethods.GetClassName(w.Handle, sb, sb.Capacity);
-                var className = sb.ToString();
-                
-                // Skip empty or very complex class names
-                if (string.IsNullOrEmpty(className) || className.Length > 50 || className.Contains(":")) {
-                    continue;
-                }
-                
-                // Test if this class name actually returns results
-                var testFiltered = manager.GetWindows(className: className, includeHidden: true);
-                if (testFiltered.Any(tw => tw.Handle == w.Handle)) {
-                    selectedWindow = w;
-                    selectedClassName = className;
-                    break;
-                }
-            } catch {
-                continue;
-            }
-        }
-        
-        if (selectedWindow == null || string.IsNullOrEmpty(selectedClassName)) {
-            Assert.Inconclusive("No suitable window with filterable class name found for testing");
-            return;
-        }
-
-        string classNameFilter = selectedClassName!;
+        string classNameFilter = GetClassName(harness.Window.Handle);
         var filtered = manager.GetWindows(className: classNameFilter, includeHidden: true);
 
-        Assert.IsTrue(filtered.Any(w => w.Handle == selectedWindow.Handle),
-            $"Expected to find window {selectedWindow.Handle:X8} with class '{classNameFilter}' in filtered results");
+        Assert.IsTrue(filtered.Any(w => w.Handle == harness.Window.Handle),
+            $"Expected to find window {harness.Window.Handle:X8} with class '{classNameFilter}' in filtered results");
     }
 
     [TestMethod]
@@ -177,22 +137,15 @@ public class WindowManagerFilterTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
+        TestHelper.RequireOwnedWindowUiTests();
+        string title = $"Regex Filter Harness {Guid.NewGuid():N}";
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create(title);
+
         var manager = new WindowManager();
-        var windows = manager.GetWindows(includeHidden: true);
-        if (windows.Count == 0) {
-            Assert.Inconclusive("No windows found to test");
-        }
-
-        // Find a window with a non-empty title for regex matching
-        var window = windows.FirstOrDefault(w => !string.IsNullOrEmpty(w.Title));
-        if (window == null) {
-            Assert.Inconclusive("No windows with titles found to test");
-        }
-
-        var regex = new Regex(Regex.Escape(window.Title), RegexOptions.IgnoreCase);
+        var regex = new Regex(Regex.Escape(title), RegexOptions.IgnoreCase);
         var filtered = manager.GetWindows(regex: regex, includeHidden: true);
-        Assert.IsTrue(filtered.Any(w => w.Handle == window.Handle),
-            $"Expected to find window {window.Handle:X8} with title '{window.Title}' in regex filtered results");
+        Assert.IsTrue(filtered.Any(w => w.Handle == harness.Window.Handle),
+            $"Expected to find window {harness.Window.Handle:X8} with title '{title}' in regex filtered results");
     }
 
     [TestMethod]
@@ -204,67 +157,31 @@ public class WindowManagerFilterTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
+        TestHelper.RequireOwnedWindowUiTests();
+        string title = $"Combined Filter Harness {Guid.NewGuid():N}";
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create(title);
+        using var process = Process.GetCurrentProcess();
+
         var manager = new WindowManager();
-        var windows = manager.GetWindows(includeHidden: true);
-        if (windows.Count == 0) {
-            Assert.Inconclusive("No windows found to test");
-        }
-
-        WindowInfo? selectedWindow = null;
-        string? selectedClassName = null;
-        string? selectedProcessName = null;
-
-        foreach (var w in windows) {
-            if (string.IsNullOrEmpty(w.Title)) {
-                continue;
-            }
-
-            if (w.ProcessId == 0 || w.ProcessId > int.MaxValue) {
-                continue;
-            }
-
-            try {
-                var sb = new StringBuilder(256);
-                MonitorNativeMethods.GetClassName(w.Handle, sb, sb.Capacity);
-                var className = sb.ToString();
-                if (string.IsNullOrEmpty(className) || className.Length > 50 || className.Contains(":")) {
-                    continue;
-                }
-
-                using var proc = Process.GetProcessById((int)w.ProcessId);
-                if (string.IsNullOrWhiteSpace(proc.ProcessName)) {
-                    continue;
-                }
-
-                selectedWindow = w;
-                selectedClassName = className;
-                selectedProcessName = proc.ProcessName;
-                break;
-            } catch {
-                continue;
-            }
-        }
-
-        if (selectedWindow == null || selectedClassName == null || selectedProcessName == null) {
-            Assert.Inconclusive("No suitable window found for combined filter test");
-        }
+        string selectedClassName = GetClassName(harness.Window.Handle);
+        string selectedProcessName = process.ProcessName;
 
         var options = new WindowQueryOptions {
-            TitlePattern = selectedWindow.Title,
+            TitlePattern = title,
             ProcessNamePattern = selectedProcessName,
             ClassNamePattern = selectedClassName,
-            ProcessId = (int)selectedWindow.ProcessId,
+            ProcessId = process.Id,
             IncludeHidden = true,
             IncludeCloaked = true,
             IncludeOwned = true,
-            IsVisible = selectedWindow.IsVisible,
-            State = selectedWindow.State,
-            IsTopMost = selectedWindow.IsTopMost
+            IsVisible = harness.Window.IsVisible,
+            State = harness.Window.State,
+            IsTopMost = harness.Window.IsTopMost
         };
 
         var filtered = manager.GetWindows(options);
-        Assert.IsTrue(filtered.Any(w => w.Handle == selectedWindow.Handle),
-            $"Expected to find window {selectedWindow.Handle:X8} using combined filters");
+        Assert.IsTrue(filtered.Any(w => w.Handle == harness.Window.Handle),
+            $"Expected to find window {harness.Window.Handle:X8} using combined filters");
     }
 
     [TestMethod]
@@ -276,14 +193,13 @@ public class WindowManagerFilterTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
-        var manager = new WindowManager();
-        var window = manager.GetWindows(includeHidden: true).FirstOrDefault();
-        if (window == null) {
-            Assert.Inconclusive("No windows found to test");
-        }
+        TestHelper.RequireOwnedWindowUiTests();
+        string title = $"Handle Filter Harness {Guid.NewGuid():N}";
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create(title);
 
+        var manager = new WindowManager();
         var filtered = manager.GetWindows(new WindowQueryOptions {
-            Handle = window.Handle,
+            Handle = harness.Window.Handle,
             IncludeHidden = true,
             IncludeCloaked = true,
             IncludeOwned = true,
@@ -291,7 +207,7 @@ public class WindowManagerFilterTests {
         });
 
         Assert.AreEqual(1, filtered.Count, "Expected an exact handle filter to return a single window.");
-        Assert.AreEqual(window.Handle, filtered[0].Handle, "Expected the filtered window to match the requested handle.");
+        Assert.AreEqual(harness.Window.Handle, filtered[0].Handle, "Expected the filtered window to match the requested handle.");
     }
 
     [TestMethod]
@@ -343,6 +259,12 @@ public class WindowManagerFilterTests {
 
         Assert.IsTrue(filtered.All(w => w.ZOrder >= min && w.ZOrder <= max),
             "Expected all windows to be within the specified Z-order range");
+    }
+
+    private static string GetClassName(IntPtr handle) {
+        var sb = new StringBuilder(256);
+        MonitorNativeMethods.GetClassName(handle, sb, sb.Capacity);
+        return sb.ToString();
     }
 }
 

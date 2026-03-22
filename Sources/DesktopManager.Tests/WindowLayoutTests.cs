@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using DesktopManager;
 
 namespace DesktopManager.Tests;
@@ -18,21 +19,17 @@ public class WindowLayoutTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        string title = $"Layout Harness {System.Guid.NewGuid():N}";
         var fullLayoutPath = System.IO.Path.GetTempFileName();
         var filteredLayoutPath = System.IO.Path.GetTempFileName();
 
         try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+            using WinFormsWindowHarness harness = WinFormsWindowHarness.Create(title);
 
             var manager = new WindowManager();
-            var original = manager.GetWindowPosition(window);
+            var original = manager.GetWindowPosition(harness.Window);
 
             manager.SaveLayout(fullLayoutPath);
 
@@ -73,9 +70,10 @@ public class WindowLayoutTests {
             manager.LoadLayout(filteredLayoutPath);
 
             System.Threading.Thread.Sleep(200);
+            Application.DoEvents();
 
-            var restored = manager.GetWindowPosition(window);
-            manager.ShowWindow(window, false);
+            var restored = manager.GetWindowPosition(harness.Window);
+            manager.ShowWindow(harness.Window, false);
             var leftTolerance = Math.Abs(newLeft - restored.Left);
             var topTolerance = Math.Abs(newTop - restored.Top);
 
@@ -90,7 +88,6 @@ public class WindowLayoutTests {
             if (System.IO.File.Exists(filteredLayoutPath)) {
                 System.IO.File.Delete(filteredLayoutPath);
             }
-            TestHelper.SafeKillProcess(process);
         }
     }
 

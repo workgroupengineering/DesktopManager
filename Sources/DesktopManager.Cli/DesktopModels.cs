@@ -329,6 +329,49 @@ internal sealed class ScreenshotResult {
     public WindowGeometryResult? Geometry { get; set; }
 }
 
+internal sealed class DesktopScreenshotCommandOptions {
+    public int? MonitorIndex { get; set; }
+    public string? DeviceId { get; set; }
+    public string? DeviceName { get; set; }
+    public int? Left { get; set; }
+    public int? Top { get; set; }
+    public int? Width { get; set; }
+    public int? Height { get; set; }
+    public string? OutputPath { get; set; }
+}
+
+internal sealed class ProcessStartCommandOptions {
+    public string FilePath { get; set; } = string.Empty;
+    public string? Arguments { get; set; }
+    public string? WorkingDirectory { get; set; }
+    public int? WaitForInputIdleMilliseconds { get; set; }
+    public int? WaitForWindowMilliseconds { get; set; }
+    public int? WaitForWindowIntervalMilliseconds { get; set; }
+    public string? WindowTitlePattern { get; set; }
+    public string? WindowClassNamePattern { get; set; }
+    public bool RequireWindow { get; set; }
+}
+
+internal sealed class LaunchAndWaitCommandOptions {
+    public string FilePath { get; set; } = string.Empty;
+    public string? Arguments { get; set; }
+    public string? WorkingDirectory { get; set; }
+    public int? WaitForInputIdleMilliseconds { get; set; }
+    public int? LaunchWaitForWindowMilliseconds { get; set; }
+    public int? LaunchWaitForWindowIntervalMilliseconds { get; set; }
+    public string? LaunchWindowTitlePattern { get; set; }
+    public string? LaunchWindowClassNamePattern { get; set; }
+    public string? WindowTitlePattern { get; set; }
+    public string? WindowClassNamePattern { get; set; }
+    public bool IncludeHidden { get; set; }
+    public bool IncludeEmpty { get; set; }
+    public bool All { get; set; }
+    public bool FollowProcessFamily { get; set; }
+    public int TimeoutMilliseconds { get; set; }
+    public int IntervalMilliseconds { get; set; }
+    public MutationArtifactOptions? ArtifactOptions { get; set; }
+}
+
 internal sealed class ProcessLaunchResult {
     public string FilePath { get; set; } = string.Empty;
     public string? Arguments { get; set; }
@@ -345,12 +388,22 @@ internal sealed class LaunchAndWaitResult {
     public int ElapsedMilliseconds { get; set; }
     public int WaitTimeoutMilliseconds { get; set; }
     public int WaitIntervalMilliseconds { get; set; }
+    public string WaitBinding { get; set; } = string.Empty;
+    public int? BoundProcessId { get; set; }
+    public string? BoundProcessName { get; set; }
     public ProcessLaunchResult Launch { get; set; } = new();
     public WaitForWindowResult WindowWait { get; set; } = new();
     public IReadOnlyList<string> Notes { get; set; } = new List<string>();
     public IReadOnlyList<ScreenshotResult> BeforeScreenshots { get; set; } = new List<ScreenshotResult>();
     public IReadOnlyList<ScreenshotResult> AfterScreenshots { get; set; } = new List<ScreenshotResult>();
     public IReadOnlyList<string> ArtifactWarnings { get; set; } = new List<string>();
+}
+
+internal sealed class LaunchWaitBindingPlan {
+    public WindowSelectionCriteria Criteria { get; set; } = new();
+    public string WaitBinding { get; set; } = string.Empty;
+    public int? BoundProcessId { get; set; }
+    public string? BoundProcessName { get; set; }
 }
 
 internal sealed class WaitForWindowResult {

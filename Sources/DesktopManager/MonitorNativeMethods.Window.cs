@@ -283,6 +283,19 @@ public static partial class MonitorNativeMethods
         out IntPtr lpdwResult);
 
     /// <summary>
+    /// Sends a message with a timeout using a string parameter.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr SendMessageTimeout(
+        IntPtr hWnd,
+        uint Msg,
+        IntPtr wParam,
+        string lParam,
+        uint fuFlags,
+        uint uTimeout,
+        out IntPtr lpdwResult);
+
+    /// <summary>
     /// Sends a message with a timeout using a string buffer parameter.
     /// </summary>
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]

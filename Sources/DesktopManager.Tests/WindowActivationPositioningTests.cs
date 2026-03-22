@@ -1,7 +1,7 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -18,36 +18,26 @@ public class WindowActivationPositioningTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Position Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+        var manager = new WindowManager();
+        var original = manager.GetWindowPosition(harness.Window);
 
-            var manager = new WindowManager();
-            var original = manager.GetWindowPosition(window);
+        int newWidth = original.Width + 10;
+        int newHeight = original.Height + 10;
+        manager.SetWindowPosition(harness.Window, original.Left, original.Top, newWidth, newHeight);
+        Application.DoEvents();
+        var resized = manager.GetWindowPosition(harness.Window);
 
-            int newWidth = original.Width + 10;
-            int newHeight = original.Height + 10;
-            manager.SetWindowPosition(window, original.Left, original.Top, newWidth, newHeight);
-            var resized = manager.GetWindowPosition(window);
+        int widthTolerance = Math.Abs(newWidth - resized.Width);
+        int heightTolerance = Math.Abs(newHeight - resized.Height);
 
-            // Allow some tolerance for window frame/border differences in different environments
-            int widthTolerance = Math.Abs(newWidth - resized.Width);
-            int heightTolerance = Math.Abs(newHeight - resized.Height);
-
-            Assert.IsTrue(widthTolerance <= 20,
-                $"Width resize failed. Expected: {newWidth}, Actual: {resized.Width}, Tolerance: {widthTolerance}");
-            Assert.IsTrue(heightTolerance <= 20,
-                $"Height resize failed. Expected: {newHeight}, Actual: {resized.Height}, Tolerance: {heightTolerance}");
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        Assert.IsTrue(widthTolerance <= 20,
+            $"Width resize failed. Expected: {newWidth}, Actual: {resized.Width}, Tolerance: {widthTolerance}");
+        Assert.IsTrue(heightTolerance <= 20,
+            $"Height resize failed. Expected: {newHeight}, Actual: {resized.Height}, Tolerance: {heightTolerance}");
     }
 
     [TestMethod]

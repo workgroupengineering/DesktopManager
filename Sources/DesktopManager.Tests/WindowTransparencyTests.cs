@@ -1,7 +1,6 @@
 using System;
-using System.Diagnostics;
-using System.Linq;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -18,33 +17,26 @@ public class WindowTransparencyTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireInteractive();
+        TestHelper.RequireDesktopChanges();
 
-        Process? process = null;
-        WindowInfo? window = null;
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Transparency Harness");
 
-        try {
-            if (!TestHelper.TryStartNotepadWindow(out process, out window, hideWindow: true) || window == null) {
-                Assert.Inconclusive("Failed to start Notepad for testing");
-                return;
-            }
+        var manager = new WindowManager();
+        long originalStyle = MonitorNativeMethods.GetWindowLongPtr(harness.Window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
+        uint key;
+        byte origAlpha;
+        uint flags;
+        MonitorNativeMethods.GetLayeredWindowAttributes(harness.Window.Handle, out key, out origAlpha, out flags);
 
-            var manager = new WindowManager();
-            long originalStyle = MonitorNativeMethods.GetWindowLongPtr(window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
-            uint key; byte origAlpha; uint flags;
-            MonitorNativeMethods.GetLayeredWindowAttributes(window.Handle, out key, out origAlpha, out flags);
+        manager.SetWindowTransparency(harness.Window, 128);
+        Application.DoEvents();
+        long layeredStyle = MonitorNativeMethods.GetWindowLongPtr(harness.Window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
+        MonitorNativeMethods.GetLayeredWindowAttributes(harness.Window.Handle, out key, out byte newAlpha, out flags);
 
-            manager.SetWindowTransparency(window, 128);
-            long layeredStyle = MonitorNativeMethods.GetWindowLongPtr(window.Handle, MonitorNativeMethods.GWL_EXSTYLE).ToInt64();
-            MonitorNativeMethods.GetLayeredWindowAttributes(window.Handle, out key, out byte newAlpha, out flags);
+        Assert.IsTrue((layeredStyle & MonitorNativeMethods.WS_EX_LAYERED) != 0);
+        Assert.AreEqual((byte)128, newAlpha);
 
-            Assert.IsTrue((layeredStyle & MonitorNativeMethods.WS_EX_LAYERED) != 0);
-            Assert.AreEqual((byte)128, newAlpha);
-
-            MonitorNativeMethods.SetLayeredWindowAttributes(window.Handle, 0, origAlpha, MonitorNativeMethods.LWA_ALPHA);
-            MonitorNativeMethods.SetWindowLongPtr(window.Handle, MonitorNativeMethods.GWL_EXSTYLE, new IntPtr(originalStyle));
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        MonitorNativeMethods.SetLayeredWindowAttributes(harness.Window.Handle, 0, origAlpha, MonitorNativeMethods.LWA_ALPHA);
+        MonitorNativeMethods.SetWindowLongPtr(harness.Window.Handle, MonitorNativeMethods.GWL_EXSTYLE, new IntPtr(originalStyle));
     }
 }

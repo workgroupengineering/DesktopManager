@@ -37,7 +37,7 @@ internal static class TestHelper {
         window = null;
 
         try {
-            if (ShouldSkipUITests()) {
+            if (ShouldSkipExternalApplicationUiTests()) {
                 return false;
             }
 
@@ -131,12 +131,64 @@ internal static class TestHelper {
     }
 
     /// <summary>
+    /// Determines if tests that launch live external desktop applications should be skipped.
+    /// </summary>
+    public static bool ShouldSkipExternalApplicationUiTests() {
+        if (ShouldSkipUITests()) {
+            return true;
+        }
+
+        if (Environment.GetEnvironmentVariable("RUN_EXTERNAL_UI_TESTS") == "true" ||
+            Environment.GetEnvironmentVariable("DESKTOPMANAGER_RUN_EXTERNAL_UI_TESTS") == "true") {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Skips UI-impacting tests unless explicitly enabled.
     /// </summary>
     public static void RequireInteractive() {
         if (ShouldSkipUITests()) {
             Assert.Inconclusive("UI tests skipped by default. Set RUN_UI_TESTS=true (or DESKTOPMANAGER_RUN_UI_TESTS=true) to run.");
         }
+    }
+
+    /// <summary>
+    /// Skips deterministic WinForms harness tests when no interactive desktop session is available.
+    /// </summary>
+    public static void RequireInteractiveDesktopSession() {
+        if (!Environment.UserInteractive) {
+            Assert.Inconclusive("Test requires an interactive Windows desktop session.");
+        }
+    }
+
+    /// <summary>
+    /// Skips owned-window UI tests unless UI execution is explicitly enabled and an interactive desktop is available.
+    /// </summary>
+    public static void RequireOwnedWindowUiTests() {
+        RequireInteractive();
+        RequireInteractiveDesktopSession();
+    }
+
+    /// <summary>
+    /// Skips tests that launch real desktop applications unless explicitly enabled.
+    /// </summary>
+    public static void RequireExternalApplicationUiTests() {
+        RequireInteractive();
+        RequireInteractiveDesktopSession();
+        if (ShouldSkipExternalApplicationUiTests()) {
+            Assert.Inconclusive("Live external-application UI tests skipped. Set RUN_EXTERNAL_UI_TESTS=true (or DESKTOPMANAGER_RUN_EXTERNAL_UI_TESTS=true) to run.");
+        }
+    }
+
+    /// <summary>
+    /// Skips desktop-changing tests that also launch external applications unless both gates are explicitly enabled.
+    /// </summary>
+    public static void RequireExternalDesktopApplicationTests() {
+        RequireDesktopChanges();
+        RequireExternalApplicationUiTests();
     }
 
     /// <summary>
@@ -188,6 +240,19 @@ internal static class TestHelper {
         } finally {
             UntrackProcess(process);
             process.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Tracks an externally launched test process by identifier.
+    /// </summary>
+    public static void TrackProcessId(int processId) {
+        try {
+            if (processId > 0) {
+                StartedProcessIds.TryAdd(processId, 0);
+            }
+        } catch {
+            // Ignore tracking failures
         }
     }
 

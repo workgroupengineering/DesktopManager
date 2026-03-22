@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DesktopManager.Tests;
@@ -25,33 +26,24 @@ public class WindowProcessInfoTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
-        TestHelper.RequireInteractive();
+        TestHelper.RequireOwnedWindowUiTests();
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("Process Info Harness");
 
-        if (!TestHelper.TryStartNotepadWindow(out var process, out var window, hideWindow: true) ||
-            process == null ||
-            window == null) {
-            Assert.Inconclusive("Failed to start Notepad window");
-        }
+        var manager = new WindowManager();
+        var info = manager.GetWindowProcessInfo(harness.Window);
+        using var currentProcess = Process.GetCurrentProcess();
 
-        try {
-            var manager = new WindowManager();
-            var info = manager.GetWindowProcessInfo(window);
+        Assert.AreEqual((uint)currentProcess.Id, info.ProcessId);
+        Assert.IsTrue(info.ThreadId > 0);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(info.ProcessName));
+        Assert.IsFalse(string.IsNullOrWhiteSpace(info.ProcessPath));
+        Assert.IsTrue(info.IsElevated.HasValue);
+        Assert.IsTrue(info.IsWow64.HasValue);
 
-            Assert.AreEqual((uint)process.Id, info.ProcessId);
-            Assert.IsTrue(info.ThreadId > 0);
-            Assert.IsFalse(string.IsNullOrWhiteSpace(info.ProcessName));
-            Assert.IsTrue(info.ProcessPath != null &&
-                          info.ProcessPath.EndsWith("notepad.exe", StringComparison.OrdinalIgnoreCase));
-            Assert.IsTrue(info.IsElevated.HasValue);
-            Assert.IsTrue(info.IsWow64.HasValue);
+        var threadId = manager.GetWindowThreadId(harness.Window);
+        Assert.AreEqual(info.ThreadId, threadId);
 
-            var threadId = manager.GetWindowThreadId(window);
-            Assert.AreEqual(info.ThreadId, threadId);
-
-            var modulePath = manager.GetWindowModulePath(window);
-            Assert.AreEqual(info.ProcessPath, modulePath);
-        } finally {
-            TestHelper.SafeKillProcess(process);
-        }
+        var modulePath = manager.GetWindowModulePath(harness.Window);
+        Assert.AreEqual(info.ProcessPath, modulePath);
     }
 }

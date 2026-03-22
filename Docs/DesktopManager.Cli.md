@@ -84,6 +84,7 @@ desktopmanager mcp serve --dry-run
 - `process start` launches a desktop application and can optionally wait for input idle and for a launched window to appear.
 - `process start` can now also validate the launched window by title or class and optionally require that a real matching window be found before returning.
 - `process start-and-wait` now packages the safer unattended launch flow: start the app, bind the follow-up wait to the launched process, return the resolved window result, and optionally capture before/after evidence.
+- `process start-and-wait --follow-process-family` is an explicit opt-in for apps that surface their visible window from a same-name helper or broker process after launch-time correlation finishes.
 - `window wait` polls for a matching window and returns when one appears.
 - `window exists` and `window active-matches` provide non-mutating verification commands.
 - `control exists` and `control wait` provide the same inspect-first verification model for controls.

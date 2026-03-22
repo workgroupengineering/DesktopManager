@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 
 namespace DesktopManager.Cli;
 
@@ -38,42 +39,46 @@ internal static class WorkflowCommands {
             return result.Success ? 0 : 2;
         }
 
-        Console.WriteLine($"{result.Action}: success={result.Success} elapsed-ms={result.ElapsedMilliseconds}");
+        return WriteWorkflowResult(result, Console.Out);
+    }
+
+    internal static int WriteWorkflowResult(WorkflowResult result, TextWriter writer) {
+        writer.WriteLine($"{result.Action}: success={result.Success} elapsed-ms={result.ElapsedMilliseconds}");
         if (result.LayoutApplied && !string.IsNullOrWhiteSpace(result.LayoutName)) {
-            Console.WriteLine($"layout: applied {result.LayoutName}");
+            writer.WriteLine($"layout: applied {result.LayoutName}");
         } else if (!string.IsNullOrWhiteSpace(result.LayoutName)) {
-            Console.WriteLine($"layout: not-applied {result.LayoutName}");
+            writer.WriteLine($"layout: not-applied {result.LayoutName}");
         }
 
         if (result.FocusedWindow != null) {
-            Console.WriteLine($"focused: {result.FocusedWindow.Title} [PID {result.FocusedWindow.ProcessId}]");
+            writer.WriteLine($"focused: {result.FocusedWindow.Title} [PID {result.FocusedWindow.ProcessId}]");
         } else if (result.ResolvedWindow != null) {
-            Console.WriteLine($"resolved: {result.ResolvedWindow.Title} [PID {result.ResolvedWindow.ProcessId}]");
+            writer.WriteLine($"resolved: {result.ResolvedWindow.Title} [PID {result.ResolvedWindow.ProcessId}]");
         }
 
         if (result.MinimizedWindows.Count > 0) {
-            Console.WriteLine($"minimized: {result.MinimizedWindows.Count} window(s)");
+            writer.WriteLine($"minimized: {result.MinimizedWindows.Count} window(s)");
             foreach (WindowResult window in result.MinimizedWindows) {
-                Console.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
+                writer.WriteLine($"- {window.Title} [PID {window.ProcessId}]");
             }
         }
 
         if (result.BeforeScreenshots.Count > 0 || result.AfterScreenshots.Count > 0) {
-            Console.WriteLine($"artifacts: before={result.BeforeScreenshots.Count} after={result.AfterScreenshots.Count}");
+            writer.WriteLine($"artifacts: before={result.BeforeScreenshots.Count} after={result.AfterScreenshots.Count}");
         }
 
         foreach (string warning in result.ArtifactWarnings) {
-            Console.WriteLine($"warning: {warning}");
+            writer.WriteLine($"warning: {warning}");
         }
 
         foreach (string note in result.Notes) {
-            Console.WriteLine($"note: {note}");
+            writer.WriteLine($"note: {note}");
         }
 
         return result.Success ? 0 : 2;
     }
 
-    private static WindowSelectionCriteria CreateFocusCriteria(CommandLineArguments arguments) {
+    internal static WindowSelectionCriteria CreateFocusCriteria(CommandLineArguments arguments) {
         return new WindowSelectionCriteria {
             TitlePattern = arguments.GetOption("title") ?? "*",
             ProcessNamePattern = arguments.GetOption("process") ?? "*",
@@ -89,7 +94,7 @@ internal static class WorkflowCommands {
         };
     }
 
-    private static MutationArtifactOptions? CreateArtifactOptions(CommandLineArguments arguments) {
+    internal static MutationArtifactOptions? CreateArtifactOptions(CommandLineArguments arguments) {
         bool captureBefore = arguments.GetBoolFlag("capture-before");
         bool captureAfter = arguments.GetBoolFlag("capture-after");
         string? artifactDirectory = arguments.GetOption("artifact-directory");

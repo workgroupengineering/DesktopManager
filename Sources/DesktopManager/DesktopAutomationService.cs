@@ -726,12 +726,9 @@ public sealed class DesktopAutomationService {
                 return;
             }
 
-            if (!control.SupportsForegroundInputFallback) {
-                throw new InvalidOperationException("The selected UI Automation control does not expose direct value setting and is not keyboard-focusable for foreground input fallback.");
-            }
-
-            if (!allowForegroundInputFallback) {
-                throw new InvalidOperationException("The UI Automation control does not support direct value setting. Enable foreground input fallback only when you intentionally allow focused input for modern app controls.");
+            string? validationError = ValidateUiAutomationTextFallback(control, allowForegroundInputFallback);
+            if (validationError != null) {
+                throw new InvalidOperationException(validationError);
             }
 
             if (!uiAutomation.TrySetText(window, control, text, ensureForegroundWindow)) {
@@ -747,12 +744,9 @@ public sealed class DesktopAutomationService {
     private void SendControlKeys(WindowInfo window, WindowControlInfo control, IReadOnlyList<VirtualKey> keys, bool ensureForegroundWindow, bool allowForegroundInputFallback) {
         var uiAutomation = new UiAutomationControlService();
         if (control.Source == WindowControlSource.UiAutomation && control.Handle == IntPtr.Zero) {
-            if (!control.SupportsForegroundInputFallback) {
-                throw new InvalidOperationException("The selected UI Automation control is not keyboard-focusable and cannot receive foreground fallback key input.");
-            }
-
-            if (!allowForegroundInputFallback) {
-                throw new InvalidOperationException("The selected UI Automation control does not expose a Win32 handle. Enable foreground input fallback only when you intentionally allow focused input for modern app controls.");
+            string? validationError = ValidateUiAutomationKeyFallback(control, allowForegroundInputFallback);
+            if (validationError != null) {
+                throw new InvalidOperationException(validationError);
             }
 
             if (!uiAutomation.TrySendKeys(window, control, keys, ensureForegroundWindow)) {
@@ -763,6 +757,46 @@ public sealed class DesktopAutomationService {
         }
 
         _windowManager.SendControlKeys(control, keys.ToArray());
+    }
+
+    internal static string? ValidateUiAutomationTextFallback(WindowControlInfo control, bool allowForegroundInputFallback) {
+        if (control == null) {
+            throw new ArgumentNullException(nameof(control));
+        }
+
+        if (control.Source != WindowControlSource.UiAutomation || control.Handle != IntPtr.Zero) {
+            return null;
+        }
+
+        if (!control.SupportsForegroundInputFallback) {
+            return "The selected UI Automation control does not expose direct value setting and is not keyboard-focusable for foreground input fallback.";
+        }
+
+        if (!allowForegroundInputFallback) {
+            return "The UI Automation control does not support direct value setting. Enable foreground input fallback only when you intentionally allow focused input for modern app controls.";
+        }
+
+        return null;
+    }
+
+    internal static string? ValidateUiAutomationKeyFallback(WindowControlInfo control, bool allowForegroundInputFallback) {
+        if (control == null) {
+            throw new ArgumentNullException(nameof(control));
+        }
+
+        if (control.Source != WindowControlSource.UiAutomation || control.Handle != IntPtr.Zero) {
+            return null;
+        }
+
+        if (!control.SupportsForegroundInputFallback) {
+            return "The selected UI Automation control is not keyboard-focusable and cannot receive foreground fallback key input.";
+        }
+
+        if (!allowForegroundInputFallback) {
+            return "The selected UI Automation control does not expose a Win32 handle. Enable foreground input fallback only when you intentionally allow focused input for modern app controls.";
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -1178,10 +1212,11 @@ public sealed class DesktopAutomationService {
 
         foreach (WindowInfo window in _windowManager.GetWindows(new WindowQueryOptions {
             ProcessId = launcherProcessId,
-            IncludeHidden = true,
-            IncludeCloaked = true,
-            IncludeOwned = true,
-            IncludeEmptyTitles = true
+            IncludeHidden = false,
+            IncludeCloaked = false,
+            IncludeOwned = false,
+            IncludeEmptyTitles = false,
+            IsVisible = true
         })) {
             candidates.Add(new LaunchWindowCandidate(
                 window,
@@ -1194,10 +1229,11 @@ public sealed class DesktopAutomationService {
             string resolvedProcessNameHint = processNameHints[hintIndex];
             foreach (WindowInfo window in _windowManager.GetWindows(new WindowQueryOptions {
                 ProcessNamePattern = resolvedProcessNameHint,
-                IncludeHidden = true,
-                IncludeCloaked = true,
-                IncludeOwned = true,
-                IncludeEmptyTitles = true
+                IncludeHidden = false,
+                IncludeCloaked = false,
+                IncludeOwned = false,
+                IncludeEmptyTitles = false,
+                IsVisible = true
             })) {
                 if (candidates.Any(candidate => candidate.Window.Handle == window.Handle)) {
                     continue;

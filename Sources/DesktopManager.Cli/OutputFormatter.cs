@@ -1,15 +1,24 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DesktopManager.Cli;
 
 internal static class OutputFormatter {
     public static void WriteJson(object value) {
-        Console.WriteLine(JsonUtilities.Serialize(value));
+        WriteJson(Console.Out, value);
+    }
+
+    public static void WriteJson(TextWriter writer, object value) {
+        writer.WriteLine(JsonUtilities.Serialize(value));
     }
 
     public static void WriteTable(IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<string>> rows) {
+        WriteTable(Console.Out, headers, rows);
+    }
+
+    public static void WriteTable(TextWriter writer, IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<string>> rows) {
         int[] widths = new int[headers.Count];
         for (int index = 0; index < headers.Count; index++) {
             widths[index] = headers[index].Length;
@@ -21,10 +30,10 @@ internal static class OutputFormatter {
             }
         }
 
-        Console.WriteLine(FormatRow(headers, widths));
-        Console.WriteLine(FormatSeparator(widths));
+        writer.WriteLine(FormatRow(headers, widths));
+        writer.WriteLine(FormatSeparator(widths));
         foreach (IReadOnlyList<string> row in rows) {
-            Console.WriteLine(FormatRow(row, widths));
+            writer.WriteLine(FormatRow(row, widths));
         }
     }
 

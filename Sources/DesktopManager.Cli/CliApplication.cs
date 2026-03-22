@@ -1,13 +1,18 @@
 using System;
+using System.IO;
 
 namespace DesktopManager.Cli;
 
 internal static class CliApplication {
     public static int Run(string[] args) {
+        return Run(args, Console.Out, Console.Error);
+    }
+
+    internal static int Run(string[] args, TextWriter output, TextWriter error) {
         try {
             var parsed = CommandLineArguments.Parse(args);
             if (parsed.IsEmpty || parsed.HasFlag("help")) {
-                Console.WriteLine(HelpText.GetGeneralHelp());
+                output.WriteLine(HelpText.GetGeneralHelp());
                 return 0;
             }
 
@@ -26,23 +31,22 @@ internal static class CliApplication {
                 "snapshot" => SnapshotCommands.Run(action, parsed),
                 "workflow" => WorkflowCommands.Run(action, parsed),
                 "mcp" => McpCommands.Run(action, parsed),
-                "help" => ShowGroupHelp(parsed),
+                "help" => ShowGroupHelp(parsed, output),
                 _ => throw new CommandLineException($"Unknown command group '{group}'.")
             };
         } catch (CommandLineException ex) {
-            Console.Error.WriteLine($"Error: {ex.Message}");
-            Console.Error.WriteLine();
-            Console.Error.WriteLine(HelpText.GetGeneralHelp());
+            error.WriteLine($"Error: {ex.Message}");
+            error.WriteLine();
+            error.WriteLine(HelpText.GetGeneralHelp());
             return 1;
         } catch (Exception ex) {
-            Console.Error.WriteLine($"Unhandled error: {ex.Message}");
+            error.WriteLine($"Unhandled error: {ex.Message}");
             return 1;
         }
     }
 
-    private static int ShowGroupHelp(CommandLineArguments parsed) {
-        string topic = parsed.GetCommandPart(1)?.ToLowerInvariant() ?? string.Empty;
-        string help = topic switch {
+    internal static string GetHelpText(string? topic) {
+        return topic?.ToLowerInvariant() switch {
             "window" => HelpText.GetWindowHelp(),
             "control" => HelpText.GetControlHelp(),
             "monitor" => HelpText.GetMonitorHelp(),
@@ -56,8 +60,13 @@ internal static class CliApplication {
             "mcp" => HelpText.GetMcpHelp(),
             _ => HelpText.GetGeneralHelp()
         };
+    }
 
-        Console.WriteLine(help);
+    private static int ShowGroupHelp(CommandLineArguments parsed, TextWriter output) {
+        string? topic = parsed.GetCommandPart(1);
+        string help = GetHelpText(topic);
+
+        output.WriteLine(help);
         return 0;
     }
 }

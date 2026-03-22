@@ -203,11 +203,50 @@ public class UiAutomationControlServiceTests {
 
     [TestMethod]
     /// <summary>
+    /// Ensures native-handle controls do not advertise foreground fallback because they should use direct Win32 routing.
+    /// </summary>
+    public void SupportsForegroundFallback_NativeHandleControl_ReturnsFalse() {
+        bool supported = UiAutomationControlService.SupportsForegroundFallback(
+            hasNativeHandle: true,
+            isKeyboardFocusable: true,
+            isEnabled: true,
+            controlType: "Edit",
+            className: "TextBox");
+
+        Assert.IsFalse(supported);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures explicit non-focusable metadata disables foreground fallback even for editable-looking controls.
+    /// </summary>
+    public void SupportsForegroundFallback_NotKeyboardFocusable_ReturnsFalse() {
+        bool supported = UiAutomationControlService.SupportsForegroundFallback(
+            hasNativeHandle: false,
+            isKeyboardFocusable: false,
+            isEnabled: true,
+            controlType: "Edit",
+            className: "TextBox");
+
+        Assert.IsFalse(supported);
+    }
+
+    [TestMethod]
+    /// <summary>
     /// Ensures obvious editable control shapes are detected for modern-app fallback heuristics.
     /// </summary>
     public void IsLikelyEditableControl_EditAndTextBoxShapes_ReturnTrue() {
         Assert.IsTrue(UiAutomationControlService.IsLikelyEditableControl("Edit", string.Empty));
         Assert.IsTrue(UiAutomationControlService.IsLikelyEditableControl("Document", string.Empty));
+        Assert.IsTrue(UiAutomationControlService.IsLikelyEditableControl("ComboBox", string.Empty));
         Assert.IsTrue(UiAutomationControlService.IsLikelyEditableControl(string.Empty, "InputTextBox"));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures non-editable control shapes are not treated as safe foreground-fallback targets by default.
+    /// </summary>
+    public void IsLikelyEditableControl_ButtonShape_ReturnsFalse() {
+        Assert.IsFalse(UiAutomationControlService.IsLikelyEditableControl("Button", "Button"));
     }
 }

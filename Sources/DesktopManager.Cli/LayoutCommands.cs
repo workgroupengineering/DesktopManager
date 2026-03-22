@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace DesktopManager.Cli;
@@ -31,15 +33,7 @@ internal static class LayoutCommands {
             return 0;
         }
 
-        if (names.Count == 0) {
-            Console.WriteLine("No named layouts found.");
-            return 0;
-        }
-
-        foreach (string name in names.OrderBy(value => value)) {
-            Console.WriteLine(name);
-        }
-        return 0;
+        return WriteLayoutNames(names, Console.Out);
     }
 
     private static int Assert(CommandLineArguments arguments) {
@@ -57,25 +51,7 @@ internal static class LayoutCommands {
             return result.Matched ? 0 : 2;
         }
 
-        Console.WriteLine($"assert-layout: matched={result.Matched} expected={result.ExpectedCount} matched-count={result.MatchedCount} missing={result.MissingCount} mismatched={result.MismatchCount}");
-        Console.WriteLine(result.Path);
-        if (result.BeforeScreenshots.Count > 0 || result.AfterScreenshots.Count > 0) {
-            Console.WriteLine($"artifacts: before={result.BeforeScreenshots.Count} after={result.AfterScreenshots.Count}");
-        }
-
-        foreach (SavedWindowLayoutEntryResult window in result.MissingWindows) {
-            Console.WriteLine($"missing: {window.Title} [PID {window.ProcessId}]");
-        }
-
-        foreach (WindowLayoutMismatchResult mismatch in result.MismatchedWindows) {
-            Console.WriteLine($"mismatch: {mismatch.Expected.Title} [PID {mismatch.Expected.ProcessId}] left={mismatch.LeftDelta} top={mismatch.TopDelta} width={mismatch.WidthDelta} height={mismatch.HeightDelta} state={mismatch.StateMatched}");
-        }
-
-        foreach (string warning in result.ArtifactWarnings) {
-            Console.WriteLine($"warning: {warning}");
-        }
-
-        return result.Matched ? 0 : 2;
+        return WriteLayoutAssertionResult(result, Console.Out);
     }
 
     private static int WritePathResult(CommandLineArguments arguments, NamedStateResult payload) {
@@ -84,8 +60,46 @@ internal static class LayoutCommands {
             return 0;
         }
 
-        Console.WriteLine($"{payload.Action}: {payload.Name}");
-        Console.WriteLine(payload.Path);
+        return WritePathResult(payload, Console.Out);
+    }
+
+    internal static int WriteLayoutNames(IReadOnlyList<string> names, TextWriter writer) {
+        if (names.Count == 0) {
+            writer.WriteLine("No named layouts found.");
+            return 0;
+        }
+
+        foreach (string name in names.OrderBy(value => value)) {
+            writer.WriteLine(name);
+        }
+        return 0;
+    }
+
+    internal static int WriteLayoutAssertionResult(WindowLayoutAssertionResult result, TextWriter writer) {
+        writer.WriteLine($"assert-layout: matched={result.Matched} expected={result.ExpectedCount} matched-count={result.MatchedCount} missing={result.MissingCount} mismatched={result.MismatchCount}");
+        writer.WriteLine(result.Path);
+        if (result.BeforeScreenshots.Count > 0 || result.AfterScreenshots.Count > 0) {
+            writer.WriteLine($"artifacts: before={result.BeforeScreenshots.Count} after={result.AfterScreenshots.Count}");
+        }
+
+        foreach (SavedWindowLayoutEntryResult window in result.MissingWindows) {
+            writer.WriteLine($"missing: {window.Title} [PID {window.ProcessId}]");
+        }
+
+        foreach (WindowLayoutMismatchResult mismatch in result.MismatchedWindows) {
+            writer.WriteLine($"mismatch: {mismatch.Expected.Title} [PID {mismatch.Expected.ProcessId}] left={mismatch.LeftDelta} top={mismatch.TopDelta} width={mismatch.WidthDelta} height={mismatch.HeightDelta} state={mismatch.StateMatched}");
+        }
+
+        foreach (string warning in result.ArtifactWarnings) {
+            writer.WriteLine($"warning: {warning}");
+        }
+
+        return result.Matched ? 0 : 2;
+    }
+
+    internal static int WritePathResult(NamedStateResult payload, TextWriter writer) {
+        writer.WriteLine($"{payload.Action}: {payload.Name}");
+        writer.WriteLine(payload.Path);
         return 0;
     }
 

@@ -7,8 +7,6 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net472'">
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
@@ -25,6 +23,11 @@
   <ItemGroup>
     <ProjectReference Include="..\DesktopManager\DesktopManager.csproj" />
     <ProjectReference Include="..\WindowTextHelper32\WindowTextHelper32.csproj" OutputItemType="Content" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <ProjectReference Include="..\DesktopManager.Cli\DesktopManager.Cli.csproj" />
+    <ProjectReference Include="..\DesktopManager.TestApp\DesktopManager.TestApp.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <Target Name="CopyWindowHelperDependencies" AfterTargets="Build">
