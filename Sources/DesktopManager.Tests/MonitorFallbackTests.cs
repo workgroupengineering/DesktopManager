@@ -103,7 +103,7 @@ public class MonitorFallbackTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireSystemDesktopChanges();
 
         var service = new MonitorService(new FailingDesktopManager());
         var monitors = service.GetMonitorsConnected();
@@ -131,7 +131,7 @@ public class MonitorFallbackTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireSystemDesktopChanges();
 
         var service = new MonitorService(new FailingDesktopManager());
         var original = service.GetWallpaperPosition();
@@ -153,7 +153,7 @@ public class MonitorFallbackTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireSystemDesktopChanges();
 
         var service = new MonitorService(new FailingDesktopManager());
         uint original = service.GetBackgroundColor();

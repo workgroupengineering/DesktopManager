@@ -61,15 +61,15 @@ Window commands:
   desktopmanager window geometry [selector] [--all] [--json]
   desktopmanager window exists [selector] [--json]
   desktopmanager window active-matches [selector] [--json]
-  desktopmanager window move [selector] [--monitor <index>] [--x <value>] [--y <value>] [--width <value>] [--height <value>] [--activate] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
-  desktopmanager window click [selector] ((--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) | --target <name>) [--button <left|right>] [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
-  desktopmanager window drag [selector] (((--start-x <value> --start-y <value>) | (--start-x-ratio <value> --start-y-ratio <value>)) ((--end-x <value> --end-y <value>) | (--end-x-ratio <value> --end-y-ratio <value>)) | (--start-target <name> --end-target <name>)) [--button <left|right>] [--step-delay-ms <value>] [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
-  desktopmanager window scroll [selector] ((--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) | --target <name>) --delta <value> [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
-  desktopmanager window focus [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
-  desktopmanager window minimize [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
-  desktopmanager window snap [selector] --position <left|right|top-left|top-right|bottom-left|bottom-right> [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
-  desktopmanager window type [selector] --text <value> [--paste] [--delay-ms <value>] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
-  desktopmanager window keys [selector] --keys <value>[,<value>...] [--no-activate] [--capture-before] [--capture-after] [--artifact-directory <path>] [--all] [--json]
+  desktopmanager window move [selector] [--monitor <index>] [--x <value>] [--y <value>] [--width <value>] [--height <value>] [--activate] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window click [selector] ((--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) | --target <name>) [--button <left|right>] [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window drag [selector] (((--start-x <value> --start-y <value>) | (--start-x-ratio <value> --start-y-ratio <value>)) ((--end-x <value> --end-y <value>) | (--end-x-ratio <value> --end-y-ratio <value>)) | (--start-target <name> --end-target <name>)) [--button <left|right>] [--step-delay-ms <value>] [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window scroll [selector] ((--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) | --target <name>) --delta <value> [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window focus [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window minimize [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window snap [selector] --position <left|right|top-left|top-right|bottom-left|bottom-right> [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window type [selector] --text <value> [--paste] [--foreground-input] [--physical-keys] [--hosted-session] [--script] [--chunk-size <value>] [--line-delay-ms <value>] [--delay-ms <value>] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window keys [selector] --keys <value>[,<value>...] [--no-activate] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
   desktopmanager window wait [selector] [--timeout-ms <value>] [--interval-ms <value>] [--all] [--json]
 
 Selectors:
@@ -83,6 +83,8 @@ Selectors:
   --capture-before
   --capture-after
   --artifact-directory <path>
+  --verify
+  --verify-tolerance-px <value>
 
 Examples:
   desktopmanager window list --title "*Notepad*" --json
@@ -99,11 +101,22 @@ Examples:
   desktopmanager window scroll --process notepad --x-ratio 0.5 --y-ratio 0.5 --delta -120 --client-area
   desktopmanager window scroll --process notepad --target editor-center --delta -120
   desktopmanager window type --active --text "Hello world"
+  desktopmanager window type --process Devolutions.RemoteDesktopManager --text "safe probe" --foreground-input
+  desktopmanager window type --process Devolutions.RemoteDesktopManager --text "safe probe" --physical-keys
+  desktopmanager window type --process Devolutions.RemoteDesktopManager --text "safe probe" --hosted-session
+  desktopmanager window type --process Devolutions.RemoteDesktopManager --text "Write-Host 'hi'`nGet-Date" --script --foreground-input --line-delay-ms 20
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --activate
+  desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --verify --verify-tolerance-px 12
   desktopmanager window snap --process notepad --position left
   desktopmanager window type --process notepad --text "Hello world"
   desktopmanager window keys --process msedge --keys VK_RETURN
   desktopmanager window wait --process notepad --timeout-ms 5000
+
+Notes:
+  --hosted-session expects the target editor surface to already own focus.
+  Hosted-session typing stops immediately if foreground ownership changes mid-input.
+  Hosted-session harness diagnostics are written under Artifacts\HostedSessionTyping with a .json snapshot and a companion .summary.txt file.
+  --verify re-queries the mutated window and reports observed postconditions instead of only the request outcome.
 """;
     }
 

@@ -104,8 +104,17 @@ desktopmanager mcp serve --dry-run
 - zero-handle UIA text and key fallback paths are now shared too, but they are intentionally opt-in because they rely on focused foreground input for modern apps.
 - when zero-handle UIA text fallback is enabled, the shared library now prefers a focused replace-and-paste flow with verification before it falls back to raw typed input, which is notably more reliable for Chromium-style edit fields.
 - `window type` sends text to the target window, either by simulated typing or clipboard paste.
+- `window type --foreground-input` requires real foreground keyboard delivery and fails instead of silently falling back to background window messaging, which is a better fit for remote-session hosts such as RDP, Hyper-V, and Remote Desktop Manager.
+- `window type --physical-keys` adds a layout-aware physical-key typing mode for foreground targets, which is often closer to how password managers "type" into hosted remote sessions.
+- `window type --hosted-session` is a convenience profile for RDP, Hyper-V, and Remote Desktop Manager style targets. It enables a US-style foreground scancode path with slower defaults that are safer for hosted editors.
+- `window type --script` preserves multiline formatting, chunks long lines into smaller typed segments, and can be combined with either the default delivery path or the stricter foreground typing modes.
+- mutating `window` commands now support `--verify`, which re-queries the mutated window after the action and reports an observed postcondition instead of only the request outcome.
+- `--verify-tolerance-px` tunes geometry verification for commands like `window move`; specifying it also implies `--verify`.
+- the verification block is action-aware for `window move`, `window focus`, and `window minimize`, and falls back to honest presence-only observation for other window mutations such as typing and pointer input.
+- hosted-session live diagnostics now write repo-local artifacts under `Artifacts\HostedSessionTyping`, including a raw JSON snapshot and a companion `*.summary.txt` file with the likely focus-culprit category and retry summary.
+- hosted-session diagnostic artifacts now trim older entries automatically, keeping the newest artifact sets so the folder stays readable during repeated harness runs.
 - `window keys` sends key chords or single keys to the target window after activating it, which is the safer shared follow-up path for Enter, Escape, and similar actions when modern controls stop being structurally reusable after text entry.
-- mutating `window` and `control` commands can now return shared verification metadata: `success`, `elapsedMilliseconds`, `safetyMode`, optional target name/kind, best-effort before/after screenshots, and artifact warnings.
+- mutating `window` and `control` commands can now return shared verification metadata: `success`, `elapsedMilliseconds`, `safetyMode`, optional target name/kind, best-effort before/after screenshots, artifact warnings, and for verified window mutations an explicit `verification` block with observed counts, summary text, and notes.
 - those mutating commands now also accept `--capture-before`, `--capture-after`, and `--artifact-directory` so CLI, MCP, and agent workflows can ask for evidence without changing the core action logic.
 - `workflow prepare-coding` can optionally apply a named layout and then focus a likely editor or terminal window.
 - `workflow prepare-screen-sharing` can optionally apply a named layout, minimize common distractions, and then focus a likely sharing window.
@@ -129,7 +138,12 @@ desktopmanager mcp serve --dry-run
 - repeated UIA actions in the same long-lived process now also try a cached exact-match lookup before they fall back to a broader root walk.
 - the shared control wait path now prefers already-seen matching window handles inside the same process before it falls back to broad rediscovery, which is safer for stable modern-app windows.
 - `screenshot window` now prefers real window rendering before falling back to screen pixels, which improves captures for covered windows.
-- `window type` now falls back to direct message-based delivery when Windows refuses to foreground the target window, which avoids leaking `SendInput` text into whatever app currently owns focus.
+- `window type` still falls back to direct message-based delivery by default when Windows refuses to foreground the target window, which avoids leaking `SendInput` text into whatever app currently owns focus.
+- `window type --foreground-input` disables that fallback and skips direct `WM_SETTEXT` verification, so it behaves more like deliberate keyboard typing than background control mutation.
+- `window type --physical-keys` builds on the strict foreground path and prefers real keyboard-layout key combinations before it falls back to Unicode packets for characters that have no physical-key mapping.
+- `window type --hosted-session` currently wraps a foreground US-style scancode path with slower pacing defaults. It requires the hosted editor surface to already own focus before typing starts, and it now aborts immediately if foreground ownership changes while typing.
+- `window type --script --foreground-input` is the preferred shared path when you need to type a multiline script into an RDP, Hyper-V, or Remote Desktop Manager hosted editor without relying on clipboard paste.
+- when the hosted-session harness goes inconclusive, inspect the matching `Artifacts\HostedSessionTyping\*.summary.txt` companion first. It now calls out whether the interruption looked like a repeated browser/Electron focus steal, mixed contention, or no retained external culprit.
 - `process start` now prefers windows from the launched process and then newer post-launch window handles for the target app, which is safer than binding to any older matching window.
 - `process start --require-window` is now a useful shared primitive for unattended workflows that need a validated target window instead of a best-effort launcher result.
 - `mcp serve` hosts a stdio MCP server.

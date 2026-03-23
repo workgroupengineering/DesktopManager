@@ -51,6 +51,43 @@ public sealed class CmdletSetDesktopWindowText : PSCmdlet {
     public SwitchParameter UseMessage { get; set; }
 
     /// <summary>
+    /// <para type="description">Require real foreground keyboard input and fail instead of falling back to background message typing.</para>
+    /// </summary>
+    [Parameter(Mandatory = false, ParameterSetName = "Type")]
+    public SwitchParameter ForegroundInput { get; set; }
+
+    /// <summary>
+    /// <para type="description">Prefer layout-aware physical key presses over Unicode packets when typing in the foreground.</para>
+    /// </summary>
+    [Parameter(Mandatory = false, ParameterSetName = "Type")]
+    public SwitchParameter PhysicalKeys { get; set; }
+
+    /// <summary>
+    /// <para type="description">Use a hosted-session typing profile with a fixed US-style foreground scancode path and slower pacing defaults. The target surface must already own focus, and typing stops if focus drifts.</para>
+    /// <para type="description">When the repo-owned hosted-session harness is exercised, related diagnostics are written under Artifacts\HostedSessionTyping as a raw JSON snapshot plus a companion summary file.</para>
+    /// </summary>
+    [Parameter(Mandatory = false, ParameterSetName = "Type")]
+    public SwitchParameter HostedSession { get; set; }
+
+    /// <summary>
+    /// <para type="description">Preserve multiline formatting and chunk long lines into smaller typed segments.</para>
+    /// </summary>
+    [Parameter(Mandatory = false, ParameterSetName = "Type")]
+    public SwitchParameter Script { get; set; }
+
+    /// <summary>
+    /// <para type="description">Maximum number of characters to send in each script chunk.</para>
+    /// </summary>
+    [Parameter(Mandatory = false, ParameterSetName = "Type")]
+    public int ScriptChunkSize { get; set; } = 120;
+
+    /// <summary>
+    /// <para type="description">Delay in milliseconds after each scripted line break.</para>
+    /// </summary>
+    [Parameter(Mandatory = false, ParameterSetName = "Type")]
+    public int ScriptLineDelayMilliseconds { get; set; }
+
+    /// <summary>
     /// <para type="description">Number of clipboard open retries.</para>
     /// </summary>
     [Parameter]
@@ -104,9 +141,22 @@ public sealed class CmdletSetDesktopWindowText : PSCmdlet {
     [Parameter]
     public SwitchParameter SafeMode { get; set; }
 
+    /// <summary>
+    /// <para type="description">Re-query the target window after the mutation and report the observed postcondition.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter Verify { get; set; }
+
+    /// <summary>
+    /// <para type="description">Return a structured mutation result object for each matching window.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter PassThru { get; set; }
+
     /// <inheritdoc />
     protected override void BeginProcessing() {
         var manager = new WindowManager();
+        var automation = new DesktopAutomationService();
         var windows = manager.GetWindows(Name);
 
         foreach (var window in windows) {
@@ -121,8 +171,14 @@ public sealed class CmdletSetDesktopWindowText : PSCmdlet {
                     ActivationRetryCount = ActivationRetryCount,
                     ActivationRetryDelayMilliseconds = ActivationRetryDelayMilliseconds,
                     InputRetryCount = InputRetryCount,
-                    KeyDelayMilliseconds = Delay,
-                    UseSendInput = !UseMessage
+                    KeyDelayMilliseconds = Delay > 0 ? Delay : HostedSession ? 35 : 0,
+                    UseSendInput = !UseMessage,
+                    RequireForegroundWindowForTyping = ForegroundInput || PhysicalKeys || HostedSession,
+                    UsePhysicalKeyboardLayout = PhysicalKeys,
+                    UseHostedSessionScanCodes = HostedSession,
+                    TypeTextAsScript = Script,
+                    ScriptChunkLength = ScriptChunkSize,
+                    ScriptLineDelayMilliseconds = ScriptLineDelayMilliseconds > 0 ? ScriptLineDelayMilliseconds : HostedSession && Script ? 120 : 0
                 };
 
                 if (SafeMode) {
@@ -131,15 +187,58 @@ public sealed class CmdletSetDesktopWindowText : PSCmdlet {
                     options.PreserveClipboard = true;
                 }
 
-                if (ParameterSetName == "Type" && !options.ActivateWindow && options.UseSendInput) {
+                if (ParameterSetName == "Type" && !options.ActivateWindow && options.UseSendInput && !options.RequireForegroundWindowForTyping && !options.UsePhysicalKeyboardLayout) {
                     options.UseSendInput = false;
                     WriteVerbose("NoActivate is set; using WM_CHAR to avoid typing into the foreground window.");
                 }
 
+                DesktopWindowMutationRecord result = null;
                 if (ParameterSetName == "Type") {
-                    manager.TypeText(window, Text, options);
+                    try {
+                        manager.TypeText(window, Text, options);
+                        if (Verify.IsPresent || PassThru.IsPresent) {
+                            result = DesktopWindowMutationVerifier.Verify(
+                                automation,
+                                options.UseHostedSessionScanCodes ? "type-text-hosted-session" : options.UsePhysicalKeyboardLayout ? "type-text-physical-keys" : options.RequireForegroundWindowForTyping ? "type-text-foreground" : "type-text",
+                                window,
+                                tolerancePixels: 10,
+                                requireForeground: options.RequireForegroundWindowForTyping && options.ActivateWindow);
+                        }
+                    } catch (Exception ex) {
+                        if (!Verify.IsPresent && !PassThru.IsPresent) {
+                            throw;
+                        }
+
+                        WriteWarning($"Failed to type text into '{window.Title}': {ex.Message}");
+                        if (Verify.IsPresent || PassThru.IsPresent) {
+                            result = DesktopWindowMutationVerifier.CreateFailureRecord("type-text", window, ex.Message, Verify.IsPresent, 10);
+                        }
+                    }
                 } else {
-                    manager.PasteText(window, Text, options);
+                    try {
+                        manager.PasteText(window, Text, options);
+                        if (Verify.IsPresent || PassThru.IsPresent) {
+                            result = DesktopWindowMutationVerifier.Verify(
+                                automation,
+                                "paste-text",
+                                window,
+                                tolerancePixels: 10,
+                                requireForeground: options.ActivateWindow);
+                        }
+                    } catch (Exception ex) {
+                        if (!Verify.IsPresent && !PassThru.IsPresent) {
+                            throw;
+                        }
+
+                        WriteWarning($"Failed to paste text into '{window.Title}': {ex.Message}");
+                        if (Verify.IsPresent || PassThru.IsPresent) {
+                            result = DesktopWindowMutationVerifier.CreateFailureRecord("paste-text", window, ex.Message, Verify.IsPresent, 10);
+                        }
+                    }
+                }
+
+                if (result != null) {
+                    WriteObject(result);
                 }
             }
         }

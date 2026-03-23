@@ -102,7 +102,7 @@ public class CliApplicationTests {
 
         Assert.AreEqual(1, exitCode);
         Assert.AreEqual(string.Empty, standardOutput);
-        StringAssert.Contains(standardError, $"Error: Unknown {group} command ''.");
+        StringAssert.Contains(standardError, $"Error: Missing required {group} command.");
         StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
     }
 
@@ -142,6 +142,45 @@ public class CliApplicationTests {
         Assert.AreEqual(1, exitCode);
         Assert.AreEqual(string.Empty, standardOutput);
         StringAssert.Contains(standardError, "Error: Missing required option '--position'.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window typing rejects contradictory paste and strict foreground-input flags through the CLI entrypoint.
+    /// </summary>
+    public void Run_WindowTypeWithPasteAndForegroundInput_WritesCombinationError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("window", "type", "--text", "hello", "--paste", "--foreground-input");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Cannot combine '--paste' with '--foreground-input'.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window typing rejects contradictory paste and physical-key flags through the CLI entrypoint.
+    /// </summary>
+    public void Run_WindowTypeWithPasteAndPhysicalKeys_WritesCombinationError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("window", "type", "--text", "hello", "--paste", "--physical-keys");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Cannot combine '--paste' with '--foreground-input'.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window typing rejects contradictory paste and script flags through the CLI entrypoint.
+    /// </summary>
+    public void Run_WindowTypeWithPasteAndScript_WritesCombinationError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("window", "type", "--text", "hello", "--paste", "--script");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Cannot combine '--paste' with '--script'.");
         StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
     }
 

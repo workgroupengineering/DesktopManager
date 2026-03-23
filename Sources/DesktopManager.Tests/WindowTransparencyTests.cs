@@ -17,7 +17,7 @@ public class WindowTransparencyTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireOwnedWindowUiTests();
 
         using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Transparency Harness");
 

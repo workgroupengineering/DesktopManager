@@ -1,8 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -38,7 +37,19 @@ internal static partial class DesktopOperations {
             criteria,
             activate ? "window-management-activate" : "window-management",
             artifactOptions,
-            automation => automation.MoveWindows(CreateWindowQuery(criteria), monitorIndex, x, y, width, height, activate, criteria.All));
+            automation => automation.MoveWindows(CreateWindowQuery(criteria), monitorIndex, x, y, width, height, activate, criteria.All),
+            verify: (automation, windows, options) => BuildWindowPostconditionVerificationResult(
+                "move",
+                windows,
+                ObserveWindowsByHandle(automation, windows),
+                SafeGetActiveWindowInfo(automation),
+                options.VerificationTolerancePixels,
+                monitorIndex,
+                x,
+                y,
+                width,
+                height,
+                activate));
     }
 
     public static WindowChangeResult FocusWindow(WindowSelectionCriteria criteria, MutationArtifactOptions? artifactOptions = null) {
@@ -47,7 +58,14 @@ internal static partial class DesktopOperations {
             criteria,
             "window-management-activate",
             artifactOptions,
-            automation => automation.FocusWindows(CreateWindowQuery(criteria), criteria.All));
+            automation => automation.FocusWindows(CreateWindowQuery(criteria), criteria.All),
+            verify: (automation, windows, options) => BuildWindowPostconditionVerificationResult(
+                "focus",
+                windows,
+                ObserveWindowsByHandle(automation, windows),
+                SafeGetActiveWindowInfo(automation),
+                options.VerificationTolerancePixels,
+                requireForegroundMatch: true));
     }
 
     public static WindowChangeResult ClickWindowPoint(WindowSelectionCriteria criteria, int? x, int? y, double? xRatio, double? yRatio, string button, bool activate, bool clientArea, MutationArtifactOptions? artifactOptions = null) {
@@ -120,7 +138,13 @@ internal static partial class DesktopOperations {
             criteria,
             "window-management",
             artifactOptions,
-            automation => automation.MinimizeWindows(CreateWindowQuery(criteria), criteria.All));
+            automation => automation.MinimizeWindows(CreateWindowQuery(criteria), criteria.All),
+            verify: (automation, windows, options) => BuildWindowPostconditionVerificationResult(
+                "minimize",
+                windows,
+                ObserveWindowsByHandle(automation, windows),
+                SafeGetActiveWindowInfo(automation),
+                options.VerificationTolerancePixels));
     }
 
     public static WindowChangeResult SnapWindow(WindowSelectionCriteria criteria, string position, MutationArtifactOptions? artifactOptions = null) {
@@ -136,17 +160,68 @@ internal static partial class DesktopOperations {
             automation => automation.SnapWindows(CreateWindowQuery(criteria), snapPosition, criteria.All));
     }
 
-    public static WindowChangeResult TypeWindowText(WindowSelectionCriteria criteria, string text, bool paste, int delayMilliseconds, MutationArtifactOptions? artifactOptions = null) {
-        if (text == null) {
+    public static WindowChangeResult TypeWindowText(WindowSelectionCriteria criteria, WindowTextCommandOptions options, MutationArtifactOptions? artifactOptions = null) {
+        if (options == null) {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (options.Text == null) {
             throw new CommandLineException("Text is required.");
         }
 
+        if (options.Paste && options.ForegroundInput) {
+            throw new CommandLineException("Cannot combine '--paste' with '--foreground-input'.");
+        }
+
+        if (options.Paste && options.PhysicalKeys) {
+            throw new CommandLineException("Cannot combine '--paste' with '--physical-keys'.");
+        }
+
+        if (options.Paste && options.ScriptMode) {
+            throw new CommandLineException("Cannot combine '--paste' with '--script'.");
+        }
+
+        string action = options.Paste
+            ? "paste-text"
+            : options.ScriptMode && options.HostedSession
+                ? "type-script-hosted-session"
+            : options.ScriptMode && options.PhysicalKeys
+                ? "type-script-physical-keys"
+            : options.ScriptMode && options.ForegroundInput
+                ? "type-script-foreground"
+            : options.ScriptMode
+                ? "type-script"
+            : options.HostedSession
+                ? "type-text-hosted-session"
+            : options.PhysicalKeys
+                ? "type-text-physical-keys"
+            : options.ForegroundInput
+                ? "type-text-foreground"
+                : "type-text";
+        string safetyMode = options.Paste
+            ? "window-text-paste"
+            : options.ScriptMode && options.HostedSession
+                ? "window-script-hosted-session-input"
+            : options.ScriptMode && options.PhysicalKeys
+                ? "window-script-physical-key-input"
+            : options.ScriptMode && options.ForegroundInput
+                ? "window-script-foreground-input"
+            : options.ScriptMode
+                ? "window-script-input"
+            : options.HostedSession
+                ? "window-text-hosted-session-input"
+            : options.PhysicalKeys
+                ? "window-text-physical-key-input"
+            : options.ForegroundInput
+                ? "window-text-foreground-input"
+                : "window-text-input";
+
         return ExecuteWindowMutation(
-            paste ? "paste-text" : "type-text",
+            action,
             criteria,
-            paste ? "window-text-paste" : "window-text-input",
+            safetyMode,
             artifactOptions,
-            automation => automation.TypeWindowText(CreateWindowQuery(criteria), text, paste, delayMilliseconds, criteria.All));
+            automation => automation.TypeWindowText(CreateWindowQuery(criteria), options.Text, options.Paste, options.DelayMilliseconds, options.ForegroundInput, options.PhysicalKeys, options.HostedSession, options.ScriptMode, options.ScriptChunkLength, options.ScriptLineDelayMilliseconds, criteria.All));
     }
 
     public static WindowChangeResult SendWindowKeys(WindowSelectionCriteria criteria, IReadOnlyList<string> keys, bool activate, MutationArtifactOptions? artifactOptions = null) {
@@ -628,7 +703,15 @@ internal static partial class DesktopOperations {
         }
     }
 
-    private static WindowChangeResult BuildWindowChangeResult(string action, IReadOnlyList<WindowInfo> windows, int elapsedMilliseconds, string safetyMode, string? targetName, string? targetKind, IReadOnlyList<ScreenshotResult> beforeScreenshots, IReadOnlyList<ScreenshotResult> afterScreenshots, IReadOnlyList<string> artifactWarnings) {
+    private static WindowInfo? SafeGetActiveWindowInfo(DesktopAutomationService automation) {
+        try {
+            return automation.GetActiveWindow(includeHidden: true, includeCloaked: true, includeOwned: true, includeEmptyTitles: true);
+        } catch {
+            return null;
+        }
+    }
+
+    private static WindowChangeResult BuildWindowChangeResult(string action, IReadOnlyList<WindowInfo> windows, int elapsedMilliseconds, string safetyMode, string? targetName, string? targetKind, IReadOnlyList<ScreenshotResult> beforeScreenshots, IReadOnlyList<ScreenshotResult> afterScreenshots, IReadOnlyList<string> artifactWarnings, WindowMutationVerificationResult? verification) {
         return new WindowChangeResult {
             Action = action,
             Success = true,
@@ -640,8 +723,193 @@ internal static partial class DesktopOperations {
             BeforeScreenshots = beforeScreenshots,
             AfterScreenshots = afterScreenshots,
             ArtifactWarnings = artifactWarnings,
-            Windows = windows.Select(MapWindow).ToArray()
+            Windows = windows.Select(MapWindow).ToArray(),
+            Verification = verification
         };
+    }
+
+    internal static WindowMutationVerificationResult BuildWindowPresenceVerificationResult(string action, IReadOnlyList<WindowInfo> expectedWindows, IReadOnlyList<WindowInfo> observedWindows, int tolerancePixels) {
+        WindowResult[] expected = expectedWindows.Select(MapWindow).ToArray();
+        WindowResult[] observed = observedWindows.Select(MapWindow).ToArray();
+        int observedMatches = CountObservedHandles(expected, observed);
+        bool verified = expected.Length == observedMatches;
+
+        return new WindowMutationVerificationResult {
+            Verified = verified,
+            Mode = "presence",
+            Summary = expected.Length == 0
+                ? $"The '{action}' mutation did not report any windows, so there was nothing to verify."
+                : verified
+                    ? $"Observed all {observedMatches} mutated window(s) after '{action}'."
+                    : $"Observed {observedMatches} of {expected.Length} mutated window(s) after '{action}'.",
+            ExpectedCount = expected.Length,
+            ObservedCount = observed.Length,
+            MatchedCount = observedMatches,
+            MismatchCount = Math.Max(0, expected.Length - observedMatches),
+            TolerancePixels = tolerancePixels,
+            Notes = expected.Length > observedMatches
+                ? BuildMissingHandleNotes(expected, observed)
+                : Array.Empty<string>(),
+            ObservedWindows = observed
+        };
+    }
+
+    internal static WindowMutationVerificationResult BuildWindowPostconditionVerificationResult(string action, IReadOnlyList<WindowInfo> expectedWindows, IReadOnlyList<WindowInfo> observedWindows, WindowInfo? activeWindow, int tolerancePixels, int? monitorIndex = null, int? x = null, int? y = null, int? width = null, int? height = null, bool requireForegroundMatch = false) {
+        WindowResult[] expected = expectedWindows.Select(MapWindow).ToArray();
+        WindowResult[] observed = observedWindows.Select(MapWindow).ToArray();
+        WindowResult? active = activeWindow == null ? null : MapWindow(activeWindow);
+
+        if (action.Equals("focus", StringComparison.OrdinalIgnoreCase)) {
+            return BuildWindowFocusVerificationResult(expected, observed, active, tolerancePixels);
+        }
+
+        if (action.Equals("minimize", StringComparison.OrdinalIgnoreCase)) {
+            return BuildWindowStateVerificationResult(action, expected, observed, active, tolerancePixels, "Minimize");
+        }
+
+        bool hasGeometryExpectation = monitorIndex.HasValue || x.HasValue || y.HasValue || width.HasValue || height.HasValue;
+        if (!hasGeometryExpectation && !requireForegroundMatch) {
+            return BuildWindowPresenceVerificationResult(action, expectedWindows, observedWindows, tolerancePixels);
+        }
+
+        var observedByHandle = observed.ToDictionary(window => window.Handle, StringComparer.OrdinalIgnoreCase);
+        var notes = new List<string>();
+        int matchedCount = 0;
+        foreach (WindowResult expectedWindow in expected) {
+            if (!observedByHandle.TryGetValue(expectedWindow.Handle, out WindowResult? observedWindow)) {
+                notes.Add($"Window {expectedWindow.Handle} is no longer observable after '{action}'.");
+                continue;
+            }
+
+            bool windowMatched = true;
+            if (monitorIndex.HasValue && observedWindow.MonitorIndex != monitorIndex.Value) {
+                notes.Add($"Window {observedWindow.Handle} ended on monitor {observedWindow.MonitorIndex} instead of {monitorIndex.Value}.");
+                windowMatched = false;
+            }
+            if (x.HasValue && Math.Abs(observedWindow.Left - x.Value) > tolerancePixels) {
+                notes.Add($"Window {observedWindow.Handle} left={observedWindow.Left} did not reach requested x={x.Value} within {tolerancePixels}px.");
+                windowMatched = false;
+            }
+            if (y.HasValue && Math.Abs(observedWindow.Top - y.Value) > tolerancePixels) {
+                notes.Add($"Window {observedWindow.Handle} top={observedWindow.Top} did not reach requested y={y.Value} within {tolerancePixels}px.");
+                windowMatched = false;
+            }
+            if (width.HasValue && Math.Abs(observedWindow.Width - width.Value) > tolerancePixels) {
+                notes.Add($"Window {observedWindow.Handle} width={observedWindow.Width} did not reach requested width={width.Value} within {tolerancePixels}px.");
+                windowMatched = false;
+            }
+            if (height.HasValue && Math.Abs(observedWindow.Height - height.Value) > tolerancePixels) {
+                notes.Add($"Window {observedWindow.Handle} height={observedWindow.Height} did not reach requested height={height.Value} within {tolerancePixels}px.");
+                windowMatched = false;
+            }
+
+            if (windowMatched) {
+                matchedCount++;
+            }
+        }
+
+        bool foregroundMatched = !requireForegroundMatch || active != null && expected.Any(window => string.Equals(window.Handle, active.Handle, StringComparison.OrdinalIgnoreCase));
+        if (requireForegroundMatch && !foregroundMatched) {
+            notes.Add(active == null
+                ? "Windows did not report an active foreground window after the mutation."
+                : $"Foreground window was {active.Title} [{active.Handle}] instead of one of the mutated windows.");
+        }
+
+        bool verified = matchedCount == expected.Length && foregroundMatched;
+        return new WindowMutationVerificationResult {
+            Verified = verified,
+            Mode = requireForegroundMatch ? "geometry-and-foreground" : "geometry",
+            Summary = verified
+                ? $"Observed {matchedCount} of {expected.Length} mutated window(s) at the requested post-mutation geometry."
+                : $"Only {matchedCount} of {expected.Length} mutated window(s) matched the requested post-mutation geometry.",
+            ExpectedCount = expected.Length,
+            ObservedCount = observed.Length,
+            MatchedCount = matchedCount,
+            MismatchCount = Math.Max(0, expected.Length - matchedCount) + (foregroundMatched ? 0 : 1),
+            TolerancePixels = tolerancePixels,
+            ActiveWindow = active,
+            Notes = notes,
+            ObservedWindows = observed
+        };
+    }
+
+    private static WindowMutationVerificationResult BuildWindowFocusVerificationResult(IReadOnlyList<WindowResult> expected, IReadOnlyList<WindowResult> observed, WindowResult? activeWindow, int tolerancePixels) {
+        int observedMatches = CountObservedHandles(expected, observed);
+        bool foregroundMatched = activeWindow != null && expected.Any(window => string.Equals(window.Handle, activeWindow.Handle, StringComparison.OrdinalIgnoreCase));
+        var notes = new List<string>();
+        if (observedMatches != expected.Count) {
+            notes.AddRange(BuildMissingHandleNotes(expected, observed));
+        }
+        if (!foregroundMatched) {
+            notes.Add(activeWindow == null
+                ? "Windows did not report an active foreground window after the focus request."
+                : $"Foreground window was {activeWindow.Title} [{activeWindow.Handle}] instead of one of the requested windows.");
+        }
+
+        bool verified = expected.Count == 0 || observedMatches == expected.Count && foregroundMatched;
+        return new WindowMutationVerificationResult {
+            Verified = verified,
+            Mode = "foreground",
+            Summary = verified
+                ? $"Observed the requested window in the foreground after 'focus'."
+                : $"DesktopManager requested focus, but the foreground window did not match the requested target.",
+            ExpectedCount = expected.Count,
+            ObservedCount = observed.Count,
+            MatchedCount = foregroundMatched ? 1 : 0,
+            MismatchCount = verified ? 0 : 1,
+            TolerancePixels = tolerancePixels,
+            ActiveWindow = activeWindow,
+            Notes = notes,
+            ObservedWindows = observed
+        };
+    }
+
+    private static WindowMutationVerificationResult BuildWindowStateVerificationResult(string action, IReadOnlyList<WindowResult> expected, IReadOnlyList<WindowResult> observed, WindowResult? activeWindow, int tolerancePixels, string expectedState) {
+        var observedByHandle = observed.ToDictionary(window => window.Handle, StringComparer.OrdinalIgnoreCase);
+        var notes = new List<string>();
+        int matchedCount = 0;
+        foreach (WindowResult expectedWindow in expected) {
+            if (!observedByHandle.TryGetValue(expectedWindow.Handle, out WindowResult? observedWindow)) {
+                notes.Add($"Window {expectedWindow.Handle} is no longer observable after '{action}'.");
+                continue;
+            }
+
+            if (string.Equals(observedWindow.State, expectedState, StringComparison.OrdinalIgnoreCase)) {
+                matchedCount++;
+            } else {
+                notes.Add($"Window {observedWindow.Handle} reported state '{observedWindow.State ?? "<unknown>"}' instead of '{expectedState}'.");
+            }
+        }
+
+        bool verified = matchedCount == expected.Count;
+        return new WindowMutationVerificationResult {
+            Verified = verified,
+            Mode = "window-state",
+            Summary = verified
+                ? $"Observed {matchedCount} of {expected.Count} mutated window(s) in state '{expectedState}'."
+                : $"Only {matchedCount} of {expected.Count} mutated window(s) reported state '{expectedState}'.",
+            ExpectedCount = expected.Count,
+            ObservedCount = observed.Count,
+            MatchedCount = matchedCount,
+            MismatchCount = Math.Max(0, expected.Count - matchedCount),
+            TolerancePixels = tolerancePixels,
+            ActiveWindow = activeWindow,
+            Notes = notes,
+            ObservedWindows = observed
+        };
+    }
+
+    private static int CountObservedHandles(IReadOnlyList<WindowResult> expected, IReadOnlyList<WindowResult> observed) {
+        var observedHandles = new HashSet<string>(observed.Select(window => window.Handle), StringComparer.OrdinalIgnoreCase);
+        return expected.Count(window => observedHandles.Contains(window.Handle));
+    }
+
+    private static IReadOnlyList<string> BuildMissingHandleNotes(IReadOnlyList<WindowResult> expected, IReadOnlyList<WindowResult> observed) {
+        var observedHandles = new HashSet<string>(observed.Select(window => window.Handle), StringComparer.OrdinalIgnoreCase);
+        return expected
+            .Where(window => !observedHandles.Contains(window.Handle))
+            .Select(window => $"Window {window.Handle} is no longer observable after the mutation.")
+            .ToArray();
     }
 
     internal static ProcessLaunchResult BuildProcessLaunchResult(DesktopProcessLaunchInfo result) {
@@ -919,12 +1187,12 @@ internal static partial class DesktopOperations {
 
     private static ScreenshotResult SaveScreenshot(DesktopCapture capture, string prefix, string? outputPath) {
         string path = DesktopStateStore.ResolveCapturePath(prefix, outputPath);
-        capture.Bitmap.Save(path, ImageFormat.Png);
+        capture.Save(path);
         return new ScreenshotResult {
             Kind = capture.Kind,
             Path = path,
-            Width = capture.Bitmap.Width,
-            Height = capture.Bitmap.Height,
+            Width = capture.Width,
+            Height = capture.Height,
             MonitorIndex = capture.MonitorIndex,
             MonitorDeviceName = capture.MonitorDeviceName,
             Window = capture.Window == null ? null : MapWindow(capture.Window),

@@ -1,13 +1,15 @@
 using System;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace DesktopManager.Cli;
 
 internal static partial class DesktopOperations {
-    private static WindowChangeResult ExecuteWindowMutation(string action, WindowSelectionCriteria criteria, string safetyMode, MutationArtifactOptions? artifactOptions, Func<DesktopAutomationService, IReadOnlyList<WindowInfo>> mutation, string? targetName = null, string? targetKind = null) {
+    private static WindowChangeResult ExecuteWindowMutation(string action, WindowSelectionCriteria criteria, string safetyMode, MutationArtifactOptions? artifactOptions, Func<DesktopAutomationService, IReadOnlyList<WindowInfo>> mutation, string? targetName = null, string? targetKind = null, Func<DesktopAutomationService, IReadOnlyList<WindowInfo>, MutationArtifactOptions, WindowMutationVerificationResult?>? verify = null) {
         return ExecuteCore(() => {
             var automation = new DesktopAutomationService();
             var warnings = new List<string>();
@@ -19,13 +21,14 @@ internal static partial class DesktopOperations {
                 : Array.Empty<ScreenshotResult>();
 
             IReadOnlyList<WindowInfo> windows = mutation(automation);
+            WindowMutationVerificationResult? verification = VerifyWindowMutation(automation, action, windows, options, verify, warnings);
 
             IReadOnlyList<ScreenshotResult> afterScreenshots = options.CaptureAfter
                 ? CaptureWindowArtifacts(automation, windows, action, "after", options, warnings)
                 : Array.Empty<ScreenshotResult>();
 
             stopwatch.Stop();
-            return BuildWindowChangeResult(action, windows, (int)stopwatch.ElapsedMilliseconds, safetyMode, targetName, targetKind, beforeScreenshots, afterScreenshots, warnings);
+            return BuildWindowChangeResult(action, windows, (int)stopwatch.ElapsedMilliseconds, safetyMode, targetName, targetKind, beforeScreenshots, afterScreenshots, warnings, verification);
         });
     }
 
@@ -171,6 +174,60 @@ internal static partial class DesktopOperations {
     private static string FormatWindowLabel(WindowInfo window) {
         string title = string.IsNullOrWhiteSpace(window.Title) ? "<untitled>" : window.Title;
         return $"{title} ({window.Handle.ToInt64():X})";
+    }
+
+    private static WindowMutationVerificationResult? VerifyWindowMutation(DesktopAutomationService automation, string action, IReadOnlyList<WindowInfo> windows, MutationArtifactOptions options, Func<DesktopAutomationService, IReadOnlyList<WindowInfo>, MutationArtifactOptions, WindowMutationVerificationResult?>? verify, List<string> warnings) {
+        if (!options.VerifyAfter) {
+            return null;
+        }
+
+        try {
+            Thread.Sleep(75);
+            if (verify != null) {
+                return verify(automation, windows, options);
+            }
+
+            return BuildWindowPresenceVerificationResult(action, windows, ObserveWindowsByHandle(automation, windows), tolerancePixels: options.VerificationTolerancePixels);
+        } catch (Exception ex) when (IsArtifactWarning(ex) || ex is Win32Exception || ex is TimeoutException) {
+            warnings.Add($"Post-mutation verification failed for '{action}': {ex.Message}");
+            return new WindowMutationVerificationResult {
+                Verified = false,
+                Mode = "verification-error",
+                Summary = $"The '{action}' mutation completed, but DesktopManager could not verify the final state.",
+                ExpectedCount = windows.Count,
+                ObservedCount = 0,
+                MatchedCount = 0,
+                MismatchCount = windows.Count,
+                TolerancePixels = options.VerificationTolerancePixels,
+                Notes = new[] { ex.Message }
+            };
+        }
+    }
+
+    private static IReadOnlyList<WindowInfo> ObserveWindowsByHandle(DesktopAutomationService automation, IReadOnlyList<WindowInfo> windows) {
+        if (windows.Count == 0) {
+            return Array.Empty<WindowInfo>();
+        }
+
+        var observedWindows = new List<WindowInfo>(windows.Count);
+        foreach (WindowInfo window in windows) {
+            if (window.Handle == IntPtr.Zero) {
+                continue;
+            }
+
+            IReadOnlyList<WindowInfo> matches = automation.GetWindows(new WindowQueryOptions {
+                Handle = window.Handle,
+                IncludeHidden = true,
+                IncludeCloaked = true,
+                IncludeOwned = true,
+                IncludeEmptyTitles = true
+            });
+            if (matches.Count > 0) {
+                observedWindows.Add(matches[0]);
+            }
+        }
+
+        return observedWindows;
     }
 
     private static bool IsArtifactWarning(Exception exception) {

@@ -16,7 +16,7 @@ public class MonitorResolutionOrientationTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireSystemDesktopChanges();
 
         var monitors = new Monitors().GetMonitorsConnected();
         if (monitors.Count == 0) {

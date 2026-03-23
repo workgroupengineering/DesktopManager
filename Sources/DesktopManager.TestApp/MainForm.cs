@@ -1,4 +1,9 @@
 using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using System.Collections.Generic;
 using System.Windows.Forms.Integration;
 using WinFormsLabel = System.Windows.Forms.Label;
 using WinFormsTextBox = System.Windows.Forms.TextBox;
@@ -9,11 +14,43 @@ using WpfTextBox = System.Windows.Controls.TextBox;
 namespace DesktopManager.TestApp;
 
 internal sealed class MainForm : Form {
+    private const int ForegroundHistoryLimit = 12;
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool BringWindowToTop(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
     private readonly string _baseTitle;
+    private readonly bool _useCommandBarSurface;
+    private readonly string? _statusFilePath;
+    private readonly string? _commandFilePath;
     private readonly WinFormsTextBox _editorTextBox;
     private readonly ElementHost _commandBarHost;
     private readonly WpfTextBox _commandBarTextBox;
     private readonly WinFormsLabel _statusLabel;
+    private SecondaryFocusForm? _secondaryForm;
+    private System.Windows.Forms.Timer? _statusTimer;
+    private DateTime _foregroundHoldUntilUtc;
+    private bool _foregroundHoldUseCommandBar;
+    private int _foregroundHoldRequestCount;
+    private int _foregroundHoldRecoveryCount;
+    private long _lastObservedForegroundHandle;
+    private string _lastObservedForegroundTitle = string.Empty;
+    private string _lastObservedForegroundClass = string.Empty;
+    private string _lastObservedForegroundChangedUtc = string.Empty;
+    private string _lastCommand = string.Empty;
+    private readonly List<string> _foregroundHistory = [];
 
     public MainForm(TestAppOptions options) {
         if (options == null) {
@@ -21,13 +58,15 @@ internal sealed class MainForm : Form {
         }
 
         _baseTitle = options.Title;
+        _useCommandBarSurface = string.Equals(options.Surface, "commandbar", StringComparison.OrdinalIgnoreCase);
+        _statusFilePath = options.StatusFilePath;
+        _commandFilePath = options.CommandFilePath;
         Text = options.Title;
         Name = "DesktopManagerMcpTestApp";
         StartPosition = FormStartPosition.CenterScreen;
         Width = 960;
         Height = 720;
         MinimumSize = new Size(640, 480);
-        bool useCommandBarSurface = string.Equals(options.Surface, "commandbar", StringComparison.OrdinalIgnoreCase);
 
         var titleLabel = new WinFormsLabel {
             AutoSize = true,
@@ -46,7 +85,7 @@ internal sealed class MainForm : Form {
             AutoSize = true,
             Name = "StatusLabel",
             AccessibleName = "StatusLabel",
-            Text = useCommandBarSurface
+            Text = _useCommandBarSurface
                 ? "Type a value into the command bar and press Enter."
                 : "Editor surface ready.",
             Margin = new Padding(0, 0, 0, 12)
@@ -87,7 +126,7 @@ internal sealed class MainForm : Form {
             Dock = DockStyle.Top,
             Height = 42,
             Child = commandBarPanel,
-            Visible = useCommandBarSurface
+            Visible = _useCommandBarSurface
         };
 
         var closeButton = new Button {
@@ -126,15 +165,34 @@ internal sealed class MainForm : Form {
         Controls.Add(contentPanel);
         Controls.Add(buttonPanel);
 
+        _editorTextBox.TextChanged += (_, _) => WriteStatusSnapshot();
+        _commandBarTextBox.TextChanged += (_, _) => WriteStatusSnapshot();
+        Activated += (_, _) => WriteStatusSnapshot();
+        Deactivate += (_, _) => WriteStatusSnapshot();
         Shown += (_, _) => {
-            if (useCommandBarSurface) {
-                _commandBarTextBox.Focus();
-                _commandBarTextBox.Select(_commandBarTextBox.Text.Length, 0);
-            } else {
-                _editorTextBox.Focus();
-                _editorTextBox.SelectionStart = _editorTextBox.TextLength;
-                _editorTextBox.SelectionLength = 0;
-            }
+            FocusSurface(_useCommandBarSurface);
+
+            var activationTimer = new System.Windows.Forms.Timer {
+                Interval = 250
+            };
+            int activationAttempts = 0;
+            activationTimer.Tick += (_, _) => {
+                activationAttempts++;
+                FocusSurface(_useCommandBarSurface);
+                if (ContainsFocus || activationAttempts >= 4) {
+                    activationTimer.Stop();
+                    activationTimer.Dispose();
+                }
+            };
+            activationTimer.Start();
+            StartStatusChannel();
+            WriteStatusSnapshot();
+        };
+        FormClosed += (_, _) => {
+            _statusTimer?.Stop();
+            _statusTimer?.Dispose();
+            _statusTimer = null;
+            WriteStatusSnapshot();
         };
     }
 
@@ -151,5 +209,269 @@ internal sealed class MainForm : Form {
             ? _baseTitle + " - Accepted"
             : _baseTitle + " - Accepted - " + command;
         e.Handled = true;
+    }
+
+    private void FocusSurface(bool useCommandBarSurface) {
+        TopMost = true;
+        BringToFront();
+        Activate();
+        BringWindowToTop(Handle);
+        SetForegroundWindow(Handle);
+        if (!IsForegroundHoldActive()) {
+            TopMost = false;
+        }
+
+        if (useCommandBarSurface) {
+            _commandBarTextBox.Focus();
+            _commandBarTextBox.Select(_commandBarTextBox.Text.Length, 0);
+            return;
+        }
+
+        _editorTextBox.Focus();
+        _editorTextBox.SelectionStart = _editorTextBox.TextLength;
+        _editorTextBox.SelectionLength = 0;
+        WriteStatusSnapshot();
+    }
+
+    private void StartStatusChannel() {
+        if (string.IsNullOrWhiteSpace(_statusFilePath) && string.IsNullOrWhiteSpace(_commandFilePath)) {
+            return;
+        }
+
+        _statusTimer = new System.Windows.Forms.Timer {
+            Interval = 100
+        };
+        _statusTimer.Tick += (_, _) => {
+            ProcessCommandFile();
+            MaintainForegroundHold();
+            WriteStatusSnapshot();
+        };
+        _statusTimer.Start();
+    }
+
+    private void ProcessCommandFile() {
+        if (string.IsNullOrWhiteSpace(_commandFilePath) || !File.Exists(_commandFilePath)) {
+            return;
+        }
+
+        string command;
+        try {
+            command = File.ReadAllText(_commandFilePath).Trim();
+            File.Delete(_commandFilePath);
+        } catch {
+            return;
+        }
+
+        _lastCommand = command;
+        AddForegroundHistoryEntry("command", command);
+
+        if (string.Equals(command, "focus-editor", StringComparison.OrdinalIgnoreCase)) {
+            FocusSurface(useCommandBarSurface: false);
+            return;
+        }
+
+        if (string.Equals(command, "focus-commandbar", StringComparison.OrdinalIgnoreCase)) {
+            FocusSurface(useCommandBarSurface: true);
+            return;
+        }
+
+        if (string.Equals(command, "focus-secondary", StringComparison.OrdinalIgnoreCase)) {
+            EnsureSecondaryWindow();
+            _secondaryForm?.FocusSecondaryWindow();
+            return;
+        }
+
+        if (command.StartsWith("hold-editor-foreground:", StringComparison.OrdinalIgnoreCase)) {
+            if (TryParseDuration(command, "hold-editor-foreground:", out int editorDurationMilliseconds)) {
+                StartForegroundHold(useCommandBarSurface: false, editorDurationMilliseconds);
+            }
+
+            return;
+        }
+
+        if (command.StartsWith("hold-commandbar-foreground:", StringComparison.OrdinalIgnoreCase)) {
+            if (TryParseDuration(command, "hold-commandbar-foreground:", out int commandBarDurationMilliseconds)) {
+                StartForegroundHold(useCommandBarSurface: true, commandBarDurationMilliseconds);
+            }
+
+            return;
+        }
+
+        if (string.Equals(command, "stop-foreground-hold", StringComparison.OrdinalIgnoreCase)) {
+            StopForegroundHold();
+        }
+    }
+
+    private void WriteStatusSnapshot() {
+        if (string.IsNullOrWhiteSpace(_statusFilePath)) {
+            return;
+        }
+
+        try {
+            UpdateForegroundDiagnostics();
+            string? directory = Path.GetDirectoryName(_statusFilePath);
+            if (!string.IsNullOrWhiteSpace(directory)) {
+                Directory.CreateDirectory(directory);
+            }
+
+            var snapshot = new TestAppStatusSnapshot {
+                ProcessId = Environment.ProcessId,
+                WindowHandle = Handle.ToInt64(),
+                EditorHandle = _editorTextBox.IsHandleCreated ? _editorTextBox.Handle.ToInt64() : 0,
+                SecondaryWindowHandle = _secondaryForm != null && !_secondaryForm.IsDisposed && _secondaryForm.IsHandleCreated ? _secondaryForm.Handle.ToInt64() : 0,
+                WindowTitle = Text,
+                ActiveSurface = GetActiveSurface(),
+                ContainsFocus = ContainsFocus,
+                IsForegroundWindow = GetForegroundWindow() == Handle,
+                SecondaryIsForegroundWindow = _secondaryForm != null && !_secondaryForm.IsDisposed && _secondaryForm.IsHandleCreated && GetForegroundWindow() == _secondaryForm.Handle,
+                ForegroundHoldActive = IsForegroundHoldActive(),
+                ForegroundHoldSurface = _foregroundHoldUseCommandBar ? "commandbar" : "editor",
+                ForegroundHoldRequestCount = _foregroundHoldRequestCount,
+                ForegroundHoldRecoveryCount = _foregroundHoldRecoveryCount,
+                LastObservedForegroundHandle = _lastObservedForegroundHandle,
+                LastObservedForegroundTitle = _lastObservedForegroundTitle,
+                LastObservedForegroundClass = _lastObservedForegroundClass,
+                LastObservedForegroundChangedUtc = _lastObservedForegroundChangedUtc,
+                LastCommand = _lastCommand,
+                ForegroundHistory = new List<string>(_foregroundHistory),
+                EditorText = _editorTextBox.Text,
+                SecondaryText = _secondaryForm != null && !_secondaryForm.IsDisposed ? _secondaryForm.CurrentText : string.Empty,
+                CommandBarText = _commandBarTextBox.Text,
+                StatusText = _statusLabel.Text
+            };
+
+            string json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions {
+                WriteIndented = true
+            });
+            File.WriteAllText(_statusFilePath, json);
+        } catch {
+            // Best-effort diagnostics only.
+        }
+    }
+
+    private string GetActiveSurface() {
+        if (_secondaryForm != null && !_secondaryForm.IsDisposed && _secondaryForm.ContainsFocus) {
+            return "secondary";
+        }
+
+        if (_commandBarHost.Visible && _commandBarTextBox.IsKeyboardFocused) {
+            return "commandbar";
+        }
+
+        if (_editorTextBox.Focused) {
+            return "editor";
+        }
+
+        return _useCommandBarSurface ? "commandbar" : "editor";
+    }
+
+    private void EnsureSecondaryWindow() {
+        if (_secondaryForm != null && !_secondaryForm.IsDisposed) {
+            return;
+        }
+
+        _secondaryForm = new SecondaryFocusForm(_baseTitle, WriteStatusSnapshot);
+        _secondaryForm.Show(this);
+    }
+
+    private void MaintainForegroundHold() {
+        if (!IsForegroundHoldActive()) {
+            if (TopMost) {
+                StopForegroundHold();
+            }
+
+            return;
+        }
+
+        bool needsFocus = _foregroundHoldUseCommandBar
+            ? !_commandBarTextBox.IsKeyboardFocused || GetForegroundWindow() != Handle
+            : !_editorTextBox.Focused || GetForegroundWindow() != Handle;
+        if (!needsFocus) {
+            return;
+        }
+
+        _foregroundHoldRecoveryCount++;
+        AddForegroundHistoryEntry("hold-recover", _foregroundHoldUseCommandBar ? "commandbar" : "editor");
+        FocusSurface(_foregroundHoldUseCommandBar);
+    }
+
+    private void StartForegroundHold(bool useCommandBarSurface, int durationMilliseconds) {
+        if (durationMilliseconds <= 0) {
+            return;
+        }
+
+        _foregroundHoldUseCommandBar = useCommandBarSurface;
+        _foregroundHoldUntilUtc = DateTime.UtcNow.AddMilliseconds(durationMilliseconds);
+        _foregroundHoldRequestCount++;
+        AddForegroundHistoryEntry(
+            "hold-start",
+            (_foregroundHoldUseCommandBar ? "commandbar" : "editor") + " durationMs=" + durationMilliseconds);
+        TopMost = true;
+        FocusSurface(useCommandBarSurface);
+    }
+
+    private bool IsForegroundHoldActive() {
+        return _foregroundHoldUntilUtc > DateTime.UtcNow;
+    }
+
+    private void StopForegroundHold() {
+        if (_foregroundHoldUntilUtc != DateTime.MinValue) {
+            AddForegroundHistoryEntry("hold-stop", _foregroundHoldUseCommandBar ? "commandbar" : "editor");
+        }
+
+        _foregroundHoldUntilUtc = DateTime.MinValue;
+        TopMost = false;
+    }
+
+    private void UpdateForegroundDiagnostics() {
+        IntPtr foregroundHandle = GetForegroundWindow();
+        long handleValue = foregroundHandle.ToInt64();
+        if (_lastObservedForegroundHandle == handleValue) {
+            return;
+        }
+
+        _lastObservedForegroundHandle = handleValue;
+        _lastObservedForegroundTitle = ReadWindowText(foregroundHandle);
+        _lastObservedForegroundClass = ReadWindowClassName(foregroundHandle);
+        _lastObservedForegroundChangedUtc = DateTime.UtcNow.ToString("O");
+        AddForegroundHistoryEntry(
+            "foreground",
+            $"0x{_lastObservedForegroundHandle:X} '{_lastObservedForegroundTitle}' class='{_lastObservedForegroundClass}'");
+    }
+
+    private static string ReadWindowText(IntPtr handle) {
+        if (handle == IntPtr.Zero) {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(512);
+        return GetWindowText(handle, builder, builder.Capacity) > 0 ? builder.ToString() : string.Empty;
+    }
+
+    private static string ReadWindowClassName(IntPtr handle) {
+        if (handle == IntPtr.Zero) {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(256);
+        return GetClassName(handle, builder, builder.Capacity) > 0 ? builder.ToString() : string.Empty;
+    }
+
+    private static bool TryParseDuration(string command, string prefix, out int durationMilliseconds) {
+        durationMilliseconds = 0;
+        if (!command.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) {
+            return false;
+        }
+
+        string rawDuration = command.Substring(prefix.Length).Trim();
+        return int.TryParse(rawDuration, out durationMilliseconds) && durationMilliseconds > 0;
+    }
+
+    private void AddForegroundHistoryEntry(string category, string detail) {
+        string entry = DateTime.UtcNow.ToString("O") + " [" + category + "] " + detail;
+        _foregroundHistory.Add(entry);
+        if (_foregroundHistory.Count > ForegroundHistoryLimit) {
+            _foregroundHistory.RemoveAt(0);
+        }
     }
 }

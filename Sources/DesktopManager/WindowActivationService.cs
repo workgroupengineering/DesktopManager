@@ -59,7 +59,7 @@ internal static class WindowActivationService {
 
         for (int attempt = 0; attempt < retryCount; attempt++) {
             TryPrepareWindowForAutomation(handle, retryCount: 1, retryDelayMilliseconds: 0);
-            MonitorNativeMethods.SetForegroundWindow(handle);
+            TryForceForegroundActivation(handle);
 
             if (MonitorNativeMethods.GetForegroundWindow() == handle) {
                 return true;
@@ -71,5 +71,41 @@ internal static class WindowActivationService {
         }
 
         return MonitorNativeMethods.GetForegroundWindow() == handle;
+    }
+
+    private static void TryForceForegroundActivation(IntPtr handle) {
+        if (handle == IntPtr.Zero) {
+            return;
+        }
+
+        IntPtr foregroundHandle = MonitorNativeMethods.GetForegroundWindow();
+        uint currentThreadId = MonitorNativeMethods.GetCurrentThreadId();
+        uint targetThreadId = MonitorNativeMethods.GetWindowThreadProcessId(handle, out _);
+        uint foregroundThreadId = foregroundHandle == IntPtr.Zero ? 0 : MonitorNativeMethods.GetWindowThreadProcessId(foregroundHandle, out _);
+        bool attachedToTarget = false;
+        bool attachedToForeground = false;
+
+        try {
+            if (targetThreadId != 0 && targetThreadId != currentThreadId) {
+                attachedToTarget = MonitorNativeMethods.AttachThreadInput(currentThreadId, targetThreadId, true);
+            }
+
+            if (foregroundThreadId != 0 && foregroundThreadId != currentThreadId && foregroundThreadId != targetThreadId) {
+                attachedToForeground = MonitorNativeMethods.AttachThreadInput(currentThreadId, foregroundThreadId, true);
+            }
+
+            MonitorNativeMethods.BringWindowToTop(handle);
+            MonitorNativeMethods.SetActiveWindow(handle);
+            MonitorNativeMethods.SetForegroundWindow(handle);
+            MonitorNativeMethods.SetFocus(handle);
+        } finally {
+            if (attachedToForeground) {
+                MonitorNativeMethods.AttachThreadInput(currentThreadId, foregroundThreadId, false);
+            }
+
+            if (attachedToTarget) {
+                MonitorNativeMethods.AttachThreadInput(currentThreadId, targetThreadId, false);
+            }
+        }
     }
 }

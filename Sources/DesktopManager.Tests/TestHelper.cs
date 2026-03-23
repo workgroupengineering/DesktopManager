@@ -131,6 +131,38 @@ internal static class TestHelper {
     }
 
     /// <summary>
+    /// Determines if system-wide desktop state tests should be skipped.
+    /// </summary>
+    public static bool ShouldSkipSystemDesktopChangeTests() {
+        if (ShouldSkipDesktopChangeTests()) {
+            return true;
+        }
+
+        if (Environment.GetEnvironmentVariable("RUN_SYSTEM_UI_TESTS") == "true" ||
+            Environment.GetEnvironmentVariable("DESKTOPMANAGER_RUN_SYSTEM_UI_TESTS") == "true") {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Determines if foreground-window UI tests should be skipped.
+    /// </summary>
+    public static bool ShouldSkipForegroundWindowUiTests() {
+        if (ShouldSkipDesktopChangeTests()) {
+            return true;
+        }
+
+        if (Environment.GetEnvironmentVariable("RUN_FOREGROUND_UI_TESTS") == "true" ||
+            Environment.GetEnvironmentVariable("DESKTOPMANAGER_RUN_FOREGROUND_UI_TESTS") == "true") {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Determines if tests that launch live external desktop applications should be skipped.
     /// </summary>
     public static bool ShouldSkipExternalApplicationUiTests() {
@@ -198,6 +230,26 @@ internal static class TestHelper {
         RequireInteractive();
         if (ShouldSkipDesktopChangeTests()) {
             Assert.Inconclusive("Desktop-changing UI tests skipped. Set RUN_DESTRUCTIVE_UI_TESTS=true (or DESKTOPMANAGER_RUN_DESTRUCTIVE_UI_TESTS=true) to run.");
+        }
+    }
+
+    /// <summary>
+    /// Skips system-wide desktop-changing tests unless explicitly enabled.
+    /// </summary>
+    public static void RequireSystemDesktopChanges() {
+        RequireDesktopChanges();
+        if (ShouldSkipSystemDesktopChangeTests()) {
+            Assert.Inconclusive("System-wide desktop-changing tests skipped. Set RUN_SYSTEM_UI_TESTS=true (or DESKTOPMANAGER_RUN_SYSTEM_UI_TESTS=true) to run.");
+        }
+    }
+
+    /// <summary>
+    /// Skips tests that intentionally steal foreground focus unless explicitly enabled.
+    /// </summary>
+    public static void RequireForegroundWindowUiTests() {
+        RequireDesktopChanges();
+        if (ShouldSkipForegroundWindowUiTests()) {
+            Assert.Inconclusive("Foreground-window UI tests skipped. Set RUN_FOREGROUND_UI_TESTS=true (or DESKTOPMANAGER_RUN_FOREGROUND_UI_TESTS=true) to run.");
         }
     }
 

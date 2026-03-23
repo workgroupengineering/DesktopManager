@@ -81,7 +81,7 @@ Publish a specific CLI runtime:
 
 - `Build-Project.ps1` is the only package and release entrypoint in this repo.
 - `Build-Project.ps1 -Plan` skips the module build execution because the module path does not expose the same standalone plan surface here.
-- The CLI publish target packages `Sources/DesktopManager.Cli/DesktopManager.Cli.csproj` as `desktopmanager.exe`.
+- The CLI publish targets package `Sources/DesktopManager.Cli/DesktopManager.Cli.csproj` as `desktopmanager.exe` for both `net8.0-windows` and `net10.0-windows`.
 - The CLI includes the MCP server entrypoint exposed by:
 
 ```powershell
@@ -91,25 +91,88 @@ desktopmanager mcp serve --allow-mutations --allow-process notepad
 ```
 
 - Fast MCP contract verification lives in `McpServerTests`.
+- UI test gates are intentionally split so operators can enable only the risk level they want:
+
+| Gate | Purpose | Notes |
+| ---- | ------- | ----- |
+| `RUN_UI_TESTS` | Owned-window UI tests | Uses repo-created harness windows only |
+| `RUN_DESTRUCTIVE_UI_TESTS` | Owned-window mutation tests | Move/resize/hide/snap/transparency on harness windows |
+| `RUN_FOREGROUND_UI_TESTS` | Foreground-focus tests | Intentionally steals focus to prove active-window behavior |
+| `RUN_SYSTEM_UI_TESTS` | System-wide desktop mutations | Wallpaper, brightness, resolution, and other monitor/session changes |
+| `RUN_EXTERNAL_UI_TESTS` | External application harnesses | Launches real desktop apps when a test requires them |
+| `RUN_EXPERIMENTAL_UI_TESTS` | Experimental live harnesses | Extra manual-validation paths, not part of the stable pack |
+
 - The disposable live-app MCP harness lives in `McpServerEndToEndTests` and is gated by:
 
 ```powershell
 $env:RUN_UI_TESTS = "true"
 $env:RUN_DESTRUCTIVE_UI_TESTS = "true"
+$env:RUN_EXTERNAL_UI_TESTS = "true"
 $env:RUN_EXPERIMENTAL_UI_TESTS = "true"
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadRoundTrip
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadTargetAreaRoundTrip
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadWindowMutationRoundTrip
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadWorkflowRoundTrip
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadAllowedProcessPolicy
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadDeniedProcessPolicy
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadDryRunPolicy
-dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "McpServer_NotepadRoundTrip|McpServer_NotepadTargetAreaRoundTrip|McpServer_NotepadWindowMutationRoundTrip|McpServer_NotepadWorkflowRoundTrip|McpServer_NotepadAllowedProcessPolicy|McpServer_NotepadDeniedProcessPolicy|McpServer_NotepadDryRunPolicy"
-dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter McpServer_EdgeForegroundInputPolicy_BlocksOmniboxEnterWithoutServerOptIn
-dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter McpServer_EdgeForegroundInputPolicy_AllowsOmniboxEnterWithServerOptIn
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "McpServer_TestApp"
 ```
 
-- Those live MCP desktop tests intentionally run under `net8.0-windows` only because they all drive the shared `DesktopManager.Cli.exe` host and the same real desktop session.
-- The safety-policy harness now covers one allowed scoped mutation, one denied scoped mutation, and one dry-run scoped mutation preview against a disposable Notepad window.
-- The stable live MCP desktop pack now stays on the Notepad-backed flows, while both Chromium-style foreground-input harnesses live behind `RUN_EXPERIMENTAL_UI_TESTS=true` so they can be exercised manually without destabilizing regular regression runs.
-- When the experimental Chromium opt-in harness goes inconclusive, it now keeps a screenshot plus control-diagnostic bundle under `%TEMP%\DesktopManager.Tests\McpE2E\Experimental`, exercises temporary named window/control targets so the fallback path stays aligned with the shared targeting workflow, and writes `decision-trace.txt` plus `comparison.txt` for follow-up analysis.
+- Those live MCP desktop tests intentionally run under `net8.0-windows` in the runbook examples because they all drive the shared `DesktopManager.Cli.exe` host and the same real desktop session; the same flows can also be exercised under `net10.0-windows` when validating the newer runtime target.
+- The stable live MCP pack is now repo-owned `DesktopManager.TestApp` coverage rather than external Notepad/Edge coverage.
+- Foreground and hosted-session validations should only be enabled in sacrificial or explicitly prepared sessions.
+
+Owned-window mutation slice without system-wide or foreground changes:
+
+```powershell
+$env:RUN_UI_TESTS = "true"
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "WindowPositionTests|WindowStateHelpersTests|WindowVisibilityTests|WindowTransparencyTests|WindowStyleModificationTests|WindowLayoutTests|WindowActivationPositioningTests"
+```
+
+Foreground-window slice:
+
+```powershell
+$env:RUN_UI_TESTS = "true"
+$env:RUN_DESTRUCTIVE_UI_TESTS = "true"
+$env:RUN_FOREGROUND_UI_TESTS = "true"
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "DesktopAutomationAssertionTests|WindowManagerFilterTests|WindowTopMostActivationTests"
+```
+
+System-wide desktop mutation slice:
+
+```powershell
+$env:RUN_UI_TESTS = "true"
+$env:RUN_DESTRUCTIVE_UI_TESTS = "true"
+$env:RUN_SYSTEM_UI_TESTS = "true"
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "BackgroundColorTests|MonitorBrightnessTests|MonitorFallbackTests|MonitorResolutionOrientationTests|LogonWallpaperTests"
+```
+
+## Hosted-Session Diagnostics
+
+When the repo-owned hosted-session typing harness goes inconclusive, inspect artifacts in this order:
+
+1. Open the newest `Artifacts\HostedSessionTyping\*.summary.txt` companion first.
+2. Use the `RetryHistory` line to decide whether the interruption was a repeated single culprit or mixed contention.
+3. Only open the matching `.json` snapshot if the summary is not enough.
+
+Common summary categories:
+
+- `browser-electron`
+  Usually means Edge, Codex, ChatGPT, or another Chromium/Electron-style window kept stealing focus.
+- `mixed`
+  More than one foreground category interrupted the run, so the desktop session was generally noisy.
+- `none`
+  No retained external culprit was captured, so use the raw JSON snapshot and `LastObservedForeground*` fields for follow-up.
+
+Artifact behavior:
+
+- Each hosted-session diagnostic set includes one `.json` snapshot and one companion `*.summary.txt` file.
+- The companion summary filename now carries the retry-history category hint when available.
+- Older hosted-session diagnostic sets are trimmed automatically and the newest sets are kept.
+
+Quick PowerShell inspection flow:
+
+```powershell
+.\Build\Get-HostedSessionDiagnostic.ps1 -SummaryOnly
+```
+
+JSON fallback for the newest hosted-session artifact:
+
+```powershell
+.\Build\Get-HostedSessionDiagnostic.ps1
+.\Build\Get-HostedSessionDiagnostic.ps1 -AsJson
+```

@@ -66,6 +66,26 @@ public class WindowAndTargetCriteriaTests {
 
     [TestMethod]
     /// <summary>
+    /// Ensures window mutation artifact options map verification flags and treat tolerance as an implicit verification request.
+    /// </summary>
+    public void WindowCreateArtifactOptions_MapsVerificationFlags() {
+        global::DesktopManager.Cli.CommandLineArguments arguments = global::DesktopManager.Cli.CommandLineArguments.Parse(new[] {
+            "window",
+            "move",
+            "--verify-tolerance-px", "14",
+            "--capture-after"
+        });
+
+        global::DesktopManager.Cli.MutationArtifactOptions? options = global::DesktopManager.Cli.WindowCommands.CreateArtifactOptions(arguments);
+
+        Assert.IsNotNull(options);
+        Assert.IsTrue(options.CaptureAfter);
+        Assert.IsTrue(options.VerifyAfter);
+        Assert.AreEqual(14, options.VerificationTolerancePixels);
+    }
+
+    [TestMethod]
+    /// <summary>
     /// Ensures target command criteria use include-empty by default for resolve scenarios and honor selector flags.
     /// </summary>
     public void TargetCreateCriteria_MapsFlagsAndUsesResolveDefault() {

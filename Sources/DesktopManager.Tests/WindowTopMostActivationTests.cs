@@ -1,7 +1,7 @@
 using System;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -19,7 +19,7 @@ public class WindowTopMostActivationTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireForegroundWindowUiTests();
 
         using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager TopMost Harness");
 
@@ -57,40 +57,30 @@ public class WindowTopMostActivationTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireOwnedWindowUiTests();
 
         var manager = new WindowManager();
-        var originalForeground = MonitorNativeMethods.GetForegroundWindow();
-        if (originalForeground == IntPtr.Zero) {
-            Assert.Inconclusive("No foreground window found for activation testing");
-            return;
-        }
+        using WinFormsWindowHarness firstHarness = WinFormsWindowHarness.Create("DesktopManager Activation Harness 1");
+        using WinFormsWindowHarness secondHarness = WinFormsWindowHarness.Create("DesktopManager Activation Harness 2");
 
-        var windows = manager.GetWindows(includeHidden: true);
-        var window = windows.FirstOrDefault(w => w.Handle == originalForeground);
-        if (window == null) {
-            Assert.Inconclusive("Foreground window was not found in enumeration");
-            return;
-        }
-        
         try {
-            // Attempt activation on the current foreground window to avoid focus changes
-            manager.ActivateWindow(window);
-
-            // Give Windows time to process the activation
+            manager.ActivateWindow(secondHarness.Window);
+            Application.DoEvents();
             Thread.Sleep(100);
 
-            var newForeground = MonitorNativeMethods.GetForegroundWindow();
+            manager.ActivateWindow(firstHarness.Window);
+            Application.DoEvents();
+            Thread.Sleep(100);
+
+            IntPtr newForeground = MonitorNativeMethods.GetForegroundWindow();
             if (newForeground == IntPtr.Zero) {
-                Assert.Inconclusive($"GetForegroundWindow returned 0 after activation attempt. Original: {originalForeground:X8}");
+                Assert.Inconclusive("GetForegroundWindow returned 0 after activation attempt.");
             }
 
-            if (newForeground != originalForeground) {
-                Assert.Inconclusive($"Foreground window changed unexpectedly. Original: {originalForeground:X8}, Current: {newForeground:X8}");
-            }
+            Assert.AreEqual(firstHarness.Window.Handle, newForeground,
+                $"Expected the owned harness window to become foreground. Expected: {firstHarness.Window.Handle:X8}, Actual: {newForeground:X8}");
         } catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to activate window")) {
-            // SetForegroundWindow failed - this is common due to Windows security restrictions
-            Assert.Inconclusive($"Window activation failed due to Windows security policies. Target window: Handle={window.Handle:X8}. This is expected behavior in many Windows configurations due to User Interface Privilege Isolation (UIPI) or other focus management policies.");
+            Assert.Inconclusive($"Window activation failed due to Windows security policies. Target window: Handle={firstHarness.Window.Handle:X8}. This is expected behavior in many Windows configurations due to User Interface Privilege Isolation (UIPI) or other focus management policies.");
         }
     }
 }

@@ -26,59 +26,25 @@ public class WindowManagerFilterTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireOwnedWindowUiTests();
+
+        string title = $"ProcessName Filter Harness {Guid.NewGuid():N}";
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create(title);
+        using var process = Process.GetCurrentProcess();
 
         var manager = new WindowManager();
-        var windows = manager.GetWindows(includeHidden: true);
-        if (windows.Count == 0) {
-            Assert.Inconclusive("No windows found to test");
-        }
+        var filtered = manager.GetWindows(processName: process.ProcessName, includeHidden: true);
 
-        // Find a window from a standard process like explorer or Windows system processes
-        var window = windows.FirstOrDefault(w => {
+        Assert.IsTrue(filtered.Any(w => w.Handle == harness.Window.Handle),
+            $"Expected to find harness window {harness.Window.Handle:X8} for process '{process.ProcessName}'.");
+
+        foreach (var window in filtered.Take(5)) {
             try {
-                var proc = Process.GetProcessById((int)w.ProcessId);
-                return proc.ProcessName.ToLower().Contains("explorer") || 
-                       proc.ProcessName.ToLower().Contains("dwm") ||
-                       proc.ProcessName.ToLower().Contains("winlogon");
+                using Process matchingProcess = Process.GetProcessById((int)window.ProcessId);
+                Assert.AreEqual(process.ProcessName, matchingProcess.ProcessName,
+                    $"Window {window.Handle:X8} has process '{matchingProcess.ProcessName}' but filter was for '{process.ProcessName}'.");
             } catch {
-                return false;
-            }
-        });
-        
-        if (window == null) {
-            // Fall back to any window we can get process info for
-            window = windows.FirstOrDefault(w => {
-                try {
-                    Process.GetProcessById((int)w.ProcessId);
-                    return true;
-                } catch {
-                    return false;
-                }
-            });
-        }
-        
-        if (window == null) {
-            Assert.Inconclusive("No windows with accessible process information found");
-        }
-        
-        var proc = Process.GetProcessById((int)window.ProcessId);
-        var processName = proc.ProcessName;
-        
-        var filtered = manager.GetWindows(processName: processName, includeHidden: true);
-        
-        // Instead of checking for the exact same window (which might disappear due to timing),
-        // verify that at least one window with the expected process name is found
-        Assert.IsTrue(filtered.Count > 0, 
-            $"Expected to find at least one window with process name '{processName}', but found {filtered.Count}");
-            
-        // Verify that all returned windows actually have the correct process name
-        foreach (var w in filtered.Take(3)) { // Check first few to avoid performance issues
-            try {
-                var p = Process.GetProcessById((int)w.ProcessId);
-                Assert.AreEqual(processName, p.ProcessName, 
-                    $"Window {w.Handle:X8} has process '{p.ProcessName}' but filter was for '{processName}'");
-            } catch {
-                // Process might have exited, skip verification for this window
+                // Process might have exited, skip verification for this window.
             }
         }
     }
@@ -218,19 +184,31 @@ public class WindowManagerFilterTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireForegroundWindowUiTests();
+
+        using WinFormsWindowHarness firstHarness = WinFormsWindowHarness.Create($"Foreground Harness 1 {Guid.NewGuid():N}");
+        using WinFormsWindowHarness secondHarness = WinFormsWindowHarness.Create($"Foreground Harness 2 {Guid.NewGuid():N}");
+
+        var manager = new WindowManager();
+        manager.ActivateWindow(secondHarness.Window);
+        Application.DoEvents();
+        System.Threading.Thread.Sleep(100);
+        manager.ActivateWindow(firstHarness.Window);
+        Application.DoEvents();
+        System.Threading.Thread.Sleep(100);
 
         IntPtr foreground = MonitorNativeMethods.GetForegroundWindow();
         if (foreground == IntPtr.Zero) {
             Assert.Inconclusive("No foreground window found to test");
         }
 
-        var manager = new WindowManager();
         WindowInfo? window = manager.GetActiveWindow();
         if (window == null) {
             Assert.Inconclusive("The active window could not be resolved from enumeration");
         }
 
-        Assert.AreEqual(foreground, window.Handle, "Expected GetActiveWindow to resolve the current foreground window.");
+        Assert.AreEqual(firstHarness.Window.Handle, foreground, "Expected the owned harness window to be foreground.");
+        Assert.AreEqual(foreground, window.Handle, "Expected GetActiveWindow to resolve the owned foreground harness window.");
     }
 
     [TestMethod]

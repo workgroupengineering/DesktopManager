@@ -53,4 +53,34 @@ public sealed class WindowInputOptions {
     /// Gets or sets whether to use SendInput for typing (true) or WM_CHAR (false).
     /// </summary>
     public bool UseSendInput { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether typing must use real foreground keyboard input and fail instead of falling back to background messaging.
+    /// </summary>
+    public bool RequireForegroundWindowForTyping { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether foreground typing should prefer layout-aware physical key presses over Unicode packet input.
+    /// </summary>
+    public bool UsePhysicalKeyboardLayout { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether foreground typing should prefer a fixed US-style scancode map for hosted remote sessions.
+    /// </summary>
+    public bool UseHostedSessionScanCodes { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether text should be delivered in script mode, preserving line boundaries and chunking long lines safely.
+    /// </summary>
+    public bool TypeTextAsScript { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum number of characters to send in each script chunk.
+    /// </summary>
+    public int ScriptChunkLength { get; set; } = 120;
+
+    /// <summary>
+    /// Gets or sets the delay in milliseconds to apply after each script line break.
+    /// </summary>
+    public int ScriptLineDelayMilliseconds { get; set; }
 }

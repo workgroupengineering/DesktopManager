@@ -210,9 +210,7 @@ internal static class WindowCommands {
             arguments,
             DesktopOperations.TypeWindowText(
                 CreateCriteria(arguments, includeEmptyDefault: true),
-                arguments.GetRequiredOption("text"),
-                arguments.GetBoolFlag("paste"),
-                arguments.GetIntOption("delay-ms") ?? 0,
+                CreateTypeOptions(arguments),
                 CreateArtifactOptions(arguments)));
     }
 
@@ -261,6 +259,18 @@ internal static class WindowCommands {
             writer.WriteLine($"target: {payload.TargetKind ?? "selector"} {payload.TargetName}");
         }
 
+        if (payload.Verification != null) {
+            writer.WriteLine($"verification: verified={payload.Verification.Verified} mode={payload.Verification.Mode} observed={payload.Verification.ObservedCount}/{payload.Verification.ExpectedCount} matched={payload.Verification.MatchedCount} mismatches={payload.Verification.MismatchCount} tolerance-px={payload.Verification.TolerancePixels}");
+            writer.WriteLine($"verification-summary: {payload.Verification.Summary}");
+            if (payload.Verification.ActiveWindow != null) {
+                writer.WriteLine($"verification-active: {payload.Verification.ActiveWindow.Title} [PID {payload.Verification.ActiveWindow.ProcessId}]");
+            }
+
+            foreach (string note in payload.Verification.Notes) {
+                writer.WriteLine($"verification-note: {note}");
+            }
+        }
+
         if (payload.BeforeScreenshots.Count > 0 || payload.AfterScreenshots.Count > 0) {
             writer.WriteLine($"artifacts: before={payload.BeforeScreenshots.Count} after={payload.AfterScreenshots.Count}");
         }
@@ -295,18 +305,22 @@ internal static class WindowCommands {
         return 0;
     }
 
-    private static MutationArtifactOptions? CreateArtifactOptions(CommandLineArguments arguments) {
+    internal static MutationArtifactOptions? CreateArtifactOptions(CommandLineArguments arguments) {
         bool captureBefore = arguments.GetBoolFlag("capture-before");
         bool captureAfter = arguments.GetBoolFlag("capture-after");
         string? artifactDirectory = arguments.GetOption("artifact-directory");
-        if (!captureBefore && !captureAfter && string.IsNullOrWhiteSpace(artifactDirectory)) {
+        bool verifyAfter = arguments.GetBoolFlag("verify") || arguments.GetIntOption("verify-tolerance-px").HasValue;
+        int verificationTolerancePixels = arguments.GetIntOption("verify-tolerance-px") ?? 10;
+        if (!captureBefore && !captureAfter && string.IsNullOrWhiteSpace(artifactDirectory) && !verifyAfter) {
             return null;
         }
 
         return new MutationArtifactOptions {
             CaptureBefore = captureBefore,
             CaptureAfter = captureAfter,
-            ArtifactDirectory = artifactDirectory
+            ArtifactDirectory = artifactDirectory,
+            VerifyAfter = verifyAfter,
+            VerificationTolerancePixels = verificationTolerancePixels
         };
     }
 
@@ -351,6 +365,25 @@ internal static class WindowCommands {
             IncludeOwned = !arguments.GetBoolFlag("exclude-owned"),
             IncludeEmptyTitles = arguments.GetBoolFlag("include-empty") || includeEmptyDefault,
             All = arguments.GetBoolFlag("all")
+        };
+    }
+
+    internal static WindowTextCommandOptions CreateTypeOptions(CommandLineArguments arguments) {
+        bool hostedSession = arguments.GetBoolFlag("hosted-session");
+        bool physicalKeys = arguments.GetBoolFlag("physical-keys");
+        bool scriptMode = arguments.GetBoolFlag("script");
+        int? delayMilliseconds = arguments.GetIntOption("delay-ms");
+        int? scriptLineDelayMilliseconds = arguments.GetIntOption("line-delay-ms");
+        return new WindowTextCommandOptions {
+            Text = arguments.GetRequiredOption("text"),
+            Paste = arguments.GetBoolFlag("paste"),
+            DelayMilliseconds = delayMilliseconds ?? (hostedSession ? 35 : 0),
+            ForegroundInput = arguments.GetBoolFlag("foreground-input") || physicalKeys || hostedSession,
+            PhysicalKeys = physicalKeys,
+            HostedSession = hostedSession,
+            ScriptMode = scriptMode,
+            ScriptChunkLength = arguments.GetIntOption("chunk-size") ?? 120,
+            ScriptLineDelayMilliseconds = scriptLineDelayMilliseconds ?? (hostedSession && scriptMode ? 120 : 0)
         };
     }
 }

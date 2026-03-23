@@ -61,6 +61,32 @@ public static partial class MonitorNativeMethods
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     /// <summary>
+    /// Gets the active keyboard layout for a thread.
+    /// </summary>
+    /// <param name="idThread">The thread identifier.</param>
+    /// <returns>The keyboard layout handle.</returns>
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetKeyboardLayout(uint idThread);
+
+    /// <summary>
+    /// Translates a character to the virtual key and modifier state for a keyboard layout.
+    /// </summary>
+    /// <param name="ch">The character to translate.</param>
+    /// <param name="dwhkl">The keyboard layout handle.</param>
+    /// <returns>A packed virtual-key and modifier-state result, or -1 when no mapping exists.</returns>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern short VkKeyScanEx(char ch, IntPtr dwhkl);
+
+    /// <summary>
+    /// Maps a virtual key to a scan code.
+    /// </summary>
+    /// <param name="uCode">The value to translate.</param>
+    /// <param name="uMapType">Translation mode.</param>
+    /// <returns>The translated scan code.</returns>
+    [DllImport("user32.dll")]
+    public static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
+    /// <summary>
     /// Checks if a window is visible.
     /// </summary>
     /// <param name="hWnd">The window handle.</param>
@@ -200,6 +226,14 @@ public static partial class MonitorNativeMethods
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     /// <summary>
+    /// Activates the specified window.
+    /// </summary>
+    /// <param name="hWnd">The window handle.</param>
+    /// <returns>The previously active window.</returns>
+    [DllImport("user32.dll")]
+    public static extern IntPtr SetActiveWindow(IntPtr hWnd);
+
+    /// <summary>
     /// Brings the specified window to the top of the Z order.
     /// </summary>
     /// <param name="hWnd">The window handle.</param>
@@ -213,6 +247,23 @@ public static partial class MonitorNativeMethods
     /// <returns>The foreground window handle.</returns>
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
+
+    /// <summary>
+    /// Retrieves the identifier of the calling thread.
+    /// </summary>
+    /// <returns>The current thread identifier.</returns>
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
+
+    /// <summary>
+    /// Attaches or detaches the input processing mechanism of one thread to that of another thread.
+    /// </summary>
+    /// <param name="idAttach">Thread identifier to attach or detach.</param>
+    /// <param name="idAttachTo">Thread identifier to attach to or detach from.</param>
+    /// <param name="fAttach">True to attach; false to detach.</param>
+    /// <returns>True if successful.</returns>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
 
     /// <summary>
     /// Determines whether a window is minimized.
@@ -696,6 +747,11 @@ public static partial class MonitorNativeMethods
     /// Key event flag indicating key release.
     /// </summary>
     public const uint KEYEVENTF_KEYUP = 0x0002;
+
+    /// <summary>
+    /// Key event flag indicating a hardware scan code.
+    /// </summary>
+    public const uint KEYEVENTF_SCANCODE = 0x0008;
 
     /// <summary>
     /// Key event flag indicating Unicode scan code.
