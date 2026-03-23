@@ -59,8 +59,72 @@ Additional operator-focused docs for the newer CLI and MCP surfaces:
 
 - [Docs/DesktopManager.Cli.md](Docs/DesktopManager.Cli.md)
 - [Docs/DesktopManager.Mcp.md](Docs/DesktopManager.Mcp.md)
+- [Docs/DesktopManager.Architecture.md](Docs/DesktopManager.Architecture.md)
 - [.agents/skills/desktopmanager-operator/SKILL.md](.agents/skills/desktopmanager-operator/SKILL.md)
 - [.agents/skills/desktopmanager-build/SKILL.md](.agents/skills/desktopmanager-build/SKILL.md)
+
+## Which Surface Should You Use?
+
+| Surface | Best for | Typical entrypoint |
+| ------- | -------- | ------------------ |
+| C# library | Embedding DesktopManager into your own .NET app or service | `DesktopManager.dll` |
+| PowerShell module | Scripts, operators, admin workflows, repeatable task automation | `Install-Module DesktopManager` |
+| CLI executable | Manual use, shell automation, JSON output, and MCP hosting | `desktopmanager.exe` |
+| MCP server | Agent-driven automation over stdio with an inspect-first safety model | `desktopmanager mcp serve` |
+
+## How It Fits Together
+
+DesktopManager now has one shared core and several operator-facing surfaces on top of it.
+
+```mermaid
+flowchart LR
+    A["Your .NET app"] --> B["DesktopManager library"]
+    C["PowerShell module"] --> B
+    D["desktopmanager.exe CLI"] --> B
+    E["MCP server"] --> D
+    B --> F["Windows desktop APIs"]
+    F --> G["Monitors / wallpapers / brightness"]
+    F --> H["Windows / controls / input"]
+    F --> I["Layouts / snapshots / targets"]
+```
+
+If you want the fuller component and request-flow diagrams, see [Docs/DesktopManager.Architecture.md](Docs/DesktopManager.Architecture.md).
+
+The practical rule of thumb is:
+
+- use the library when DesktopManager is part of your own application
+- use PowerShell when you want scriptable admin/operator automation
+- use the CLI when you want a human-friendly or JSON-friendly command surface
+- use MCP when an agent should inspect first and mutate only through an explicit server session
+
+## Common Entry Points
+
+| Goal | Recommended entrypoint |
+| ---- | ---------------------- |
+| Add DesktopManager features to your own code | Reference the `DesktopManager` NuGet package |
+| Run manual desktop operations from a terminal | `desktopmanager.exe` |
+| Use it from PowerShell scripts | `DesktopManager` PowerShell module |
+| Connect an agent/tooling layer | `desktopmanager mcp serve` |
+| Understand the overall wiring | [Docs/DesktopManager.Architecture.md](Docs/DesktopManager.Architecture.md) |
+
+## Request Flow at a Glance
+
+```mermaid
+flowchart LR
+    A["User, script, or agent"] --> B{"Surface"}
+    B -->|".NET"| C["DesktopManager library"]
+    B -->|"PowerShell"| D["Cmdlets"]
+    B -->|"CLI"| E["desktopmanager.exe"]
+    B -->|"MCP"| F["desktopmanager mcp serve"]
+
+    D --> C
+    E --> G["DesktopOperations"]
+    F --> G
+    G --> C
+    C --> H["Win32, UI Automation, monitor, screenshot, and input services"]
+```
+
+The important part is that CLI, MCP, and PowerShell are meant to stay aligned by reusing the same shared C# behavior rather than inventing separate desktop logic in each surface.
 
 
 ### Available PowerShell Cmdlets
