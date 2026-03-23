@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.Management.Automation;
+using System.Linq;
 
 namespace DesktopManager.PowerShell;
 
@@ -105,6 +108,24 @@ public sealed class CmdletInvokeDesktopWindowDrag : PSCmdlet {
     [Parameter]
     public SwitchParameter ClientArea { get; set; }
 
+    /// <summary>
+    /// <para type="description">Re-query the target window after the drag and report the observed postcondition.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter Verify { get; set; }
+
+    /// <summary>
+    /// <para type="description">Geometry verification tolerance in pixels.</para>
+    /// </summary>
+    [Parameter]
+    public int VerificationTolerancePixels { get; set; } = 10;
+
+    /// <summary>
+    /// <para type="description">Return a structured mutation result object for the dragged window.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter PassThru { get; set; }
+
     /// <inheritdoc />
     protected override void BeginProcessing() {
         var automation = new DesktopAutomationService();
@@ -125,11 +146,48 @@ public sealed class CmdletInvokeDesktopWindowDrag : PSCmdlet {
         string startText = useNamedTargets ? $"target '{StartTargetName}'" : StartX.HasValue && StartY.HasValue ? $"{StartX},{StartY}" : $"{StartXRatio},{StartYRatio}";
         string endText = useNamedTargets ? $"target '{EndTargetName}'" : EndX.HasValue && EndY.HasValue ? $"{EndX},{EndY}" : $"{EndXRatio},{EndYRatio}";
         if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Drag from {startText} to {endText}")) {
-            if (useNamedTargets) {
-                WriteObject(automation.DragWindowTargets(options, StartTargetName, EndTargetName, Button, StepDelayMilliseconds, Activate, all: false), true);
-            } else {
-                WriteObject(automation.DragWindowPoints(options, StartX, StartY, StartXRatio, StartYRatio, EndX, EndY, EndXRatio, EndYRatio, Button, StepDelayMilliseconds, Activate, ClientArea, all: false), true);
+            WindowInfo requestedWindow = automation.GetWindows(options).FirstOrDefault();
+            try {
+                IReadOnlyList<WindowInfo> windows = useNamedTargets
+                    ? automation.DragWindowTargets(options, StartTargetName, EndTargetName, Button, StepDelayMilliseconds, Activate, all: false)
+                    : automation.DragWindowPoints(options, StartX, StartY, StartXRatio, StartYRatio, EndX, EndY, EndXRatio, EndYRatio, Button, StepDelayMilliseconds, Activate, ClientArea, all: false);
+                if (!Verify.IsPresent && !PassThru.IsPresent) {
+                    WriteObject(windows, true);
+                    return;
+                }
+
+                WriteMutationResult(automation, windows, requestedWindow);
+            } catch (Exception ex) {
+                if (!Verify.IsPresent && !PassThru.IsPresent) {
+                    throw;
+                }
+
+                WriteWarning($"Failed to drag window '{requestedWindow?.Title ?? Name}': {ex.Message}");
+                if (requestedWindow != null) {
+                    WriteObject(DesktopWindowMutationVerifier.CreateFailureRecord("drag", requestedWindow, ex.Message, Verify.IsPresent, VerificationTolerancePixels));
+                }
             }
+        }
+    }
+
+    private void WriteMutationResult(DesktopAutomationService automation, IReadOnlyList<WindowInfo> windows, WindowInfo requestedWindow) {
+        if (windows.Count == 0 && requestedWindow != null) {
+            WriteObject(DesktopWindowMutationVerifier.Verify(
+                automation,
+                "drag",
+                requestedWindow,
+                VerificationTolerancePixels,
+                requireForeground: Activate.IsPresent));
+            return;
+        }
+
+        foreach (WindowInfo window in windows) {
+            WriteObject(DesktopWindowMutationVerifier.Verify(
+                automation,
+                "drag",
+                window,
+                VerificationTolerancePixels,
+                requireForeground: Activate.IsPresent));
         }
     }
 }

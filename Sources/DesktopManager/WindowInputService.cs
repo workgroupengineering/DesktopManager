@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Text;
 using System.Threading;
 
 namespace DesktopManager;
@@ -12,6 +13,22 @@ namespace DesktopManager;
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class WindowInputService {
+    internal enum WindowTextDeliveryMode {
+        ForegroundInput,
+        WindowMessage
+    }
+
+    internal readonly struct WindowScriptChunk {
+        public WindowScriptChunk(string text, bool sendLineBreak) {
+            Text = text ?? string.Empty;
+            SendLineBreak = sendLineBreak;
+        }
+
+        public string Text { get; }
+
+        public bool SendLineBreak { get; }
+    }
+
     /// <summary>
     /// Pastes the specified text into the window using the clipboard.
     /// </summary>
@@ -104,18 +121,18 @@ public static class WindowInputService {
         }
 
         bool targetOwnsForeground = MonitorNativeMethods.GetForegroundWindow() == window.Handle;
-        IntPtr targetHandle = ResolvePreferredTextHandle(window.Handle);
-        if (settings.UseSendInput) {
-            if (targetOwnsForeground) {
-                SendInputText(text, settings);
-            } else {
-                SendMessageText(targetHandle, text, settings.KeyDelayMilliseconds);
-            }
+        WindowTextDeliveryMode deliveryMode = ResolveTextDeliveryMode(settings, targetOwnsForeground);
+        if (settings.TypeTextAsScript) {
+            SendScriptText(window, text, settings, deliveryMode);
         } else {
-            SendMessageText(targetHandle, text, settings.KeyDelayMilliseconds);
+            if (deliveryMode == WindowTextDeliveryMode.ForegroundInput) {
+                SendForegroundText(window, text, settings);
+            } else {
+                IntPtr targetHandle = ResolvePreferredTextHandle(window.Handle);
+                SendMessageText(targetHandle, text, settings.KeyDelayMilliseconds);
+                EnsureTextApplied(window, text);
+            }
         }
-
-        EnsureTextApplied(window, text);
 
         if (settings.RestoreFocus && previousForeground != IntPtr.Zero && previousForeground != window.Handle) {
             MonitorNativeMethods.SetForegroundWindow(previousForeground);
@@ -179,6 +196,10 @@ public static class WindowInputService {
     }
 
     private static void NormalizeOptions(WindowInputOptions options) {
+        if (options.UseHostedSessionScanCodes) {
+            options.ActivateWindow = false;
+        }
+
         if (options.ClipboardRetryCount < 1) {
             options.ClipboardRetryCount = 1;
         }
@@ -196,6 +217,184 @@ public static class WindowInputService {
         }
         if (options.KeyDelayMilliseconds < 0) {
             options.KeyDelayMilliseconds = 0;
+        }
+        if (options.ScriptChunkLength < 1) {
+            options.ScriptChunkLength = 1;
+        }
+        if (options.ScriptLineDelayMilliseconds < 0) {
+            options.ScriptLineDelayMilliseconds = 0;
+        }
+    }
+
+    internal static WindowTextDeliveryMode ResolveTextDeliveryMode(WindowInputOptions options, bool targetOwnsForeground) {
+        if (options == null) {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if ((options.RequireForegroundWindowForTyping || options.UsePhysicalKeyboardLayout || options.UseHostedSessionScanCodes) && !options.UseSendInput) {
+            throw new InvalidOperationException("Foreground-only window typing requires SendInput.");
+        }
+
+        if (options.UseHostedSessionScanCodes) {
+            if (!targetOwnsForeground) {
+                throw new InvalidOperationException(BuildForegroundOwnershipMessage(
+                    "Window must own the foreground before typing with hosted-session scan code input.",
+                    IntPtr.Zero));
+            }
+
+            return WindowTextDeliveryMode.ForegroundInput;
+        }
+
+        if (options.UsePhysicalKeyboardLayout) {
+            if (!targetOwnsForeground) {
+                throw new InvalidOperationException(BuildForegroundOwnershipMessage(
+                    "Window must own the foreground before typing with physical key input.",
+                    IntPtr.Zero));
+            }
+
+            return WindowTextDeliveryMode.ForegroundInput;
+        }
+
+        if (options.UseSendInput && targetOwnsForeground) {
+            return WindowTextDeliveryMode.ForegroundInput;
+        }
+
+        if (options.RequireForegroundWindowForTyping) {
+            throw new InvalidOperationException(BuildForegroundOwnershipMessage(
+                "Window must own the foreground before typing with foreground input.",
+                IntPtr.Zero));
+        }
+
+        return WindowTextDeliveryMode.WindowMessage;
+    }
+
+    private static uint ResolveWindowThreadId(WindowInfo window) {
+        if (window.ThreadId != 0) {
+            return window.ThreadId;
+        }
+
+        return MonitorNativeMethods.GetWindowThreadProcessId(window.Handle, out _);
+    }
+
+    internal static IReadOnlyList<WindowScriptChunk> CreateScriptChunks(string text, int chunkLength) {
+        if (text == null) {
+            throw new ArgumentNullException(nameof(text));
+        }
+        if (chunkLength < 1) {
+            throw new ArgumentOutOfRangeException(nameof(chunkLength));
+        }
+
+        var chunks = new List<WindowScriptChunk>();
+        string normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        if (normalized.Length == 0) {
+            return chunks;
+        }
+
+        int index = 0;
+        while (index < normalized.Length) {
+            int newlineIndex = normalized.IndexOf('\n', index);
+            bool hasLineBreak = newlineIndex >= 0;
+            int lineEnd = hasLineBreak ? newlineIndex : normalized.Length;
+            string line = normalized.Substring(index, lineEnd - index);
+            AppendLineChunks(chunks, line, chunkLength, hasLineBreak);
+            index = hasLineBreak ? lineEnd + 1 : normalized.Length;
+        }
+
+        return chunks;
+    }
+
+    private static void AppendLineChunks(List<WindowScriptChunk> chunks, string line, int chunkLength, bool hasLineBreak) {
+        if (line.Length == 0) {
+            if (hasLineBreak) {
+                chunks.Add(new WindowScriptChunk(string.Empty, sendLineBreak: true));
+            }
+
+            return;
+        }
+
+        for (int offset = 0; offset < line.Length; offset += chunkLength) {
+            int length = Math.Min(chunkLength, line.Length - offset);
+            bool sendLineBreak = hasLineBreak && offset + length >= line.Length;
+            chunks.Add(new WindowScriptChunk(line.Substring(offset, length), sendLineBreak));
+        }
+    }
+
+    private static void SendScriptText(WindowInfo window, string text, WindowInputOptions options, WindowTextDeliveryMode deliveryMode) {
+        IReadOnlyList<WindowScriptChunk> chunks = CreateScriptChunks(text, options.ScriptChunkLength);
+        if (chunks.Count == 0) {
+            return;
+        }
+
+        if (deliveryMode == WindowTextDeliveryMode.ForegroundInput) {
+            foreach (WindowScriptChunk chunk in chunks) {
+                EnsureForegroundOwnership(window, options);
+                if (!string.IsNullOrEmpty(chunk.Text)) {
+                    SendForegroundText(window, chunk.Text, options);
+                }
+
+                if (chunk.SendLineBreak) {
+                    EnsureForegroundOwnership(window, options);
+                    KeyboardInputService.SendToForeground(VirtualKey.VK_RETURN);
+                    if (options.ScriptLineDelayMilliseconds > 0) {
+                        Thread.Sleep(options.ScriptLineDelayMilliseconds);
+                    }
+                }
+            }
+
+            return;
+        }
+
+        IntPtr targetHandle = ResolvePreferredTextHandle(window.Handle);
+        foreach (WindowScriptChunk chunk in chunks) {
+            if (!string.IsNullOrEmpty(chunk.Text)) {
+                SendMessageText(targetHandle, chunk.Text, options.KeyDelayMilliseconds);
+            }
+
+            if (chunk.SendLineBreak) {
+                SendMessageText(targetHandle, Environment.NewLine, options.KeyDelayMilliseconds);
+                if (options.ScriptLineDelayMilliseconds > 0) {
+                    Thread.Sleep(options.ScriptLineDelayMilliseconds);
+                }
+            }
+        }
+    }
+
+    private static void SendForegroundText(WindowInfo window, string text, WindowInputOptions options) {
+        if (string.IsNullOrEmpty(text)) {
+            return;
+        }
+
+        uint windowThreadId = 0;
+        if (options.UsePhysicalKeyboardLayout) {
+            windowThreadId = ResolveWindowThreadId(window);
+        }
+
+        foreach (char character in text) {
+            EnsureForegroundOwnership(window, options);
+
+            if (options.UseHostedSessionScanCodes) {
+                KeyboardInputService.SendCharacterToForegroundUsingUsScanCodes(character, options.KeyDelayMilliseconds);
+                continue;
+            }
+
+            if (options.UsePhysicalKeyboardLayout) {
+                KeyboardInputService.SendCharacterToForegroundUsingKeyboardLayout(character, windowThreadId, options.KeyDelayMilliseconds);
+                continue;
+            }
+
+            SendInputCharacter(character, options);
+        }
+    }
+
+    private static void EnsureForegroundOwnership(WindowInfo window, WindowInputOptions options) {
+        if (!options.RequireForegroundWindowForTyping && !options.UsePhysicalKeyboardLayout && !options.UseHostedSessionScanCodes) {
+            return;
+        }
+
+        if (MonitorNativeMethods.GetForegroundWindow() != window.Handle) {
+            throw new InvalidOperationException(BuildForegroundOwnershipMessage(
+                "Foreground ownership changed while typing. Hosted-session and foreground typing stop immediately when focus drifts.",
+                window.Handle));
         }
     }
 
@@ -221,42 +420,83 @@ public static class WindowInputService {
         }
     }
 
-    private static void SendInputText(string text, WindowInputOptions options) {
-        foreach (char c in text) {
-            MonitorNativeMethods.INPUT[] inputs = new MonitorNativeMethods.INPUT[2];
+    private static void SendInputCharacter(char character, WindowInputOptions options) {
+        MonitorNativeMethods.INPUT[] inputs = new MonitorNativeMethods.INPUT[2];
 
-            inputs[0].Type = MonitorNativeMethods.INPUT_KEYBOARD;
-            inputs[0].Data.Keyboard = new MonitorNativeMethods.KEYBDINPUT {
-                Vk = 0,
-                Scan = c,
-                Flags = MonitorNativeMethods.KEYEVENTF_UNICODE,
-                Time = 0,
-                ExtraInfo = IntPtr.Zero
-            };
+        inputs[0].Type = MonitorNativeMethods.INPUT_KEYBOARD;
+        inputs[0].Data.Keyboard = new MonitorNativeMethods.KEYBDINPUT {
+            Vk = 0,
+            Scan = character,
+            Flags = MonitorNativeMethods.KEYEVENTF_UNICODE,
+            Time = 0,
+            ExtraInfo = IntPtr.Zero
+        };
 
-            inputs[1].Type = MonitorNativeMethods.INPUT_KEYBOARD;
-            inputs[1].Data.Keyboard = new MonitorNativeMethods.KEYBDINPUT {
-                Vk = 0,
-                Scan = c,
-                Flags = MonitorNativeMethods.KEYEVENTF_UNICODE | MonitorNativeMethods.KEYEVENTF_KEYUP,
-                Time = 0,
-                ExtraInfo = IntPtr.Zero
-            };
+        inputs[1].Type = MonitorNativeMethods.INPUT_KEYBOARD;
+        inputs[1].Data.Keyboard = new MonitorNativeMethods.KEYBDINPUT {
+            Vk = 0,
+            Scan = character,
+            Flags = MonitorNativeMethods.KEYEVENTF_UNICODE | MonitorNativeMethods.KEYEVENTF_KEYUP,
+            Time = 0,
+            ExtraInfo = IntPtr.Zero
+        };
 
-            for (int attempt = 0; attempt < options.InputRetryCount; attempt++) {
-                uint sent = MonitorNativeMethods.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<MonitorNativeMethods.INPUT>());
-                if (sent == inputs.Length) {
-                    break;
-                }
-                if (attempt < options.InputRetryCount - 1 && options.ActivationRetryDelayMilliseconds > 0) {
-                    Thread.Sleep(options.ActivationRetryDelayMilliseconds);
-                }
+        for (int attempt = 0; attempt < options.InputRetryCount; attempt++) {
+            uint sent = MonitorNativeMethods.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<MonitorNativeMethods.INPUT>());
+            if (sent == inputs.Length) {
+                break;
             }
-
-            if (options.KeyDelayMilliseconds > 0) {
-                Thread.Sleep(options.KeyDelayMilliseconds);
+            if (attempt < options.InputRetryCount - 1 && options.ActivationRetryDelayMilliseconds > 0) {
+                Thread.Sleep(options.ActivationRetryDelayMilliseconds);
             }
         }
+
+        if (options.KeyDelayMilliseconds > 0) {
+            Thread.Sleep(options.KeyDelayMilliseconds);
+        }
+    }
+
+    private static string BuildForegroundOwnershipMessage(string message, IntPtr expectedForegroundHandle) {
+        IntPtr currentForegroundHandle = MonitorNativeMethods.GetForegroundWindow();
+        if (expectedForegroundHandle != IntPtr.Zero) {
+            return message +
+                " Expected: " + DescribeWindowHandle(expectedForegroundHandle) +
+                ". Current: " + DescribeWindowHandle(currentForegroundHandle) + ".";
+        }
+
+        return message + " Current: " + DescribeWindowHandle(currentForegroundHandle) + ".";
+    }
+
+    private static string DescribeWindowHandle(IntPtr handle) {
+        if (handle == IntPtr.Zero) {
+            return "no foreground window";
+        }
+
+        string title;
+        try {
+            title = WindowTextHelper.GetWindowText(handle);
+        } catch {
+            title = string.Empty;
+        }
+
+        var classNameBuilder = new StringBuilder(256);
+        string className = MonitorNativeMethods.GetClassName(handle, classNameBuilder, classNameBuilder.Capacity) > 0
+            ? classNameBuilder.ToString()
+            : string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(className)) {
+            return "'" + title + "' [" + "0x" + handle.ToInt64().ToString("X") + "] class=" + className;
+        }
+
+        if (!string.IsNullOrWhiteSpace(title)) {
+            return "'" + title + "' [" + "0x" + handle.ToInt64().ToString("X") + "]";
+        }
+
+        if (!string.IsNullOrWhiteSpace(className)) {
+            return "[" + "0x" + handle.ToInt64().ToString("X") + "] class=" + className;
+        }
+
+        return "[" + "0x" + handle.ToInt64().ToString("X") + "]";
     }
 
     private static void EnsureTextApplied(WindowInfo window, string text) {

@@ -523,6 +523,12 @@ internal static class McpCatalog {
                     ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
                     ["text"] = CreateStringSchema("Text to send to the window."),
                     ["paste"] = CreateBooleanSchema("Use clipboard paste instead of typed characters."),
+                    ["foregroundInput"] = CreateBooleanSchema("Require real foreground keyboard input and fail instead of falling back to background messages."),
+                    ["physicalKeys"] = CreateBooleanSchema("Prefer layout-aware physical key presses for foreground typing and fall back to Unicode packets only when no keyboard mapping exists."),
+                    ["hostedSession"] = CreateBooleanSchema("Enable the hosted-session typing profile for RDP, Hyper-V, and Remote Desktop Manager style targets."),
+                    ["script"] = CreateBooleanSchema("Preserve multiline formatting and chunk long lines into smaller typed segments."),
+                    ["chunkSize"] = CreateIntegerSchema("Maximum characters to send in each script chunk."),
+                    ["lineDelayMs"] = CreateIntegerSchema("Delay in milliseconds after each scripted line break."),
                     ["delayMs"] = CreateIntegerSchema("Delay in milliseconds between typed characters."),
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
                 }), new[] { "text" }), readOnly: false, destructive: false, idempotent: false),
@@ -1032,9 +1038,17 @@ internal static class McpCatalog {
                         ReadMutationArtifactOptions(arguments)),
                 "type_window_text" => DesktopOperations.TypeWindowText(
                     ReadWindowCriteria(arguments, true),
-                    ReadRequiredString(arguments, "text"),
-                    ReadBool(arguments, "paste"),
-                    ReadInt(arguments, "delayMs") ?? 0,
+                    new WindowTextCommandOptions {
+                        Text = ReadRequiredString(arguments, "text"),
+                        Paste = ReadBool(arguments, "paste"),
+                        DelayMilliseconds = ReadInt(arguments, "delayMs") ?? (ReadBool(arguments, "hostedSession") ? 35 : 0),
+                        ForegroundInput = ReadBool(arguments, "foregroundInput") || ReadBool(arguments, "physicalKeys") || ReadBool(arguments, "hostedSession"),
+                        PhysicalKeys = ReadBool(arguments, "physicalKeys"),
+                        HostedSession = ReadBool(arguments, "hostedSession"),
+                        ScriptMode = ReadBool(arguments, "script"),
+                        ScriptChunkLength = ReadInt(arguments, "chunkSize") ?? 120,
+                        ScriptLineDelayMilliseconds = ReadInt(arguments, "lineDelayMs") ?? (ReadBool(arguments, "hostedSession") && ReadBool(arguments, "script") ? 120 : 0)
+                    },
                     ReadMutationArtifactOptions(arguments)),
                 "send_window_keys" => DesktopOperations.SendWindowKeys(
                     ReadWindowCriteria(arguments, true),
@@ -1322,6 +1336,8 @@ internal static class McpCatalog {
         properties["captureBefore"] = CreateBooleanSchema("Capture a best-effort screenshot before the mutation.");
         properties["captureAfter"] = CreateBooleanSchema("Capture a best-effort screenshot after the mutation.");
         properties["artifactDirectory"] = CreateStringSchema("Optional directory for mutation screenshots.");
+        properties["verifyAfter"] = CreateBooleanSchema("Re-query the mutated target and report the observed postcondition after the mutation.");
+        properties["verificationTolerancePixels"] = CreateIntegerSchema("Optional geometry verification tolerance in pixels. Providing it also enables post-mutation verification.");
         return properties;
     }
 
@@ -1470,14 +1486,18 @@ internal static class McpCatalog {
         bool captureBefore = ReadBool(element, "captureBefore");
         bool captureAfter = ReadBool(element, "captureAfter");
         string? artifactDirectory = ReadOptionalString(element, "artifactDirectory");
-        if (!captureBefore && !captureAfter && string.IsNullOrWhiteSpace(artifactDirectory)) {
+        bool verifyAfter = ReadBool(element, "verifyAfter") || ReadInt(element, "verificationTolerancePixels").HasValue;
+        int verificationTolerancePixels = ReadInt(element, "verificationTolerancePixels") ?? 10;
+        if (!captureBefore && !captureAfter && string.IsNullOrWhiteSpace(artifactDirectory) && !verifyAfter) {
             return null;
         }
 
         return new MutationArtifactOptions {
             CaptureBefore = captureBefore,
             CaptureAfter = captureAfter,
-            ArtifactDirectory = artifactDirectory
+            ArtifactDirectory = artifactDirectory,
+            VerifyAfter = verifyAfter,
+            VerificationTolerancePixels = verificationTolerancePixels
         };
     }
 

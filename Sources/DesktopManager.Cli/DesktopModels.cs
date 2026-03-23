@@ -16,6 +16,18 @@ internal sealed class WindowSelectionCriteria {
     public bool All { get; set; }
 }
 
+internal sealed class WindowTextCommandOptions {
+    public string Text { get; set; } = string.Empty;
+    public bool Paste { get; set; }
+    public int DelayMilliseconds { get; set; }
+    public bool ForegroundInput { get; set; }
+    public bool PhysicalKeys { get; set; }
+    public bool HostedSession { get; set; }
+    public bool ScriptMode { get; set; }
+    public int ScriptChunkLength { get; set; } = 120;
+    public int ScriptLineDelayMilliseconds { get; set; }
+}
+
 internal sealed class ControlSelectionCriteria {
     public string ClassNamePattern { get; set; } = "*";
     public string TextPattern { get; set; } = "*";
@@ -66,6 +78,7 @@ internal sealed class WindowChangeResult {
     public IReadOnlyList<ScreenshotResult> AfterScreenshots { get; set; } = new List<ScreenshotResult>();
     public IReadOnlyList<string> ArtifactWarnings { get; set; } = new List<string>();
     public IReadOnlyList<WindowResult> Windows { get; set; } = new List<WindowResult>();
+    public WindowMutationVerificationResult? Verification { get; set; }
 }
 
 internal sealed class WindowGeometryResult {
@@ -430,6 +443,22 @@ internal sealed class MutationArtifactOptions {
     public bool CaptureBefore { get; set; }
     public bool CaptureAfter { get; set; }
     public string? ArtifactDirectory { get; set; }
+    public bool VerifyAfter { get; set; }
+    public int VerificationTolerancePixels { get; set; } = 10;
+}
+
+internal sealed class WindowMutationVerificationResult {
+    public bool Verified { get; set; }
+    public string Mode { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public int ExpectedCount { get; set; }
+    public int ObservedCount { get; set; }
+    public int MatchedCount { get; set; }
+    public int MismatchCount { get; set; }
+    public int TolerancePixels { get; set; }
+    public WindowResult? ActiveWindow { get; set; }
+    public IReadOnlyList<string> Notes { get; set; } = new List<string>();
+    public IReadOnlyList<WindowResult> ObservedWindows { get; set; } = new List<WindowResult>();
 }
 
 internal sealed class WorkflowResult {

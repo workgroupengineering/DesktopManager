@@ -174,7 +174,7 @@ public sealed class DesktopAutomationService {
     /// <summary>
     /// Sends text to matching windows.
     /// </summary>
-    public IReadOnlyList<WindowInfo> TypeWindowText(WindowQueryOptions options, string text, bool paste, int delayMilliseconds, bool all = false) {
+    public IReadOnlyList<WindowInfo> TypeWindowText(WindowQueryOptions options, string text, bool paste, int delayMilliseconds, bool foregroundInput, bool physicalKeys, bool hostedSession, bool script, int scriptChunkLength, int scriptLineDelayMilliseconds, bool all = false) {
         if (text == null) {
             throw new ArgumentNullException(nameof(text));
         }
@@ -184,7 +184,15 @@ public sealed class DesktopAutomationService {
             if (paste) {
                 _windowManager.PasteText(window, text);
             } else {
-                _windowManager.TypeText(window, text, delayMilliseconds);
+                _windowManager.TypeText(window, text, new WindowInputOptions {
+                    KeyDelayMilliseconds = delayMilliseconds,
+                    RequireForegroundWindowForTyping = foregroundInput,
+                    UsePhysicalKeyboardLayout = physicalKeys,
+                    UseHostedSessionScanCodes = hostedSession,
+                    TypeTextAsScript = script,
+                    ScriptChunkLength = scriptChunkLength,
+                    ScriptLineDelayMilliseconds = scriptLineDelayMilliseconds
+                });
             }
         }
 

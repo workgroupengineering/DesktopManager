@@ -507,6 +507,8 @@ public class McpServerTests {
         Assert.IsTrue(properties.TryGetProperty("captureBefore", out _));
         Assert.IsTrue(properties.TryGetProperty("captureAfter", out _));
         Assert.IsTrue(properties.TryGetProperty("artifactDirectory", out _));
+        Assert.IsTrue(properties.TryGetProperty("verifyAfter", out _));
+        Assert.IsTrue(properties.TryGetProperty("verificationTolerancePixels", out _));
     }
 
     private static void AssertToolHasProperty(JsonElement tool, string propertyName) {

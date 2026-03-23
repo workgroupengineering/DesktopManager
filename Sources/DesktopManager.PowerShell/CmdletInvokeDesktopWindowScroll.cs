@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.Management.Automation;
+using System.Linq;
 
 namespace DesktopManager.PowerShell;
 
@@ -69,6 +72,24 @@ public sealed class CmdletInvokeDesktopWindowScroll : PSCmdlet {
     [Parameter]
     public SwitchParameter ClientArea { get; set; }
 
+    /// <summary>
+    /// <para type="description">Re-query the target window after the scroll action and report the observed postcondition.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter Verify { get; set; }
+
+    /// <summary>
+    /// <para type="description">Geometry verification tolerance in pixels.</para>
+    /// </summary>
+    [Parameter]
+    public int VerificationTolerancePixels { get; set; } = 10;
+
+    /// <summary>
+    /// <para type="description">Return a structured mutation result object for the scrolled window.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter PassThru { get; set; }
+
     /// <inheritdoc />
     protected override void BeginProcessing() {
         var automation = new DesktopAutomationService();
@@ -87,11 +108,48 @@ public sealed class CmdletInvokeDesktopWindowScroll : PSCmdlet {
                 ? $"{X},{Y}"
                 : $"{XRatio},{YRatio}";
         if (ShouldProcess(ActiveWindow ? "active window" : Name, $"Scroll {Delta} at {targetText}")) {
-            if (!string.IsNullOrWhiteSpace(TargetName)) {
-                WriteObject(automation.ScrollWindowTarget(options, TargetName, Delta, Activate, all: false), true);
-            } else {
-                WriteObject(automation.ScrollWindowPoint(options, X, Y, XRatio, YRatio, Delta, Activate, ClientArea, all: false), true);
+            WindowInfo requestedWindow = automation.GetWindows(options).FirstOrDefault();
+            try {
+                IReadOnlyList<WindowInfo> windows = !string.IsNullOrWhiteSpace(TargetName)
+                    ? automation.ScrollWindowTarget(options, TargetName, Delta, Activate, all: false)
+                    : automation.ScrollWindowPoint(options, X, Y, XRatio, YRatio, Delta, Activate, ClientArea, all: false);
+                if (!Verify.IsPresent && !PassThru.IsPresent) {
+                    WriteObject(windows, true);
+                    return;
+                }
+
+                WriteMutationResult(automation, windows, requestedWindow);
+            } catch (Exception ex) {
+                if (!Verify.IsPresent && !PassThru.IsPresent) {
+                    throw;
+                }
+
+                WriteWarning($"Failed to scroll window '{requestedWindow?.Title ?? Name}': {ex.Message}");
+                if (requestedWindow != null) {
+                    WriteObject(DesktopWindowMutationVerifier.CreateFailureRecord("scroll", requestedWindow, ex.Message, Verify.IsPresent, VerificationTolerancePixels));
+                }
             }
+        }
+    }
+
+    private void WriteMutationResult(DesktopAutomationService automation, IReadOnlyList<WindowInfo> windows, WindowInfo requestedWindow) {
+        if (windows.Count == 0 && requestedWindow != null) {
+            WriteObject(DesktopWindowMutationVerifier.Verify(
+                automation,
+                "scroll",
+                requestedWindow,
+                VerificationTolerancePixels,
+                requireForeground: Activate.IsPresent));
+            return;
+        }
+
+        foreach (WindowInfo window in windows) {
+            WriteObject(DesktopWindowMutationVerifier.Verify(
+                automation,
+                "scroll",
+                window,
+                VerificationTolerancePixels,
+                requireForeground: Activate.IsPresent));
         }
     }
 }

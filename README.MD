@@ -193,17 +193,40 @@ Install-Module DesktopManager -Force -Verbose
 
 UI-impacting tests are opt-in to avoid opening windows or changing the desktop during local development. Use the environment variables below to control behavior:
 
-- `RUN_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_UI_TESTS=true`) enables UI tests.
-- `RUN_DESTRUCTIVE_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_DESTRUCTIVE_UI_TESTS=true`) enables tests that change desktop state, including the live MCP Notepad round-trip harness and tests that change wallpapers, brightness, or resolution.
+- `RUN_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_UI_TESTS=true`) enables owned-window UI tests that use repo-created harness windows.
+- `RUN_DESTRUCTIVE_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_DESTRUCTIVE_UI_TESTS=true`) enables owned-window mutation tests such as move, resize, hide, snap, and transparency changes against repo-created harness windows.
+- `RUN_FOREGROUND_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_FOREGROUND_UI_TESTS=true`) enables tests that intentionally steal foreground focus, even when they only target repo-created harness windows.
+- `RUN_SYSTEM_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_SYSTEM_UI_TESTS=true`) enables system-wide desktop changes such as wallpapers, brightness, resolution, and other monitor-level mutations that can affect your current session.
+- `RUN_EXTERNAL_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_EXTERNAL_UI_TESTS=true`) enables live external-application UI tests and MCP end-to-end harnesses that launch real desktop apps.
 - `RUN_EXPERIMENTAL_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_EXPERIMENTAL_UI_TESTS=true`) enables experimental live UI harnesses that are useful for manual validation but are not part of the stable regression pack.
 - `SKIP_UI_TESTS=true` (or `DESKTOPMANAGER_SKIP_UI_TESTS=true`) forces UI tests to skip, even if enabled elsewhere.
 
+The gates compose intentionally:
+
+| Gate | What it permits | Typical impact |
+| ---- | --------------- | -------------- |
+| `RUN_UI_TESTS` | Repo-owned WinForms/WPF harness windows | Low |
+| `RUN_DESTRUCTIVE_UI_TESTS` | Mutations against owned harness windows | Medium |
+| `RUN_FOREGROUND_UI_TESTS` | Tests that intentionally take foreground focus | Medium to high |
+| `RUN_SYSTEM_UI_TESTS` | System-wide desktop changes | High |
+| `RUN_EXTERNAL_UI_TESTS` | Launching real desktop apps | Medium to high |
+| `RUN_EXPERIMENTAL_UI_TESTS` | Experimental live harnesses | Varies |
+
 ```powershell
-# Run UI tests
+# Run owned-window UI tests
 $env:RUN_UI_TESTS = "true"
 
-# Run tests that change desktop settings
+# Run repo-owned window mutation tests
 $env:RUN_DESTRUCTIVE_UI_TESTS = "true"
+
+# Run tests that intentionally steal foreground focus
+$env:RUN_FOREGROUND_UI_TESTS = "true"
+
+# Run system-wide desktop mutations
+$env:RUN_SYSTEM_UI_TESTS = "true"
+
+# Run live external-application harnesses
+$env:RUN_EXTERNAL_UI_TESTS = "true"
 
 # Run experimental live UI harnesses
 $env:RUN_EXPERIMENTAL_UI_TESTS = "true"
@@ -211,38 +234,17 @@ $env:RUN_EXPERIMENTAL_UI_TESTS = "true"
 # Force skip
 $env:SKIP_UI_TESTS = "true"
 
-# Run the live MCP Notepad end-to-end harness (net8 only)
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadRoundTrip
+# Run the repo-owned window mutation slice
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "WindowPositionTests|WindowStateHelpersTests|WindowVisibilityTests|WindowTransparencyTests|WindowStyleModificationTests|WindowLayoutTests"
 
-# Run the live MCP target-area capture harness (net8 only)
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadTargetAreaRoundTrip
+# Run the foreground-window slice
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "DesktopAutomationAssertionTests|WindowManagerFilterTests|WindowTopMostActivationTests"
 
-# Run the live MCP window-move and geometry verification harness (net8 only)
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadWindowMutationRoundTrip
-
-# Run the live MCP workflow harness (net8 only)
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadWorkflowRoundTrip
-
-# Run the live MCP allowlisted process-policy harness (net8 only)
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadAllowedProcessPolicy
-
-# Run the live MCP denied-process policy harness (net8 only)
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadDeniedProcessPolicy
-
-# Run the live MCP dry-run policy harness (net8 only)
-dotnet test Sources/DesktopManager.sln -f net8.0-windows --filter McpServer_NotepadDryRunPolicy
-
-# Run the stable live MCP desktop pack (net8 only)
-dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "McpServer_NotepadRoundTrip|McpServer_NotepadTargetAreaRoundTrip|McpServer_NotepadWindowMutationRoundTrip|McpServer_NotepadWorkflowRoundTrip|McpServer_NotepadAllowedProcessPolicy|McpServer_NotepadDeniedProcessPolicy|McpServer_NotepadDryRunPolicy"
-
-# Run the experimental live MCP blocked foreground-input Edge harness (net8 only)
-dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter McpServer_EdgeForegroundInputPolicy_BlocksOmniboxEnterWithoutServerOptIn
-
-# Run the experimental live MCP foreground-input opt-in Edge harness (net8 only)
-dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter McpServer_EdgeForegroundInputPolicy_AllowsOmniboxEnterWithServerOptIn
+# Run the live MCP desktop pack backed by the repo-owned DesktopManager.TestApp harness
+dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "McpServer_TestApp"
 ```
 
-When the experimental Chromium opt-in harness skips because the omnibox never becomes reliably discoverable, it now leaves a screenshot plus control-diagnostic bundle under `%TEMP%\DesktopManager.Tests\McpE2E\Experimental` and uses temporary named window/control targets so the fallback path matches the shared targeting model. Each bundle now also includes `decision-trace.txt` and `comparison.txt`.
+When the hosted-session or experimental live harnesses skip because focus or discoverability never stabilize, they now leave structured diagnostics and artifacts rather than failing silently. See [Docs/Build.Runbook.md](Docs/Build.Runbook.md) for the hosted-session artifact flow and gate guidance.
 
 ### Usage
 

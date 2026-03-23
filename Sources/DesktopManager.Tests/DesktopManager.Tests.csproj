@@ -27,6 +27,7 @@
 
   <ItemGroup Condition="'$(TargetFramework)' != 'net472'">
     <ProjectReference Include="..\DesktopManager.Cli\DesktopManager.Cli.csproj" />
+    <ProjectReference Include="..\DesktopManager.PowerShell\DesktopManager.PowerShell.csproj" />
     <ProjectReference Include="..\DesktopManager.TestApp\DesktopManager.TestApp.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 

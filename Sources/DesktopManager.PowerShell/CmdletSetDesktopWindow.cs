@@ -75,10 +75,29 @@ namespace DesktopManager.PowerShell {
         public SwitchParameter Activate { get; set; }
 
         /// <summary>
+        /// <para type="description">Re-query the mutated window and report the observed postcondition instead of relying only on mutation success.</para>
+        /// </summary>
+        [Parameter(Mandatory = false)]
+        public SwitchParameter Verify { get; set; }
+
+        /// <summary>
+        /// <para type="description">Geometry verification tolerance in pixels.</para>
+        /// </summary>
+        [Parameter(Mandatory = false)]
+        public int VerificationTolerancePixels { get; set; } = 10;
+
+        /// <summary>
+        /// <para type="description">Return a structured mutation result object for each matching window.</para>
+        /// </summary>
+        [Parameter(Mandatory = false)]
+        public SwitchParameter PassThru { get; set; }
+
+        /// <summary>
         /// Applies the requested window modifications.
         /// </summary>
         protected override void BeginProcessing() {
             var manager = new WindowManager();
+            var automation = new DesktopAutomationService();
             var windows = manager.GetWindows(Name);
 
             Monitor targetMonitor = null;
@@ -95,6 +114,8 @@ namespace DesktopManager.PowerShell {
                     action = $"Move to monitor {MonitorIndex.Value}" + (string.IsNullOrEmpty(action) ? string.Empty : $" and {action}");
                 }
                 if (ShouldProcess($"Window '{window.Title}'", action)) {
+                    DesktopWindowMutationRecord result = null;
+                    bool closedWindow = false;
                     try {
                         if (targetMonitor != null) {
                             manager.MoveWindowToMonitor(window, targetMonitor);
@@ -106,7 +127,8 @@ namespace DesktopManager.PowerShell {
                             switch (State.Value) {
                                 case WindowState.Close:
                                     manager.CloseWindow(window);
-                                    continue; // Skip any position/size changes
+                                    closedWindow = true;
+                                    break;
                                 case WindowState.Minimize:
                                     manager.MinimizeWindow(window);
                                     break;
@@ -118,17 +140,67 @@ namespace DesktopManager.PowerShell {
                                     break;
                             }
                         }
-                        if (TopMost.IsPresent) {
+                        if (!closedWindow && TopMost.IsPresent) {
                             manager.SetWindowTopMost(window, true);
                         }
-                        if (Activate.IsPresent) {
+                        if (!closedWindow && Activate.IsPresent) {
                             manager.ActivateWindow(window);
+                        }
+
+                        if (Verify.IsPresent || PassThru.IsPresent) {
+                            result = DesktopWindowMutationVerifier.Verify(
+                                automation,
+                                ResolveActionName(),
+                                window,
+                                VerificationTolerancePixels,
+                                expectedMonitorIndex: targetMonitor?.Index ?? MonitorIndex,
+                                expectedLeft: Left >= 0 ? Left : null,
+                                expectedTop: Top >= 0 ? Top : null,
+                                expectedWidth: Width >= 0 ? Width : null,
+                                expectedHeight: Height >= 0 ? Height : null,
+                                expectedState: closedWindow ? null : State,
+                                expectedTopMost: !closedWindow && TopMost.IsPresent ? true : null,
+                                requireForeground: !closedWindow && Activate.IsPresent,
+                                expectClosed: closedWindow);
                         }
                     } catch (Exception ex) {
                         WriteWarning($"Failed to modify window '{window.Title}': {ex.Message}");
+                        if (Verify.IsPresent || PassThru.IsPresent) {
+                            result = DesktopWindowMutationVerifier.CreateFailureRecord(ResolveActionName(), window, ex.Message, Verify.IsPresent, VerificationTolerancePixels);
+                        }
+                    }
+
+                    if (result != null) {
+                        WriteObject(result);
                     }
                 }
             }
+        }
+
+        private string ResolveActionName() {
+            if (State.HasValue) {
+                return State.Value switch {
+                    WindowState.Close => "close",
+                    WindowState.Minimize => "minimize",
+                    WindowState.Maximize => "maximize",
+                    WindowState.Normal => "restore",
+                    _ => "window-mutation"
+                };
+            }
+
+            if (MonitorIndex.HasValue || Left >= 0 || Top >= 0 || Width >= 0 || Height >= 0) {
+                return "move";
+            }
+
+            if (TopMost.IsPresent) {
+                return "topmost";
+            }
+
+            if (Activate.IsPresent) {
+                return "focus";
+            }
+
+            return "window-mutation";
         }
 
         private string GetActionDescription() {

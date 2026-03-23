@@ -18,7 +18,7 @@ public class WindowPositionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireOwnedWindowUiTests();
 
         using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Position RoundTrip Harness");
 
@@ -41,7 +41,7 @@ public class WindowPositionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireOwnedWindowUiTests();
 
         using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager ZOrder Harness");
 
@@ -81,7 +81,7 @@ public class WindowPositionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireOwnedWindowUiTests();
 
         using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Same Monitor Harness");
 
@@ -105,7 +105,7 @@ public class WindowPositionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireOwnedWindowUiTests();
 
         var monitors = new Monitors().GetMonitors();
         if (monitors.Count < 2) {

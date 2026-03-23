@@ -20,7 +20,7 @@ public class LogonWallpaperTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireSystemDesktopChanges();
 
         if (Type.GetType("Windows.System.UserProfile.LockScreen, Windows, ContentType=WindowsRuntime") == null ||
             Type.GetType("Windows.Storage.StorageFile, Windows, ContentType=WindowsRuntime") == null) {
@@ -46,7 +46,7 @@ public class LogonWallpaperTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireDesktopChanges();
+        TestHelper.RequireSystemDesktopChanges();
 
         if (PrivilegeChecker.IsElevated) {
             Assert.Inconclusive("Test requires non-elevated context");

@@ -28,6 +28,21 @@ public class WindowCommandOutputTests {
                 new global::DesktopManager.Cli.ScreenshotResult(),
                 new global::DesktopManager.Cli.ScreenshotResult()
             },
+            Verification = new global::DesktopManager.Cli.WindowMutationVerificationResult {
+                Verified = true,
+                Mode = "geometry",
+                Summary = "Observed both windows at the requested post-mutation geometry.",
+                ExpectedCount = 2,
+                ObservedCount = 2,
+                MatchedCount = 2,
+                MismatchCount = 0,
+                TolerancePixels = 10,
+                ActiveWindow = new global::DesktopManager.Cli.WindowResult {
+                    Title = "Editor",
+                    ProcessId = 100
+                },
+                Notes = new[] { "Editor geometry matched within tolerance." }
+            },
             ArtifactWarnings = new[] { "Capture path normalized." },
             Windows = new[] {
                 new global::DesktopManager.Cli.WindowResult {
@@ -49,6 +64,10 @@ public class WindowCommandOutputTests {
         Assert.AreEqual(0, exitCode);
         StringAssert.Contains(output, "move-window: 2 window(s) success=True safety=background elapsed-ms=145");
         StringAssert.Contains(output, "target: window-target EditorCenter");
+        StringAssert.Contains(output, "verification: verified=True mode=geometry observed=2/2 matched=2 mismatches=0 tolerance-px=10");
+        StringAssert.Contains(output, "verification-summary: Observed both windows at the requested post-mutation geometry.");
+        StringAssert.Contains(output, "verification-active: Editor [PID 100]");
+        StringAssert.Contains(output, "verification-note: Editor geometry matched within tolerance.");
         StringAssert.Contains(output, "artifacts: before=1 after=2");
         StringAssert.Contains(output, "warning: Capture path normalized.");
         StringAssert.Contains(output, "- Editor [PID 100]");

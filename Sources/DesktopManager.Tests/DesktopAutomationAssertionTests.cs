@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Windows.Forms;
 
 namespace DesktopManager.Tests;
 
@@ -15,12 +17,20 @@ public class DesktopAutomationAssertionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireForegroundWindowUiTests();
 
         var automation = new DesktopAutomationService();
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Assertion Harness Exists");
+        new WindowManager().ActivateWindow(harness.Window);
+        Application.DoEvents();
+        Thread.Sleep(100);
+
         WindowInfo? activeWindow = automation.GetActiveWindow(includeHidden: true, includeCloaked: true, includeOwned: true, includeEmptyTitles: true);
         if (activeWindow == null) {
             Assert.Inconclusive("No active window could be resolved.");
         }
+
+        Assert.AreEqual(harness.Window.Handle, activeWindow.Handle, "Expected the owned harness window to be active for the assertion test.");
 
         bool result = automation.WindowExists(new WindowQueryOptions {
             Handle = activeWindow.Handle,
@@ -41,12 +51,20 @@ public class DesktopAutomationAssertionTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
+        TestHelper.RequireForegroundWindowUiTests();
 
         var automation = new DesktopAutomationService();
+        using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Assertion Harness Active");
+        new WindowManager().ActivateWindow(harness.Window);
+        Application.DoEvents();
+        Thread.Sleep(100);
+
         WindowInfo? activeWindow = automation.GetActiveWindow(includeHidden: true, includeCloaked: true, includeOwned: true, includeEmptyTitles: true);
         if (activeWindow == null) {
             Assert.Inconclusive("No active window could be resolved.");
         }
+
+        Assert.AreEqual(harness.Window.Handle, activeWindow.Handle, "Expected the owned harness window to be active for the assertion test.");
 
         bool result = automation.ActiveWindowMatches(new WindowQueryOptions {
             Handle = activeWindow.Handle,

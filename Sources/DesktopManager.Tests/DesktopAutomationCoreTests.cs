@@ -641,4 +641,134 @@ public class DesktopAutomationCoreTests {
     public void KeyboardInputService_SendTextToForeground_NegativeDelay_ThrowsArgumentOutOfRangeException() {
         Assert.ThrowsException<ArgumentOutOfRangeException>(() => KeyboardInputService.SendTextToForeground("test", -1));
     }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window typing prefers real foreground input when the target already owns focus.
+    /// </summary>
+    public void WindowInputService_ResolveTextDeliveryMode_WithForegroundTarget_UsesForegroundInput() {
+        WindowInputService.WindowTextDeliveryMode mode = WindowInputService.ResolveTextDeliveryMode(new WindowInputOptions {
+            UseSendInput = true
+        }, targetOwnsForeground: true);
+
+        Assert.AreEqual(WindowInputService.WindowTextDeliveryMode.ForegroundInput, mode);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window typing falls back to message delivery when foreground ownership is unavailable and strict typing is not required.
+    /// </summary>
+    public void WindowInputService_ResolveTextDeliveryMode_WithoutForegroundTarget_UsesWindowMessageFallback() {
+        WindowInputService.WindowTextDeliveryMode mode = WindowInputService.ResolveTextDeliveryMode(new WindowInputOptions {
+            UseSendInput = true
+        }, targetOwnsForeground: false);
+
+        Assert.AreEqual(WindowInputService.WindowTextDeliveryMode.WindowMessage, mode);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures strict foreground typing fails when the target window does not own the foreground.
+    /// </summary>
+    public void WindowInputService_ResolveTextDeliveryMode_RequireForegroundWithoutForeground_ThrowsInvalidOperationException() {
+        InvalidOperationException exception = Assert.ThrowsException<InvalidOperationException>(() => WindowInputService.ResolveTextDeliveryMode(new WindowInputOptions {
+            UseSendInput = true,
+            RequireForegroundWindowForTyping = true
+        }, targetOwnsForeground: false));
+
+        StringAssert.Contains(exception.Message, "Current:");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures strict foreground typing rejects message-only routing.
+    /// </summary>
+    public void WindowInputService_ResolveTextDeliveryMode_RequireForegroundWithMessageOnly_ThrowsInvalidOperationException() {
+        Assert.ThrowsException<InvalidOperationException>(() => WindowInputService.ResolveTextDeliveryMode(new WindowInputOptions {
+            UseSendInput = false,
+            RequireForegroundWindowForTyping = true
+        }, targetOwnsForeground: true));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures physical-key typing requires the target window to own the foreground.
+    /// </summary>
+    public void WindowInputService_ResolveTextDeliveryMode_PhysicalKeysWithoutForeground_ThrowsInvalidOperationException() {
+        Assert.ThrowsException<InvalidOperationException>(() => WindowInputService.ResolveTextDeliveryMode(new WindowInputOptions {
+            UseSendInput = true,
+            UsePhysicalKeyboardLayout = true
+        }, targetOwnsForeground: false));
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures physical-key typing still routes through the foreground delivery path when focus ownership is available.
+    /// </summary>
+    public void WindowInputService_ResolveTextDeliveryMode_PhysicalKeysWithForeground_UsesForegroundInput() {
+        WindowInputService.WindowTextDeliveryMode mode = WindowInputService.ResolveTextDeliveryMode(new WindowInputOptions {
+            UseSendInput = true,
+            UsePhysicalKeyboardLayout = true
+        }, targetOwnsForeground: true);
+
+        Assert.AreEqual(WindowInputService.WindowTextDeliveryMode.ForegroundInput, mode);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures hosted-session scan code typing requires the target window to own the foreground.
+    /// </summary>
+    public void WindowInputService_ResolveTextDeliveryMode_HostedSessionWithoutForeground_ThrowsInvalidOperationException() {
+        InvalidOperationException exception = Assert.ThrowsException<InvalidOperationException>(() => WindowInputService.ResolveTextDeliveryMode(new WindowInputOptions {
+            UseSendInput = true,
+            UseHostedSessionScanCodes = true
+        }, targetOwnsForeground: false));
+
+        StringAssert.Contains(exception.Message, "Current:");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures hosted-session scan code typing routes through foreground delivery when the target owns focus.
+    /// </summary>
+    public void WindowInputService_ResolveTextDeliveryMode_HostedSessionWithForeground_UsesForegroundInput() {
+        WindowInputService.WindowTextDeliveryMode mode = WindowInputService.ResolveTextDeliveryMode(new WindowInputOptions {
+            UseSendInput = true,
+            UseHostedSessionScanCodes = true
+        }, targetOwnsForeground: true);
+
+        Assert.AreEqual(WindowInputService.WindowTextDeliveryMode.ForegroundInput, mode);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures script chunking preserves blank lines and line breaks.
+    /// </summary>
+    public void WindowInputService_CreateScriptChunks_PreservesBlankLines() {
+        IReadOnlyList<WindowInputService.WindowScriptChunk> chunks = WindowInputService.CreateScriptChunks("line1\n\nline3", 120);
+
+        Assert.AreEqual(3, chunks.Count);
+        Assert.AreEqual("line1", chunks[0].Text);
+        Assert.IsTrue(chunks[0].SendLineBreak);
+        Assert.AreEqual(string.Empty, chunks[1].Text);
+        Assert.IsTrue(chunks[1].SendLineBreak);
+        Assert.AreEqual("line3", chunks[2].Text);
+        Assert.IsFalse(chunks[2].SendLineBreak);
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures script chunking splits long lines into smaller segments and only marks the final chunk with a line break.
+    /// </summary>
+    public void WindowInputService_CreateScriptChunks_SplitsLongLinesSafely() {
+        IReadOnlyList<WindowInputService.WindowScriptChunk> chunks = WindowInputService.CreateScriptChunks("abcdef\ngh", 3);
+
+        Assert.AreEqual(3, chunks.Count);
+        Assert.AreEqual("abc", chunks[0].Text);
+        Assert.IsFalse(chunks[0].SendLineBreak);
+        Assert.AreEqual("def", chunks[1].Text);
+        Assert.IsTrue(chunks[1].SendLineBreak);
+        Assert.AreEqual("gh", chunks[2].Text);
+        Assert.IsFalse(chunks[2].SendLineBreak);
+    }
 }
