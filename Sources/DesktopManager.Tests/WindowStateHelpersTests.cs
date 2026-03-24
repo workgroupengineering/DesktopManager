@@ -16,7 +16,7 @@ public class WindowStateHelpersTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireOwnedWindowUiTests();
+        TestHelper.RequireOwnedWindowMutationTests();
 
         using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager State Harness");
 
@@ -40,7 +40,7 @@ public class WindowStateHelpersTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireOwnedWindowUiTests();
+        TestHelper.RequireOwnedWindowMutationTests();
 
         using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager OnScreen Harness");
 

@@ -95,7 +95,8 @@ desktopmanager mcp serve --allow-mutations --allow-process notepad
 
 | Gate | Purpose | Notes |
 | ---- | ------- | ----- |
-| `RUN_UI_TESTS` | Owned-window UI tests | Uses repo-created harness windows only |
+| `RUN_UI_TESTS` | Top-level UI pack enablement | Required before any UI slice can run |
+| `RUN_OWNED_WINDOW_UI_TESTS` | Owned-window UI tests | Uses repo-created harness windows only |
 | `RUN_DESTRUCTIVE_UI_TESTS` | Owned-window mutation tests | Move/resize/hide/snap/transparency on harness windows |
 | `RUN_FOREGROUND_UI_TESTS` | Foreground-focus tests | Intentionally steals focus to prove active-window behavior |
 | `RUN_SYSTEM_UI_TESTS` | System-wide desktop mutations | Wallpaper, brightness, resolution, and other monitor/session changes |
@@ -106,6 +107,7 @@ desktopmanager mcp serve --allow-mutations --allow-process notepad
 
 ```powershell
 $env:RUN_UI_TESTS = "true"
+$env:RUN_OWNED_WINDOW_UI_TESTS = "true"
 $env:RUN_DESTRUCTIVE_UI_TESTS = "true"
 $env:RUN_EXTERNAL_UI_TESTS = "true"
 $env:RUN_EXPERIMENTAL_UI_TESTS = "true"
@@ -120,6 +122,7 @@ Owned-window mutation slice without system-wide or foreground changes:
 
 ```powershell
 $env:RUN_UI_TESTS = "true"
+$env:RUN_OWNED_WINDOW_UI_TESTS = "true"
 dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "WindowPositionTests|WindowStateHelpersTests|WindowVisibilityTests|WindowTransparencyTests|WindowStyleModificationTests|WindowLayoutTests|WindowActivationPositioningTests"
 ```
 
@@ -127,6 +130,7 @@ Foreground-window slice:
 
 ```powershell
 $env:RUN_UI_TESTS = "true"
+$env:RUN_OWNED_WINDOW_UI_TESTS = "true"
 $env:RUN_DESTRUCTIVE_UI_TESTS = "true"
 $env:RUN_FOREGROUND_UI_TESTS = "true"
 dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "DesktopAutomationAssertionTests|WindowManagerFilterTests|WindowTopMostActivationTests"
@@ -136,6 +140,7 @@ System-wide desktop mutation slice:
 
 ```powershell
 $env:RUN_UI_TESTS = "true"
+$env:RUN_OWNED_WINDOW_UI_TESTS = "true"
 $env:RUN_DESTRUCTIVE_UI_TESTS = "true"
 $env:RUN_SYSTEM_UI_TESTS = "true"
 dotnet test Sources/DesktopManager.Tests/DesktopManager.Tests.csproj -f net8.0-windows --no-build --filter "BackgroundColorTests|MonitorBrightnessTests|MonitorFallbackTests|MonitorResolutionOrientationTests|LogonWallpaperTests"
@@ -167,12 +172,16 @@ Artifact behavior:
 Quick PowerShell inspection flow:
 
 ```powershell
+Get-DesktopHostedSessionDiagnostic -RepositoryRoot C:\Support\GitHub\DesktopManager -SummaryOnly
 .\Build\Get-HostedSessionDiagnostic.ps1 -SummaryOnly
+desktopmanager diagnostic hosted-session --repository-root C:\Support\GitHub\DesktopManager --summary-only
 ```
 
 JSON fallback for the newest hosted-session artifact:
 
 ```powershell
+Get-DesktopHostedSessionDiagnostic -RepositoryRoot C:\Support\GitHub\DesktopManager
 .\Build\Get-HostedSessionDiagnostic.ps1
 .\Build\Get-HostedSessionDiagnostic.ps1 -AsJson
+desktopmanager diagnostic hosted-session --repository-root C:\Support\GitHub\DesktopManager --json
 ```

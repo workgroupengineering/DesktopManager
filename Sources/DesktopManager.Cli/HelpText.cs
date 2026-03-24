@@ -18,6 +18,7 @@ Groups:
   control-target Save and resolve reusable control selector targets
   layout     Save, apply, and list named layouts
   snapshot   Save, restore, and list named snapshots
+  diagnostic Read DesktopManager diagnostic artifacts
   workflow   Run higher-level desktop workflows
   mcp        Host an MCP server over stdio
   help       Show help for a command group
@@ -38,6 +39,7 @@ Examples:
   desktopmanager layout assert coding --position-tolerance-px 50 --size-tolerance-px 50
   desktopmanager snapshot save workday
   desktopmanager snapshot restore workday
+  desktopmanager diagnostic hosted-session --summary-only
 
 Use:
   desktopmanager help window
@@ -49,6 +51,7 @@ Use:
   desktopmanager help control-target
   desktopmanager help layout
   desktopmanager help snapshot
+  desktopmanager help diagnostic
   desktopmanager help workflow
   desktopmanager help mcp
 """;
@@ -360,6 +363,22 @@ Snapshot commands:
 
 Snapshots currently store window layout state only. This command group is designed
 to grow into broader desktop state capture later.
+""";
+    }
+
+    public static string GetDiagnosticHelp() {
+        return """
+Diagnostic commands:
+  desktopmanager diagnostic hosted-session [--artifact <path> | --artifact-directory <path> | --repository-root <path>] [--summary-only] [--json]
+
+Examples:
+  desktopmanager diagnostic hosted-session --summary-only
+  desktopmanager diagnostic hosted-session --repository-root C:\Support\GitHub\DesktopManager
+  desktopmanager diagnostic hosted-session --artifact C:\Support\GitHub\DesktopManager\Artifacts\HostedSessionTyping\sample.json --json
+
+Notes:
+  This command reads hosted-session typing diagnostics written under Artifacts\HostedSessionTyping.
+  It prefers the companion .summary.txt artifact when one exists and falls back to the .json payload otherwise.
 """;
     }
 

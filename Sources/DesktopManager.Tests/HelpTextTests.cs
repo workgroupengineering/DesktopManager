@@ -16,6 +16,7 @@ public class HelpTextTests {
     [DataRow("control-target", "Control-target commands:")]
     [DataRow("layout", "Layout commands:")]
     [DataRow("snapshot", "Snapshot commands:")]
+    [DataRow("diagnostic", "Diagnostic commands:")]
     [DataRow("workflow", "Workflow commands:")]
     [DataRow("mcp", "MCP commands:")]
     /// <summary>
@@ -55,6 +56,7 @@ public class HelpTextTests {
             "control-target",
             "layout",
             "snapshot",
+            "diagnostic",
             "workflow",
             "mcp"
         }) {

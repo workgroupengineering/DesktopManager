@@ -62,6 +62,8 @@ desktopmanager snapshot save
 desktopmanager snapshot restore
 desktopmanager snapshot list
 
+desktopmanager diagnostic hosted-session
+
 desktopmanager workflow prepare-coding
 desktopmanager workflow prepare-screen-sharing
 desktopmanager workflow clean-up-distractions
@@ -112,6 +114,7 @@ desktopmanager mcp serve --dry-run
 - `--verify-tolerance-px` tunes geometry verification for commands like `window move`; specifying it also implies `--verify`.
 - the verification block is action-aware for `window move`, `window focus`, and `window minimize`, and falls back to honest presence-only observation for other window mutations such as typing and pointer input.
 - hosted-session live diagnostics now write repo-local artifacts under `Artifacts\HostedSessionTyping`, including a raw JSON snapshot and a companion `*.summary.txt` file with the likely focus-culprit category and retry summary.
+- `diagnostic hosted-session` reads the newest hosted-session artifact (or a specific one) and can return either the compact summary text or a structured record.
 - hosted-session diagnostic artifacts now trim older entries automatically, keeping the newest artifact sets so the folder stays readable during repeated harness runs.
 - `window keys` sends key chords or single keys to the target window after activating it, which is the safer shared follow-up path for Enter, Escape, and similar actions when modern controls stop being structurally reusable after text entry.
 - mutating `window` and `control` commands can now return shared verification metadata: `success`, `elapsedMilliseconds`, `safetyMode`, optional target name/kind, best-effort before/after screenshots, artifact warnings, and for verified window mutations an explicit `verification` block with observed counts, summary text, and notes.
@@ -202,4 +205,12 @@ When you want mutation evidence too, add artifact flags to the action step:
 ```text
 desktopmanager control set-text --window-process msedge --target edge-address --text "https://evotec.xyz" --allow-foreground-input --capture-before --capture-after --json
 desktopmanager window click --process msedge --target edge-editor-center --capture-before --capture-after --artifact-directory .\artifacts --json
+```
+
+For hosted-session diagnostics, prefer the summary first and then fall back to the full record only when needed:
+
+```text
+desktopmanager diagnostic hosted-session --summary-only
+desktopmanager diagnostic hosted-session --repository-root C:\Support\GitHub\DesktopManager
+desktopmanager diagnostic hosted-session --artifact C:\Support\GitHub\DesktopManager\Artifacts\HostedSessionTyping\sample.json --json
 ```

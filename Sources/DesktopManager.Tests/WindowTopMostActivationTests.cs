@@ -57,7 +57,7 @@ public class WindowTopMostActivationTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireOwnedWindowUiTests();
+        TestHelper.RequireForegroundWindowUiTests();
 
         var manager = new WindowManager();
         using WinFormsWindowHarness firstHarness = WinFormsWindowHarness.Create("DesktopManager Activation Harness 1");

@@ -131,6 +131,22 @@ internal static class TestHelper {
     }
 
     /// <summary>
+    /// Determines if repo-owned harness window tests should be skipped.
+    /// </summary>
+    public static bool ShouldSkipOwnedWindowUiTests() {
+        if (ShouldSkipUITests()) {
+            return true;
+        }
+
+        if (Environment.GetEnvironmentVariable("RUN_OWNED_WINDOW_UI_TESTS") == "true" ||
+            Environment.GetEnvironmentVariable("DESKTOPMANAGER_RUN_OWNED_WINDOW_UI_TESTS") == "true") {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Determines if system-wide desktop state tests should be skipped.
     /// </summary>
     public static bool ShouldSkipSystemDesktopChangeTests() {
@@ -202,6 +218,17 @@ internal static class TestHelper {
     public static void RequireOwnedWindowUiTests() {
         RequireInteractive();
         RequireInteractiveDesktopSession();
+        if (ShouldSkipOwnedWindowUiTests()) {
+            Assert.Inconclusive("Owned-window UI tests skipped. Set RUN_OWNED_WINDOW_UI_TESTS=true (or DESKTOPMANAGER_RUN_OWNED_WINDOW_UI_TESTS=true) together with RUN_UI_TESTS=true to run.");
+        }
+    }
+
+    /// <summary>
+    /// Skips owned-window mutation tests unless desktop-changing execution is explicitly enabled.
+    /// </summary>
+    public static void RequireOwnedWindowMutationTests() {
+        RequireOwnedWindowUiTests();
+        RequireDesktopChanges();
     }
 
     /// <summary>

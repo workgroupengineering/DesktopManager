@@ -68,6 +68,7 @@ public class CliApplicationTests {
     [DataRow("control-target")]
     [DataRow("layout")]
     [DataRow("snapshot")]
+    [DataRow("diagnostic")]
     [DataRow("workflow")]
     [DataRow("mcp")]
     /// <summary>
@@ -92,6 +93,7 @@ public class CliApplicationTests {
     [DataRow("control-target")]
     [DataRow("layout")]
     [DataRow("snapshot")]
+    [DataRow("diagnostic")]
     [DataRow("workflow")]
     [DataRow("mcp")]
     /// <summary>
@@ -234,6 +236,36 @@ public class CliApplicationTests {
         Assert.AreEqual(string.Empty, standardOutput);
         StringAssert.Contains(standardError, "Error: Option '--position-tolerance-px' expects an integer value.");
         StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures the hosted-session diagnostic CLI command reads the newest artifact via repository-root resolution.
+    /// </summary>
+    public void Run_DiagnosticHostedSessionSummaryOnly_WritesSummaryToStandardOutput() {
+        string repositoryRoot = Path.Combine(Path.GetTempPath(), "DesktopManager.Tests", "CliDiagnostic", Guid.NewGuid().ToString("N"));
+        string artifactDirectory = Path.Combine(repositoryRoot, "Artifacts", "HostedSessionTyping");
+        Directory.CreateDirectory(artifactDirectory);
+        File.WriteAllText(Path.Combine(repositoryRoot, "DesktopManager.sln"), string.Empty);
+
+        string artifactPath = Path.Combine(artifactDirectory, "sample.json");
+        File.WriteAllText(artifactPath, """
+{"FormatVersion":1,"Reason":"Test artifact","CreatedUtc":"2026-03-24T08:00:00Z","Summary":"summary from json","PolicyReport":"category='none'","RetryHistoryReport":{"CategoryHint":"none","Summary":"no retained external foreground interruption","ExternalCount":0,"DistinctFingerprintCount":0},"Status":{"WindowTitle":"DesktopManager Test App","StatusText":"Waiting for focus","ForegroundHistory":[]}}
+""");
+        File.WriteAllText(Path.Combine(artifactDirectory, "sample.summary.txt"), "summary from sidecar");
+
+        string originalCurrentDirectory = Environment.CurrentDirectory;
+        Environment.CurrentDirectory = repositoryRoot;
+        try {
+            (int exitCode, string standardOutput, string standardError) = RunCli("diagnostic", "hosted-session", "--summary-only");
+
+            Assert.AreEqual(0, exitCode);
+            StringAssert.Contains(standardOutput, "summary from sidecar");
+            Assert.AreEqual(string.Empty, standardError);
+        } finally {
+            Environment.CurrentDirectory = originalCurrentDirectory;
+            Directory.Delete(repositoryRoot, true);
+        }
     }
 
     private static (int ExitCode, string StandardOutput, string StandardError) RunCli(params string[] args) {
