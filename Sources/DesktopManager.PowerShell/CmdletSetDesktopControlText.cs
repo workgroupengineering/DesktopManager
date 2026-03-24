@@ -35,11 +35,40 @@ public sealed class CmdletSetDesktopControlText : PSCmdlet {
     [Parameter]
     public SwitchParameter AllowForegroundInput { get; set; }
 
+    /// <summary>
+    /// <para type="description">Re-query the control after setting text and report the observed postcondition.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter Verify { get; set; }
+
+    /// <summary>
+    /// <para type="description">Return a structured mutation result object for the targeted control.</para>
+    /// </summary>
+    [Parameter]
+    public SwitchParameter PassThru { get; set; }
+
     /// <inheritdoc />
     protected override void BeginProcessing() {
         if (ShouldProcess(Control.Text ?? Control.ClassName, "Set text")) {
             var automation = new DesktopAutomationService();
-            automation.SetControlText(Control, Text, EnsureForeground, AllowForegroundInput);
+            try {
+                automation.SetControlText(Control, Text, EnsureForeground, AllowForegroundInput);
+                if (Verify.IsPresent || PassThru.IsPresent) {
+                    WriteObject(DesktopControlMutationVerifier.Verify(
+                        automation,
+                        "set-text",
+                        Control,
+                        expectedText: Text,
+                        requireForeground: EnsureForeground.IsPresent));
+                }
+            } catch (Exception ex) {
+                if (!Verify.IsPresent && !PassThru.IsPresent) {
+                    throw;
+                }
+
+                WriteWarning($"Failed to set text on control '{Control.Text ?? Control.ClassName}': {ex.Message}");
+                WriteObject(DesktopControlMutationVerifier.CreateFailureRecord("set-text", Control, ex.Message, Verify.IsPresent));
+            }
         }
     }
 }

@@ -19,7 +19,7 @@ public class WindowLayoutTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireOwnedWindowUiTests();
+        TestHelper.RequireOwnedWindowMutationTests();
 
         string title = $"Layout Harness {System.Guid.NewGuid():N}";
         var fullLayoutPath = System.IO.Path.GetTempFileName();

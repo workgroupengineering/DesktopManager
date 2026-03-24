@@ -161,6 +161,7 @@ The important part is that CLI, MCP, and PowerShell are meant to stay aligned by
 | Get-DesktopWindowProcessInfo | Return process details for matched windows |
 | Get-DesktopWindowTarget | List saved window-relative targets or resolve one against live windows |
 | Get-DesktopControlTarget | List saved control targets or resolve one against live windows |
+| Get-DesktopHostedSessionDiagnostic | Read the latest hosted-session typing diagnostic artifact or a specific one |
 | Invoke-DesktopControlClick | Click a matched control using shared control action routing |
 | Invoke-DesktopWindowClick | Click a window-relative point or saved window target |
 | Invoke-DesktopWindowDrag | Drag between window-relative points or saved targets |
@@ -253,11 +254,40 @@ For using in PowerShell you can install it from PowerShell Gallery
 Install-Module DesktopManager -Force -Verbose
 ```
 
+### Verified mutation examples
+
+When you want more than "the call did not throw", prefer `-Verify` together with `-PassThru` so the cmdlet returns the observed postcondition.
+
+```powershell
+# Verify a window move against the observed geometry
+Set-DesktopWindow -Name "*Visual Studio Code*" -Left 0 -Top 0 -Width 1600 -Height 1200 -Verify -PassThru
+
+# Verify exact text after a control text update
+Set-DesktopControlText -Control $ctrl -Text "Hello world" -Verify -PassThru
+
+# Verify the observed check state
+Set-DesktopControlCheck -Control $checkbox -Check $true -Verify -PassThru
+
+# Return a structured record after a control click
+Invoke-DesktopControlClick -Control $button -PassThru
+
+# Return a structured record after sending keys
+Send-DesktopControlKey -Control $editor -Keys @([DesktopManager.VirtualKey]::VK_RETURN) -PassThru
+```
+
+Verification behavior is action-aware:
+
+- window mutations verify geometry, state, topmost, close, or foreground conditions when those postconditions are meaningful
+- `Set-DesktopControlText -Verify` verifies the observed text/value when the control can be re-queried
+- `Set-DesktopControlCheck -Verify` verifies the observed check state
+- control click/key actions return honest presence and foreground evidence when exact semantic verification would be misleading
+
 ### Testing notes
 
 UI-impacting tests are opt-in to avoid opening windows or changing the desktop during local development. Use the environment variables below to control behavior:
 
-- `RUN_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_UI_TESTS=true`) enables owned-window UI tests that use repo-created harness windows.
+- `RUN_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_UI_TESTS=true`) enables the top-level UI test pack.
+- `RUN_OWNED_WINDOW_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_OWNED_WINDOW_UI_TESTS=true`) enables owned-window UI tests that use repo-created harness windows.
 - `RUN_DESTRUCTIVE_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_DESTRUCTIVE_UI_TESTS=true`) enables owned-window mutation tests such as move, resize, hide, snap, and transparency changes against repo-created harness windows.
 - `RUN_FOREGROUND_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_FOREGROUND_UI_TESTS=true`) enables tests that intentionally steal foreground focus, even when they only target repo-created harness windows.
 - `RUN_SYSTEM_UI_TESTS=true` (or `DESKTOPMANAGER_RUN_SYSTEM_UI_TESTS=true`) enables system-wide desktop changes such as wallpapers, brightness, resolution, and other monitor-level mutations that can affect your current session.
@@ -269,8 +299,9 @@ The gates compose intentionally:
 
 | Gate | What it permits | Typical impact |
 | ---- | --------------- | -------------- |
-| `RUN_UI_TESTS` | Repo-owned WinForms/WPF harness windows | Low |
-| `RUN_DESTRUCTIVE_UI_TESTS` | Mutations against owned harness windows | Medium |
+| `RUN_UI_TESTS` | Top-level UI pack enablement only | Low |
+| `RUN_OWNED_WINDOW_UI_TESTS` | Repo-owned WinForms/WPF harness windows | Low to medium |
+| `RUN_DESTRUCTIVE_UI_TESTS` | Mutations against owned harness windows | Medium to high |
 | `RUN_FOREGROUND_UI_TESTS` | Tests that intentionally take foreground focus | Medium to high |
 | `RUN_SYSTEM_UI_TESTS` | System-wide desktop changes | High |
 | `RUN_EXTERNAL_UI_TESTS` | Launching real desktop apps | Medium to high |
@@ -279,6 +310,7 @@ The gates compose intentionally:
 ```powershell
 # Run owned-window UI tests
 $env:RUN_UI_TESTS = "true"
+$env:RUN_OWNED_WINDOW_UI_TESTS = "true"
 
 # Run repo-owned window mutation tests
 $env:RUN_DESTRUCTIVE_UI_TESTS = "true"

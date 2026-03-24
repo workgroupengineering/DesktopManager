@@ -18,7 +18,7 @@ public class WindowVisibilityTests {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
             Assert.Inconclusive("Test requires Windows");
         }
-        TestHelper.RequireOwnedWindowUiTests();
+        TestHelper.RequireOwnedWindowMutationTests();
 
         using WinFormsWindowHarness harness = WinFormsWindowHarness.Create("DesktopManager Visibility Harness");
 

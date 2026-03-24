@@ -9,7 +9,16 @@ internal static class CliApplication {
     }
 
     internal static int Run(string[] args, TextWriter output, TextWriter error) {
+        TextWriter originalOutput = Console.Out;
+        TextWriter originalError = Console.Error;
         try {
+            if (!ReferenceEquals(output, originalOutput)) {
+                Console.SetOut(output);
+            }
+            if (!ReferenceEquals(error, originalError)) {
+                Console.SetError(error);
+            }
+
             var parsed = CommandLineArguments.Parse(args);
             if (parsed.IsEmpty || parsed.HasFlag("help")) {
                 output.WriteLine(HelpText.GetGeneralHelp());
@@ -32,6 +41,7 @@ internal static class CliApplication {
                 "control-target" => ControlTargetCommands.Run(action, parsed),
                 "layout" => LayoutCommands.Run(action, parsed),
                 "snapshot" => SnapshotCommands.Run(action, parsed),
+                "diagnostic" => DiagnosticCommands.Run(action, parsed),
                 "workflow" => WorkflowCommands.Run(action, parsed),
                 "mcp" => McpCommands.Run(action, parsed),
                 "help" => ShowGroupHelp(parsed, output),
@@ -45,6 +55,13 @@ internal static class CliApplication {
         } catch (Exception ex) {
             error.WriteLine($"Unhandled error: {ex.Message}");
             return 1;
+        } finally {
+            if (!ReferenceEquals(Console.Out, originalOutput)) {
+                Console.SetOut(originalOutput);
+            }
+            if (!ReferenceEquals(Console.Error, originalError)) {
+                Console.SetError(originalError);
+            }
         }
     }
 
@@ -59,6 +76,7 @@ internal static class CliApplication {
             "control-target" => true,
             "layout" => true,
             "snapshot" => true,
+            "diagnostic" => true,
             "workflow" => true,
             "mcp" => true,
             _ => false
@@ -76,6 +94,7 @@ internal static class CliApplication {
             "control-target" => HelpText.GetControlTargetHelp(),
             "layout" => HelpText.GetLayoutHelp(),
             "snapshot" => HelpText.GetSnapshotHelp(),
+            "diagnostic" => HelpText.GetDiagnosticHelp(),
             "workflow" => HelpText.GetWorkflowHelp(),
             "mcp" => HelpText.GetMcpHelp(),
             _ => HelpText.GetGeneralHelp()
