@@ -274,6 +274,7 @@ internal static class TestHelper {
     /// Skips tests that intentionally steal foreground focus unless explicitly enabled.
     /// </summary>
     public static void RequireForegroundWindowUiTests() {
+        RequireOwnedWindowUiTests();
         RequireDesktopChanges();
         if (ShouldSkipForegroundWindowUiTests()) {
             Assert.Inconclusive("Foreground-window UI tests skipped. Set RUN_FOREGROUND_UI_TESTS=true (or DESKTOPMANAGER_RUN_FOREGROUND_UI_TESTS=true) to run.");
