@@ -46,4 +46,16 @@ internal sealed class TestAppStatusSnapshot {
     public string CommandBarText { get; set; } = string.Empty;
 
     public string StatusText { get; set; } = string.Empty;
+
+    public string DragPayload { get; set; } = string.Empty;
+
+    public string DroppedText { get; set; } = string.Empty;
+
+    public int DragDropCount { get; set; }
+
+    public string DragDropStatus { get; set; } = string.Empty;
+
+    public TestAppControlBounds DragSourceBounds { get; set; } = new();
+
+    public TestAppControlBounds DropTargetBounds { get; set; } = new();
 }

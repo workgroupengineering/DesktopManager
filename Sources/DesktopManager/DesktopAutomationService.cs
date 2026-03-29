@@ -99,6 +99,47 @@ public sealed class DesktopAutomationService {
     }
 
     /// <summary>
+    /// Observes the currently focused control for the first matching window when it can be resolved.
+    /// </summary>
+    public DesktopFocusedControlObservation? GetFocusedControlObservation(WindowQueryOptions options) {
+        if (options == null) {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        WindowInfo window = ResolveWindows(options, all: false)[0];
+        IntPtr focusedHandle = GetFocusedControlHandle(window.Handle);
+        if (focusedHandle == IntPtr.Zero) {
+            return null;
+        }
+
+        WindowControlInfo? control = _windowManager.GetControls(
+            window,
+            new WindowControlQueryOptions {
+                Handle = focusedHandle,
+                UseUiAutomation = true,
+                IncludeUiAutomation = true
+            }).FirstOrDefault();
+
+        string liveText = WindowTextHelper.GetWindowText(focusedHandle);
+        string controlText = !string.IsNullOrWhiteSpace(liveText)
+            ? liveText
+            : control?.Text ?? string.Empty;
+
+        return new DesktopFocusedControlObservation {
+            WindowHandle = window.Handle,
+            WindowTitle = window.Title,
+            FocusedHandle = focusedHandle,
+            ClassName = control?.ClassName ?? string.Empty,
+            AutomationId = control?.AutomationId ?? string.Empty,
+            ControlType = control?.ControlType ?? string.Empty,
+            Text = controlText,
+            Value = control?.Value ?? string.Empty,
+            IsKeyboardFocusable = control?.IsKeyboardFocusable,
+            IsEnabled = control?.IsEnabled
+        };
+    }
+
+    /// <summary>
     /// Moves and optionally resizes matching windows.
     /// </summary>
     public IReadOnlyList<WindowInfo> MoveWindows(WindowQueryOptions options, int? monitorIndex, int? x, int? y, int? width, int? height, bool activate, bool all = false) {
@@ -127,6 +168,21 @@ public sealed class DesktopAutomationService {
         }
 
         return RefreshWindows(windows);
+    }
+
+    private static IntPtr GetFocusedControlHandle(IntPtr windowHandle) {
+        uint threadId = MonitorNativeMethods.GetWindowThreadProcessId(windowHandle, out _);
+        if (threadId == 0) {
+            return IntPtr.Zero;
+        }
+
+        MonitorNativeMethods.GUITHREADINFO threadInfo = new() {
+            cbSize = System.Runtime.InteropServices.Marshal.SizeOf<MonitorNativeMethods.GUITHREADINFO>()
+        };
+
+        return MonitorNativeMethods.GetGUIThreadInfo(threadId, ref threadInfo)
+            ? threadInfo.hwndFocus
+            : IntPtr.Zero;
     }
 
     /// <summary>
