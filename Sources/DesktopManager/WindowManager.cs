@@ -78,6 +78,7 @@ public partial class WindowManager {
             }
 
             var windows = new List<WindowInfo>();
+            List<Monitor> connectedMonitors = _monitors.GetMonitors(connectedOnly: true, refresh: true);
             for (int index = 0; index < handles.Count; index++) {
                 var handle = handles[index];
                 if (options.ActiveWindow && handle != activeWindowHandle) {
@@ -151,7 +152,7 @@ public partial class WindowManager {
                     continue;
                 }
 
-                var windowInfo = BuildWindowInfo(handle, title, windowProcessId, windowThreadId, ownerHandle, isCloaked, isVisible, index);
+                var windowInfo = BuildWindowInfo(handle, title, windowProcessId, windowThreadId, ownerHandle, isCloaked, isVisible, index, connectedMonitors);
 
                 if (options.State.HasValue && windowInfo.State != options.State.Value) {
                     continue;
@@ -211,7 +212,7 @@ public partial class WindowManager {
                 var ownerHandle = MonitorNativeMethods.GetWindow(handle, MonitorNativeMethods.GW_OWNER);
                 var title = WindowTextHelper.GetWindowText(handle);
                 bool isVisible = MonitorNativeMethods.IsWindowVisible(handle);
-                windows.Add(BuildWindowInfo(handle, title, windowProcessId, windowThreadId, ownerHandle, isCloaked, isVisible, index));
+                windows.Add(BuildWindowInfo(handle, title, windowProcessId, windowThreadId, ownerHandle, isCloaked, isVisible, index, connectedMonitors: null));
             }
 
             return windows;
@@ -354,7 +355,7 @@ public partial class WindowManager {
             return text.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        private WindowInfo BuildWindowInfo(IntPtr handle, string? title, uint windowProcessId, uint windowThreadId, IntPtr ownerHandle, bool isCloaked, bool isVisible, int zOrder) {
+        private WindowInfo BuildWindowInfo(IntPtr handle, string? title, uint windowProcessId, uint windowThreadId, IntPtr ownerHandle, bool isCloaked, bool isVisible, int zOrder, IReadOnlyList<Monitor>? connectedMonitors) {
             var windowInfo = new WindowInfo {
                 Title = title ?? string.Empty,
                 Handle = handle,
@@ -389,10 +390,13 @@ public partial class WindowManager {
                 windowInfo.Right = rect.Right;
                 windowInfo.Bottom = rect.Bottom;
 
-                // Find which monitor this window is primarily on
-                var monitors = _monitors.GetMonitors();
+                IReadOnlyList<Monitor> monitors = connectedMonitors ?? _monitors.GetMonitors(connectedOnly: true, refresh: true);
                 foreach (var monitor in monitors) {
-                    var monitorRect = monitor.GetMonitorBounds();
+                    RECT monitorRect = monitor.Rect;
+                    if (monitorRect.Right <= monitorRect.Left || monitorRect.Bottom <= monitorRect.Top) {
+                        continue;
+                    }
+
                     // Check if window center point is within monitor bounds
                     int windowCenterX = (rect.Left + rect.Right) / 2;
                     int windowCenterY = (rect.Top + rect.Bottom) / 2;
