@@ -32,8 +32,15 @@ public sealed class DesktopAutomationService {
     /// <summary>
     /// Gets matching monitors.
     /// </summary>
-    public IReadOnlyList<Monitor> GetMonitors(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
-        return _monitors.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName);
+    public IReadOnlyList<Monitor> GetMonitors(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null, bool refresh = false) {
+        return _monitors.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName, refresh: refresh);
+    }
+
+    /// <summary>
+    /// Forces monitor enumeration and refreshes the cached monitor snapshot.
+    /// </summary>
+    public void RefreshMonitors() {
+        _monitors.RefreshMonitors();
     }
 
     /// <summary>

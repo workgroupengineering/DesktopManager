@@ -74,6 +74,7 @@ public partial class MonitorService {
     public List<Monitor> GetMonitors() {
         try {
             List<Monitor> list = new List<Monitor>();
+            List<DisplayPathSnapshot> displayPaths = EnumerateDisplayPaths();
 
             var count = Execute(() => _desktopManager.GetMonitorDevicePathCount(), nameof(IDesktopManager.GetMonitorDevicePathCount));
             for (uint i = 0; i < count; i++) {
@@ -89,15 +90,13 @@ public partial class MonitorService {
                         UpdateWallpaperCache(monitor.DeviceId, monitor.Wallpaper);
                     }
 
-                    // Populate new properties
-                    DISPLAY_DEVICE d = new DISPLAY_DEVICE();
-                    d.cb = Marshal.SizeOf(d);
-                    if (MonitorNativeMethods.EnumDisplayDevices(null, i, ref d, (uint)EnumDisplayDevicesFlags.EDD_GET_DEVICE_INTERFACE_NAME)) {
-                        monitor.DeviceName = d.DeviceName;
-                        monitor.DeviceString = d.DeviceString;
-                        monitor.StateFlags = d.StateFlags;
-                        monitor.DeviceKey = d.DeviceKey;
+                    DisplayPathSnapshot? displayPath = ResolveDisplayPathForMonitor(displayPaths, monitor.DeviceId, monitor.Rect, (int)i);
+                    if (displayPath != null) {
+                        ApplyDisplayPathMetadata(monitor, displayPath);
+                    } else {
+                        monitor.StateFlags = DisplayDeviceStateFlags.AttachedToDesktop;
                     }
+
                     monitor.LoadEdidInfo();
                 }
                 list.Add(monitor);

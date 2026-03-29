@@ -34,10 +34,13 @@ public class Monitors {
     /// <param name="index">The index of the monitor to return.</param>
     /// <param name="deviceId">The device ID of the monitor to return.</param>
     /// <param name="deviceName">The device name of the monitor to return.</param>
+    /// <param name="refresh">When true, forces a fresh monitor snapshot before filtering.</param>
     /// <returns>A list of monitors that match the specified filters.</returns>
-    public List<Monitor> GetMonitors(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+    public List<Monitor> GetMonitors(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null, bool refresh = false) {
         var monitorsReturn = new List<Monitor>();
-        var monitors = _cachedMonitors ??= _monitorService.GetMonitors();
+        var monitors = refresh || _cachedMonitors == null
+            ? _cachedMonitors = _monitorService.GetMonitors()
+            : _cachedMonitors;
         foreach (var monitor in monitors) {
             if (connectedOnly != null && connectedOnly.Value && !monitor.IsConnected) {
                 continue;
