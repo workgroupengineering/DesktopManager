@@ -249,11 +249,74 @@ public static partial class MonitorNativeMethods
     public static extern IntPtr GetForegroundWindow();
 
     /// <summary>
+    /// Retrieves information about the active window and focused control for a GUI thread.
+    /// </summary>
+    /// <param name="idThread">The GUI thread identifier.</param>
+    /// <param name="threadInfo">Receives the GUI thread information.</param>
+    /// <returns>True when information is available; otherwise false.</returns>
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetGUIThreadInfo(uint idThread, ref GUITHREADINFO threadInfo);
+
+    /// <summary>
     /// Retrieves the identifier of the calling thread.
     /// </summary>
     /// <returns>The current thread identifier.</returns>
     [DllImport("kernel32.dll")]
     public static extern uint GetCurrentThreadId();
+
+    /// <summary>
+    /// Describes the active window and caret state for a GUI thread.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct GUITHREADINFO
+    {
+        /// <summary>Structure size.</summary>
+        public int cbSize;
+
+        /// <summary>Thread state flags.</summary>
+        public uint flags;
+
+        /// <summary>Active window handle.</summary>
+        public IntPtr hwndActive;
+
+        /// <summary>Focused window handle.</summary>
+        public IntPtr hwndFocus;
+
+        /// <summary>Capture window handle.</summary>
+        public IntPtr hwndCapture;
+
+        /// <summary>Menu owner handle.</summary>
+        public IntPtr hwndMenuOwner;
+
+        /// <summary>Move/size window handle.</summary>
+        public IntPtr hwndMoveSize;
+
+        /// <summary>Caret window handle.</summary>
+        public IntPtr hwndCaret;
+
+        /// <summary>Caret rectangle.</summary>
+        public GUIRECT rcCaret;
+    }
+
+    /// <summary>
+    /// Describes a native rectangle.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct GUIRECT
+    {
+        /// <summary>Left edge.</summary>
+        public int Left;
+
+        /// <summary>Top edge.</summary>
+        public int Top;
+
+        /// <summary>Right edge.</summary>
+        public int Right;
+
+        /// <summary>Bottom edge.</summary>
+        public int Bottom;
+    }
 
     /// <summary>
     /// Attaches or detaches the input processing mechanism of one thread to that of another thread.

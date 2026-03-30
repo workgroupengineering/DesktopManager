@@ -15,6 +15,7 @@ namespace DesktopManager.TestApp;
 
 internal sealed class MainForm : Form {
     private const int ForegroundHistoryLimit = 12;
+    private const string DragPayloadText = "desktopmanager-drag-payload";
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -39,6 +40,10 @@ internal sealed class MainForm : Form {
     private readonly ElementHost _commandBarHost;
     private readonly WpfTextBox _commandBarTextBox;
     private readonly WinFormsLabel _statusLabel;
+    private readonly Panel _dragSourcePanel;
+    private readonly WinFormsLabel _dragSourceLabel;
+    private readonly Panel _dropTargetPanel;
+    private readonly WinFormsLabel _dropTargetLabel;
     private SecondaryFocusForm? _secondaryForm;
     private System.Windows.Forms.Timer? _statusTimer;
     private DateTime _foregroundHoldUntilUtc;
@@ -50,6 +55,10 @@ internal sealed class MainForm : Form {
     private string _lastObservedForegroundClass = string.Empty;
     private string _lastObservedForegroundChangedUtc = string.Empty;
     private string _lastCommand = string.Empty;
+    private Point _dragSourceMouseDownLocation = Point.Empty;
+    private string _droppedText = string.Empty;
+    private string _dragDropStatus = "Drag source ready.";
+    private int _dragDropCount;
     private readonly List<string> _foregroundHistory = [];
 
     public MainForm(TestAppOptions options) {
@@ -137,6 +146,66 @@ internal sealed class MainForm : Form {
         };
         closeButton.Click += (_, _) => Close();
 
+        _dragSourceLabel = new WinFormsLabel {
+            Name = "DragSourceLabel",
+            AccessibleName = "DragSource",
+            AutoSize = false,
+            Text = "Drag Source\r\nHold and drag me",
+            TextAlign = ContentAlignment.MiddleCenter,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = Color.FromArgb(229, 240, 255),
+            Dock = DockStyle.Fill,
+            Enabled = false
+        };
+
+        _dragSourcePanel = new Panel {
+            Name = "DragSourcePanel",
+            AccessibleName = "DragSource",
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = Color.FromArgb(229, 240, 255),
+            Margin = new Padding(0, 0, 12, 0),
+            Width = 220,
+            Height = 88
+        };
+        _dragSourcePanel.Controls.Add(_dragSourceLabel);
+        _dragSourcePanel.MouseDown += DragSourceLabel_MouseDown;
+        _dragSourcePanel.MouseMove += DragSourceLabel_MouseMove;
+        _dragSourcePanel.MouseUp += DragSourceLabel_MouseUp;
+
+        _dropTargetLabel = new WinFormsLabel {
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            Text = "Drop Target\r\nAwaiting payload",
+            TextAlign = ContentAlignment.MiddleCenter,
+            BackColor = Color.FromArgb(239, 245, 231),
+            Enabled = false
+        };
+
+        _dropTargetPanel = new Panel {
+            Name = "DropTargetPanel",
+            AccessibleName = "DropTarget",
+            AllowDrop = true,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = Color.FromArgb(239, 245, 231),
+            Margin = new Padding(0),
+            Width = 220,
+            Height = 88
+        };
+        _dropTargetPanel.Controls.Add(_dropTargetLabel);
+        _dropTargetPanel.DragEnter += DropTargetPanel_DragEnter;
+        _dropTargetPanel.DragLeave += DropTargetPanel_DragLeave;
+        _dropTargetPanel.DragDrop += DropTargetPanel_DragDrop;
+
+        var dragDropPanel = new FlowLayoutPanel {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Margin = new Padding(0, 0, 0, 12)
+        };
+        dragDropPanel.Controls.Add(_dragSourcePanel);
+        dragDropPanel.Controls.Add(_dropTargetPanel);
+
         var buttonPanel = new FlowLayoutPanel {
             Dock = DockStyle.Bottom,
             FlowDirection = FlowDirection.RightToLeft,
@@ -149,9 +218,10 @@ internal sealed class MainForm : Form {
         var contentPanel = new TableLayoutPanel {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 3,
+            RowCount = 5,
             Padding = new Padding(16)
         };
+        contentPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         contentPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         contentPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         contentPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -159,7 +229,8 @@ internal sealed class MainForm : Form {
         contentPanel.Controls.Add(titleLabel, 0, 0);
         contentPanel.Controls.Add(hintLabel, 0, 1);
         contentPanel.Controls.Add(_statusLabel, 0, 2);
-        contentPanel.Controls.Add(_editorTextBox, 0, 3);
+        contentPanel.Controls.Add(dragDropPanel, 0, 3);
+        contentPanel.Controls.Add(_editorTextBox, 0, 4);
 
         Controls.Add(_commandBarHost);
         Controls.Add(contentPanel);
@@ -337,7 +408,13 @@ internal sealed class MainForm : Form {
                 EditorText = _editorTextBox.Text,
                 SecondaryText = _secondaryForm != null && !_secondaryForm.IsDisposed ? _secondaryForm.CurrentText : string.Empty,
                 CommandBarText = _commandBarTextBox.Text,
-                StatusText = _statusLabel.Text
+                StatusText = _statusLabel.Text,
+                DragPayload = DragPayloadText,
+                DroppedText = _droppedText,
+                DragDropCount = _dragDropCount,
+                DragDropStatus = _dragDropStatus,
+                DragSourceBounds = GetScreenBounds(_dragSourcePanel),
+                DropTargetBounds = GetScreenBounds(_dropTargetPanel)
             };
 
             string json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions {
@@ -473,5 +550,95 @@ internal sealed class MainForm : Form {
         if (_foregroundHistory.Count > ForegroundHistoryLimit) {
             _foregroundHistory.RemoveAt(0);
         }
+    }
+
+    private void DragSourceLabel_MouseDown(object? sender, MouseEventArgs e) {
+        if (e.Button != MouseButtons.Left) {
+            return;
+        }
+
+        _dragSourceMouseDownLocation = e.Location;
+        _dragSourcePanel.Capture = true;
+        _dragDropStatus = "Drag armed from source.";
+        WriteStatusSnapshot();
+    }
+
+    private void DragSourceLabel_MouseMove(object? sender, MouseEventArgs e) {
+        if ((e.Button & MouseButtons.Left) != MouseButtons.Left) {
+            return;
+        }
+
+        Size dragSize = SystemInformation.DragSize;
+        Rectangle dragBounds = new(
+            _dragSourceMouseDownLocation.X - dragSize.Width / 2,
+            _dragSourceMouseDownLocation.Y - dragSize.Height / 2,
+            dragSize.Width,
+            dragSize.Height);
+        if (dragBounds.Contains(e.Location)) {
+            return;
+        }
+
+        _dragDropStatus = "Dragging payload.";
+        WriteStatusSnapshot();
+        _dragSourcePanel.Capture = false;
+        DragDropEffects effect = _dragSourcePanel.DoDragDrop(DragPayloadText, DragDropEffects.Copy);
+        _dragDropStatus = effect == DragDropEffects.None ? "Drag canceled." : "Drag completed.";
+        WriteStatusSnapshot();
+    }
+
+    private void DragSourceLabel_MouseUp(object? sender, MouseEventArgs e) {
+        _dragSourcePanel.Capture = false;
+    }
+
+    private void DropTargetPanel_DragEnter(object? sender, DragEventArgs e) {
+        if (e.Data?.GetDataPresent(DataFormats.UnicodeText) == true || e.Data?.GetDataPresent(DataFormats.Text) == true) {
+            e.Effect = DragDropEffects.Copy;
+            _dragDropStatus = "Drop target armed.";
+            _dropTargetPanel.BackColor = Color.FromArgb(214, 235, 204);
+            _dropTargetLabel.BackColor = _dropTargetPanel.BackColor;
+            WriteStatusSnapshot();
+            return;
+        }
+
+        e.Effect = DragDropEffects.None;
+    }
+
+    private void DropTargetPanel_DragLeave(object? sender, EventArgs e) {
+        _dropTargetPanel.BackColor = Color.FromArgb(239, 245, 231);
+        _dropTargetLabel.BackColor = _dropTargetPanel.BackColor;
+        _dragDropStatus = "Drag left drop target.";
+        WriteStatusSnapshot();
+    }
+
+    private void DropTargetPanel_DragDrop(object? sender, DragEventArgs e) {
+        string droppedText = e.Data?.GetData(DataFormats.UnicodeText)?.ToString()
+            ?? e.Data?.GetData(DataFormats.Text)?.ToString()
+            ?? string.Empty;
+        _droppedText = droppedText;
+        _dragDropCount++;
+        _dragDropStatus = string.IsNullOrWhiteSpace(droppedText) ? "Drop completed with empty payload." : "Drop completed.";
+        _dropTargetPanel.BackColor = Color.FromArgb(198, 227, 184);
+        _dropTargetLabel.BackColor = _dropTargetPanel.BackColor;
+        _dropTargetLabel.Text = string.IsNullOrWhiteSpace(droppedText)
+            ? "Drop Target\r\nReceived empty payload"
+            : "Drop Target\r\nReceived: " + droppedText;
+        _statusLabel.Text = string.IsNullOrWhiteSpace(droppedText)
+            ? "Drop completed with empty payload."
+            : "Dropped payload: " + droppedText;
+        WriteStatusSnapshot();
+    }
+
+    private static TestAppControlBounds GetScreenBounds(Control control) {
+        if (!control.IsHandleCreated) {
+            return new TestAppControlBounds();
+        }
+
+        Rectangle screenBounds = control.RectangleToScreen(control.ClientRectangle);
+        return new TestAppControlBounds {
+            Left = screenBounds.Left,
+            Top = screenBounds.Top,
+            Width = screenBounds.Width,
+            Height = screenBounds.Height
+        };
     }
 }
