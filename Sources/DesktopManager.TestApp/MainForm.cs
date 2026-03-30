@@ -413,6 +413,7 @@ internal sealed class MainForm : Form {
                 DroppedText = _droppedText,
                 DragDropCount = _dragDropCount,
                 DragDropStatus = _dragDropStatus,
+                EditorBounds = GetScreenBounds(_editorTextBox),
                 DragSourceBounds = GetScreenBounds(_dragSourcePanel),
                 DropTargetBounds = GetScreenBounds(_dropTargetPanel)
             };

@@ -13,6 +13,8 @@ namespace DesktopManager.Tests;
 #endif
 /// <summary>Tests for <see cref="HotkeyService"/>.</summary>
 public class HotkeyServiceTests {
+    private const string HotkeyTestMutexName = @"Local\DesktopManager.HotkeyServiceTests.HotkeyCallback_FiresOnMessage";
+
     [TestMethod]
     /// <summary>Callback fires when hotkey message is posted.</summary>
     public void HotkeyCallback_FiresOnMessage() {
@@ -24,6 +26,18 @@ public class HotkeyServiceTests {
             Assert.Inconclusive("Test requires Windows");
         }
 
+        using Mutex mutex = new(false, HotkeyTestMutexName);
+        bool hasHandle;
+        try {
+            hasHandle = mutex.WaitOne(TimeSpan.FromSeconds(10));
+        } catch (AbandonedMutexException) {
+            hasHandle = true;
+        }
+
+        if (!hasHandle) {
+            Assert.Inconclusive("Timed out waiting for the shared hotkey test mutex.");
+        }
+
         var service = HotkeyService.Instance;
         bool called = false;
         int id = service.RegisterHotkey(HotkeyModifiers.Control, VirtualKey.VK_F24, () => called = true);
@@ -33,6 +47,7 @@ public class HotkeyServiceTests {
             Assert.IsTrue(called);
         } finally {
             service.UnregisterHotkey(id);
+            mutex.ReleaseMutex();
         }
     }
 }
