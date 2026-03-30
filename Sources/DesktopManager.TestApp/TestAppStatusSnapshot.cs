@@ -55,6 +55,8 @@ internal sealed class TestAppStatusSnapshot {
 
     public string DragDropStatus { get; set; } = string.Empty;
 
+    public TestAppControlBounds EditorBounds { get; set; } = new();
+
     public TestAppControlBounds DragSourceBounds { get; set; } = new();
 
     public TestAppControlBounds DropTargetBounds { get; set; } = new();
