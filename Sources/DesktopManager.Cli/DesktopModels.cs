@@ -95,6 +95,17 @@ internal sealed class WindowGeometryResult {
     public int ClientOffsetTop { get; set; }
 }
 
+internal sealed class WindowProcessInfoResult {
+    public WindowResult Window { get; set; } = new WindowResult();
+    public bool IsOwnerProcess { get; set; }
+    public uint ProcessId { get; set; }
+    public uint ThreadId { get; set; }
+    public string ProcessName { get; set; } = string.Empty;
+    public string? ProcessPath { get; set; }
+    public bool? IsElevated { get; set; }
+    public bool? IsWow64 { get; set; }
+}
+
 internal sealed class ControlResult {
     public string Handle { get; set; } = string.Empty;
     public string ClassName { get; set; } = string.Empty;
@@ -117,6 +128,29 @@ internal sealed class ControlResult {
     public int Width { get; set; }
     public int Height { get; set; }
     public WindowResult ParentWindow { get; set; } = new WindowResult();
+}
+
+internal sealed class ControlStateResult {
+    public string WindowHandle { get; set; } = string.Empty;
+    public string ControlHandle { get; set; } = string.Empty;
+    public string ClassName { get; set; } = string.Empty;
+    public string AutomationId { get; set; } = string.Empty;
+    public string ControlType { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public bool? IsEnabled { get; set; }
+    public bool? IsVisible { get; set; }
+    public bool? IsFocused { get; set; }
+    public bool? IsKeyboardFocusable { get; set; }
+    public bool? IsOffscreen { get; set; }
+    public bool SupportsBackgroundClick { get; set; }
+    public bool SupportsBackgroundText { get; set; }
+    public bool SupportsBackgroundKeys { get; set; }
+    public bool SupportsForegroundInputFallback { get; set; }
+    public int Left { get; set; }
+    public int Top { get; set; }
+    public int Width { get; set; }
+    public int Height { get; set; }
 }
 
 internal sealed class ControlActionResult {
@@ -215,6 +249,77 @@ internal sealed class MonitorResult {
     public int Bottom { get; set; }
     public string? Manufacturer { get; set; }
     public string? SerialNumber { get; set; }
+}
+
+internal sealed class MonitorBrightnessResult {
+    public int Index { get; set; }
+    public string DeviceName { get; set; } = string.Empty;
+    public string DeviceId { get; set; } = string.Empty;
+    public bool IsPrimary { get; set; }
+    public int Brightness { get; set; }
+}
+
+internal sealed class MonitorWallpaperResult {
+    public int Index { get; set; }
+    public string DeviceName { get; set; } = string.Empty;
+    public string DeviceId { get; set; } = string.Empty;
+    public bool IsPrimary { get; set; }
+    public string Wallpaper { get; set; } = string.Empty;
+}
+
+internal sealed class DesktopColorResult {
+    public uint Value { get; set; }
+    public string HexValue { get; set; } = string.Empty;
+}
+
+internal sealed class DesktopWallpaperPositionResult {
+    public string Position { get; set; } = string.Empty;
+}
+
+internal sealed class DesktopSlideshowResult {
+    public string Action { get; set; } = string.Empty;
+    public bool IsRunning { get; set; }
+    public string? Direction { get; set; }
+    public int? ImageCount { get; set; }
+}
+
+internal sealed class MouseStateResult {
+    public int X { get; set; }
+    public int Y { get; set; }
+    public bool IsLeftButtonDown { get; set; }
+    public bool IsRightButtonDown { get; set; }
+    public bool IsCursorVisible { get; set; }
+    public string CursorHandle { get; set; } = string.Empty;
+}
+
+internal sealed class FocusedControlObservationResult {
+    public string WindowHandle { get; set; } = string.Empty;
+    public string WindowTitle { get; set; } = string.Empty;
+    public string FocusedHandle { get; set; } = string.Empty;
+    public string ClassName { get; set; } = string.Empty;
+    public string AutomationId { get; set; } = string.Empty;
+    public string ControlType { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public bool? IsKeyboardFocusable { get; set; }
+    public bool? IsEnabled { get; set; }
+}
+
+internal sealed class WindowTextObservationResult {
+    public string WindowHandle { get; set; } = string.Empty;
+    public string WindowTitle { get; set; } = string.Empty;
+    public string ControlHandle { get; set; } = string.Empty;
+    public string ControlClassName { get; set; } = string.Empty;
+    public string ControlAutomationId { get; set; } = string.Empty;
+    public string ControlType { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public string Source { get; set; } = string.Empty;
+    public bool? ContainsExpected { get; set; }
+    public bool IsTruncated { get; set; }
+}
+
+internal sealed class WaitCompletionResult {
+    public int ElapsedMilliseconds { get; set; }
 }
 
 internal sealed class NamedStateResult {
@@ -340,6 +445,15 @@ internal sealed class ScreenshotResult {
     public string? MonitorDeviceName { get; set; }
     public WindowResult? Window { get; set; }
     public WindowGeometryResult? Geometry { get; set; }
+}
+
+internal sealed class ClipboardTextResult {
+    public bool HasText { get; set; }
+    public string? Text { get; set; }
+}
+
+internal sealed class ElevationStatusResult {
+    public bool IsElevated { get; set; }
 }
 
 internal sealed class DesktopScreenshotCommandOptions {

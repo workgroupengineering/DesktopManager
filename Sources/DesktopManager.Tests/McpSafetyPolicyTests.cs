@@ -133,6 +133,217 @@ public class McpSafetyPolicyTests {
         Assert.IsNull(decision.Message);
     }
 
+    [TestMethod]
+    /// <summary>
+    /// Ensures clipboard mutations are still blocked when the server is read-only.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_SetClipboardTextInReadOnlyMode_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: false,
+            allowForegroundInput: false,
+            dryRun: false);
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "set_clipboard_text",
+            CreateArguments(new {
+                text = "Hello from DesktopManager"
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "read-only mode");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures monitor brightness mutations are blocked when the server is read-only.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_SetMonitorBrightnessInReadOnlyMode_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: false,
+            allowForegroundInput: false,
+            dryRun: false);
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "set_monitor_brightness",
+            CreateArguments(new {
+                brightness = 60,
+                primaryOnly = true
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "read-only mode");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures monitor position mutations are blocked when the server is read-only.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_SetMonitorPositionInReadOnlyMode_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: false,
+            allowForegroundInput: false,
+            dryRun: false);
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "set_monitor_position",
+            CreateArguments(new {
+                left = 0,
+                top = 0,
+                right = 1920,
+                bottom = 1080,
+                primaryOnly = true
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "read-only mode");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures taskbar mutations are blocked when the server is read-only.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_SetTaskbarPositionInReadOnlyMode_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: false,
+            allowForegroundInput: false,
+            dryRun: false);
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "set_taskbar_position",
+            CreateArguments(new {
+                position = "bottom",
+                visible = true,
+                primaryOnly = true
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "read-only mode");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures desktop background color mutations are blocked when the server is read-only.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_SetDesktopBackgroundColorInReadOnlyMode_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: false,
+            allowForegroundInput: false,
+            dryRun: false);
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "set_desktop_background_color",
+            CreateArguments(new {
+                color = "0x102040"
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "read-only mode");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures monitor wallpaper mutations are blocked when the server is read-only.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_SetMonitorWallpaperInReadOnlyMode_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: false,
+            allowForegroundInput: false,
+            dryRun: false);
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "set_monitor_wallpaper",
+            CreateArguments(new {
+                wallpaperPath = @"C:\Wallpapers\Aurora.jpg",
+                primaryOnly = true
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "read-only mode");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures topmost window mutations are blocked when the server is read-only.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_SetWindowTopMostInReadOnlyMode_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: false,
+            allowForegroundInput: false,
+            dryRun: false);
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "set_window_topmost",
+            CreateArguments(new {
+                processName = "notepad",
+                topMost = true
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "read-only mode");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures close-window mutations are blocked when the server is read-only.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_CloseWindowsInReadOnlyMode_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: false,
+            allowForegroundInput: false,
+            dryRun: false);
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "close_windows",
+            CreateArguments(new {
+                processName = "notepad"
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "read-only mode");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures keep-alive mutations are blocked when the server is read-only.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_StartWindowKeepAliveInReadOnlyMode_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: false,
+            allowForegroundInput: false,
+            dryRun: false);
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "start_window_keep_alive",
+            CreateArguments(new {
+                processName = "notepad",
+                intervalMs = 30000
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "read-only mode");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures global keep-alive stop requests are blocked while process filters are active.
+    /// </summary>
+    public void McpSafetyPolicy_EvaluateToolCall_StopWindowKeepAliveAllSessionsWithProcessFilters_DeniesRequest() {
+        var policy = new DesktopManager.Cli.McpSafetyPolicy(
+            allowMutations: true,
+            allowForegroundInput: false,
+            dryRun: false,
+            allowedProcessPatterns: new[] { "notepad" });
+
+        DesktopManager.Cli.McpToolSafetyDecision decision = policy.EvaluateToolCall(
+            "stop_window_keep_alive",
+            CreateArguments(new {
+                allSessions = true
+            }));
+
+        Assert.AreEqual(DesktopManager.Cli.McpToolSafetyDecisionKind.Deny, decision.Kind);
+        StringAssert.Contains(decision.Message, "multiple applications");
+    }
+
     private static JsonElement CreateArguments(object value) {
         using JsonDocument document = JsonDocument.Parse(JsonSerializer.Serialize(value));
         return document.RootElement.Clone();

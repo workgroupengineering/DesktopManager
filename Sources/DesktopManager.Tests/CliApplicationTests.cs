@@ -61,6 +61,7 @@ public class CliApplicationTests {
     [DataTestMethod]
     [DataRow("window")]
     [DataRow("control")]
+    [DataRow("desktop")]
     [DataRow("monitor")]
     [DataRow("process")]
     [DataRow("screenshot")]
@@ -86,6 +87,7 @@ public class CliApplicationTests {
     [DataTestMethod]
     [DataRow("window")]
     [DataRow("control")]
+    [DataRow("desktop")]
     [DataRow("monitor")]
     [DataRow("process")]
     [DataRow("screenshot")]
@@ -188,6 +190,32 @@ public class CliApplicationTests {
 
     [TestMethod]
     /// <summary>
+    /// Ensures keep-alive start rejects non-positive interval values through the CLI entrypoint.
+    /// </summary>
+    public void Run_WindowKeepAliveStartWithZeroInterval_WritesPositiveIntervalError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("window", "keep-alive-start", "--process", "notepad", "--interval-ms", "0");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Option '--interval-ms' expects a value greater than 0.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures keep-alive stop rejects conflicting global-stop and selector options through the CLI entrypoint.
+    /// </summary>
+    public void Run_WindowKeepAliveStopWithAllSessionsAndSelector_WritesCombinationError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("window", "keep-alive-stop", "--all-sessions", "--process", "notepad");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Cannot combine '--all-sessions' with window selectors or '--all'.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
     /// Ensures malformed empty option names are reported through the CLI entrypoint.
     /// </summary>
     public void Run_WithMalformedEmptyOptionName_WritesParseError() {
@@ -235,6 +263,110 @@ public class CliApplicationTests {
         Assert.AreEqual(1, exitCode);
         Assert.AreEqual(string.Empty, standardOutput);
         StringAssert.Contains(standardError, "Error: Option '--position-tolerance-px' expects an integer value.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures monitor set-position reports missing required bounds through the CLI entrypoint.
+    /// </summary>
+    public void Run_MonitorSetPositionWithoutRight_WritesMissingRequiredOptionError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("monitor", "set-position", "--left", "0", "--top", "0", "--bottom", "1080");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Missing required option '--right'.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures monitor set-resolution reports invalid integer values through the CLI entrypoint.
+    /// </summary>
+    public void Run_MonitorSetResolutionWithInvalidWidth_WritesIntegerError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("monitor", "set-resolution", "--width", "wide", "--height", "1080");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Option '--width' expects an integer value.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures monitor set-taskbar rejects contradictory visibility flags through the CLI entrypoint.
+    /// </summary>
+    public void Run_MonitorSetTaskbarWithShowAndHide_WritesCombinationError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("monitor", "set-taskbar", "--show", "--hide");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Cannot combine '--show' with '--hide'.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures desktop set-background-color reports a missing color through the CLI entrypoint.
+    /// </summary>
+    public void Run_DesktopSetBackgroundColorWithoutColor_WritesMissingRequiredOptionError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("desktop", "set-background-color");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Option '--color' is required.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures desktop set-wallpaper-position rejects unsupported position values through the CLI entrypoint.
+    /// </summary>
+    public void Run_DesktopSetWallpaperPositionWithInvalidValue_WritesValidationError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("desktop", "set-wallpaper-position", "--position", "sideways");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Option '--position' expects one of: center, tile, stretch, fit, fill, span.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures monitor set-wallpaper requires a path or URL through the CLI entrypoint.
+    /// </summary>
+    public void Run_MonitorSetWallpaperWithoutSource_WritesValidationError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("monitor", "set-wallpaper", "--primary");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Either wallpaperPath or url must be provided.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window topmost rejects contradictory on and off flags through the CLI entrypoint.
+    /// </summary>
+    public void Run_WindowTopMostWithOnAndOff_WritesCombinationError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("window", "topmost", "--on", "--off");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Specify exactly one of '--on' or '--off'.");
+        StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
+    }
+
+    [TestMethod]
+    /// <summary>
+    /// Ensures window transparency validates alpha bounds through the CLI entrypoint.
+    /// </summary>
+    public void Run_WindowTransparencyWithOutOfRangeAlpha_WritesValidationError() {
+        (int exitCode, string standardOutput, string standardError) = RunCli("window", "transparency", "--alpha", "300");
+
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(string.Empty, standardOutput);
+        StringAssert.Contains(standardError, "Error: Option '--alpha' expects a value from 0 to 255.");
         StringAssert.Contains(standardError, "desktopmanager - Windows desktop automation CLI");
     }
 

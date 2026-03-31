@@ -24,11 +24,202 @@ internal static partial class DesktopOperations {
         });
     }
 
+    public static MouseStateResult GetMouseState() {
+        return ExecuteCore(() => MapMouseState(new DesktopAutomationService().GetMouseState()));
+    }
+
+    public static ClipboardTextResult GetClipboardText(int? retryCount = null, int? retryDelayMilliseconds = null) {
+        return ExecuteCore(() => {
+            string? text = new DesktopAutomationService().GetClipboardText(retryCount ?? 5, retryDelayMilliseconds ?? 50);
+            return new ClipboardTextResult {
+                HasText = text != null,
+                Text = text
+            };
+        });
+    }
+
+    public static ClipboardTextResult SetClipboardText(string text, int? retryCount = null, int? retryDelayMilliseconds = null) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            automation.SetClipboardText(text, retryCount ?? 5, retryDelayMilliseconds ?? 50);
+            return new ClipboardTextResult {
+                HasText = true,
+                Text = automation.GetClipboardText(retryCount ?? 5, retryDelayMilliseconds ?? 50)
+            };
+        });
+    }
+
+    public static ElevationStatusResult GetElevationStatus() {
+        return ExecuteCore(() => new ElevationStatusResult {
+            IsElevated = new DesktopAutomationService().IsElevated()
+        });
+    }
+
+    public static FocusedControlObservationResult? GetFocusedControl(WindowSelectionCriteria criteria) {
+        return ExecuteCore(() => {
+            DesktopFocusedControlObservation? observation = new DesktopAutomationService().GetFocusedControlObservation(CreateWindowQuery(criteria));
+            return observation == null ? null : MapFocusedControlObservation(observation);
+        });
+    }
+
+    public static FocusedControlObservationResult WaitForFocusedControl(WindowSelectionCriteria criteria, int timeoutMilliseconds, int intervalMilliseconds) {
+        return ExecuteCore(() => MapFocusedControlObservation(new DesktopAutomationService().WaitForFocusedControlObservation(
+            CreateWindowQuery(criteria),
+            timeoutMilliseconds,
+            intervalMilliseconds)));
+    }
+
+    public static WindowTextObservationResult? ObserveWindowText(WindowSelectionCriteria criteria, string? expectedText = null, int? maxLength = null, int? retryCount = null, int? retryDelayMilliseconds = null) {
+        return ExecuteCore(() => {
+            DesktopWindowTextObservation? observation = new DesktopAutomationService().ObserveWindowText(
+                CreateWindowQuery(criteria),
+                expectedText,
+                CreateTextObservationOptions(maxLength, retryCount, retryDelayMilliseconds));
+            return observation == null ? null : MapWindowTextObservation(observation);
+        });
+    }
+
+    public static WindowTextObservationResult WaitForObservedText(WindowSelectionCriteria criteria, string expectedText, int timeoutMilliseconds, int intervalMilliseconds, int? maxLength = null, int? retryCount = null, int? retryDelayMilliseconds = null) {
+        return ExecuteCore(() => MapWindowTextObservation(new DesktopAutomationService().WaitForObservedText(
+            CreateWindowQuery(criteria),
+            expectedText,
+            timeoutMilliseconds,
+            intervalMilliseconds,
+            CreateTextObservationOptions(maxLength, retryCount, retryDelayMilliseconds))));
+    }
+
+    public static WaitCompletionResult WaitForWindowToClose(WindowSelectionCriteria criteria, int timeoutMilliseconds, int intervalMilliseconds) {
+        return ExecuteCore(() => MapWaitCompletion(new DesktopAutomationService().WaitForWindowToClose(
+            CreateWindowQuery(criteria),
+            timeoutMilliseconds,
+            intervalMilliseconds,
+            criteria.All)));
+    }
+
+    public static WaitCompletionResult WaitForWindowToLoseFocus(WindowSelectionCriteria criteria, int timeoutMilliseconds, int intervalMilliseconds) {
+        return ExecuteCore(() => MapWaitCompletion(new DesktopAutomationService().WaitForWindowToLoseFocus(
+            CreateWindowQuery(criteria),
+            timeoutMilliseconds,
+            intervalMilliseconds,
+            criteria.All)));
+    }
+
+    public static ControlStateResult GetControlState(string windowHandle, string controlHandle) {
+        return ExecuteCore(() => {
+            DesktopControlState? state = new DesktopAutomationService().GetControlState(
+                DesktopHandleParser.Parse(windowHandle),
+                DesktopHandleParser.Parse(controlHandle));
+            if (state == null) {
+                throw new InvalidOperationException("The requested control could not be resolved.");
+            }
+
+            return MapControlState(state);
+        });
+    }
+
+    public static ControlStateResult FocusControl(string windowHandle, string controlHandle, bool ensureForegroundWindow) {
+        return ExecuteCore(() => MapControlState(new DesktopAutomationService().FocusControl(
+            DesktopHandleParser.Parse(windowHandle),
+            DesktopHandleParser.Parse(controlHandle),
+            ensureForegroundWindow)));
+    }
+
+    public static ControlStateResult SetControlEnabled(string windowHandle, string controlHandle, bool enabled) {
+        return ExecuteCore(() => MapControlState(new DesktopAutomationService().SetControlEnabled(
+            DesktopHandleParser.Parse(windowHandle),
+            DesktopHandleParser.Parse(controlHandle),
+            enabled)));
+    }
+
+    public static ControlStateResult SetControlVisibility(string windowHandle, string controlHandle, bool visible) {
+        return ExecuteCore(() => MapControlState(new DesktopAutomationService().SetControlVisibility(
+            DesktopHandleParser.Parse(windowHandle),
+            DesktopHandleParser.Parse(controlHandle),
+            visible)));
+    }
+
     public static IReadOnlyList<WindowGeometryResult> GetWindowGeometry(WindowSelectionCriteria criteria) {
         return ExecuteCore(() => new DesktopAutomationService()
             .GetWindowGeometry(CreateWindowQuery(criteria), criteria.All)
             .Select(MapWindowGeometry)
             .ToArray());
+    }
+
+    public static IReadOnlyList<WindowProcessInfoResult> GetWindowProcessInfo(WindowSelectionCriteria criteria, bool owner) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            IReadOnlyList<WindowInfo> windows = automation.GetWindows(CreateWindowQuery(criteria));
+            if (!criteria.All && windows.Count > 1) {
+                windows = new[] { windows[0] };
+            }
+
+            var results = new List<WindowProcessInfoResult>(windows.Count);
+            foreach (WindowInfo window in windows) {
+                WindowProcessInfo? info = owner
+                    ? automation.GetOwnerWindowProcessInfo(window)
+                    : automation.GetWindowProcessInfo(window);
+                if (info == null) {
+                    continue;
+                }
+
+                results.Add(MapWindowProcessInfo(window, info, owner));
+            }
+
+            return results.ToArray();
+        });
+    }
+
+    public static IReadOnlyList<WindowResult> ListWindowKeepAlive() {
+        return ExecuteCore(() => new DesktopAutomationService()
+            .GetWindowKeepAliveWindows()
+            .Select(MapWindow)
+            .ToArray());
+    }
+
+    public static WindowChangeResult StartWindowKeepAlive(WindowSelectionCriteria criteria, int intervalMilliseconds) {
+        if (intervalMilliseconds <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(intervalMilliseconds), "The keep-alive interval must be greater than zero.");
+        }
+
+        return ExecuteWindowMutation(
+            "keep-alive-start",
+            criteria,
+            "window-keep-alive",
+            artifactOptions: null,
+            automation => automation.StartWindowKeepAlive(
+                CreateWindowQuery(criteria),
+                TimeSpan.FromMilliseconds(intervalMilliseconds),
+                criteria.All));
+    }
+
+    public static WindowChangeResult StopWindowKeepAlive(WindowSelectionCriteria criteria) {
+        return ExecuteWindowMutation(
+            "keep-alive-stop",
+            criteria,
+            "window-keep-alive",
+            artifactOptions: null,
+            automation => automation.StopWindowKeepAlive(CreateWindowQuery(criteria), criteria.All));
+    }
+
+    public static WindowChangeResult StopAllWindowKeepAlive() {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            IReadOnlyList<WindowInfo> windows = automation.GetWindowKeepAliveWindows();
+            automation.StopAllWindowKeepAlive();
+            stopwatch.Stop();
+            return BuildWindowChangeResult(
+                "keep-alive-stop",
+                windows,
+                (int)stopwatch.ElapsedMilliseconds,
+                "window-keep-alive",
+                targetName: null,
+                targetKind: null,
+                beforeScreenshots: Array.Empty<ScreenshotResult>(),
+                afterScreenshots: Array.Empty<ScreenshotResult>(),
+                artifactWarnings: Array.Empty<string>(),
+                verification: null);
+        });
     }
 
     public static WindowChangeResult MoveWindow(WindowSelectionCriteria criteria, int? monitorIndex, int? x, int? y, int? width, int? height, bool activate, MutationArtifactOptions? artifactOptions = null) {
@@ -147,6 +338,137 @@ internal static partial class DesktopOperations {
                 options.VerificationTolerancePixels));
     }
 
+    public static WindowChangeResult MaximizeWindows(WindowSelectionCriteria criteria, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
+            "maximize",
+            criteria,
+            "window-management",
+            artifactOptions,
+            automation => {
+                IReadOnlyList<WindowInfo> windows = ResolveWindowsForMutation(automation, criteria);
+                foreach (WindowInfo window in windows) {
+                    automation.MaximizeWindow(window.Handle);
+                }
+
+                return windows;
+            },
+            verify: (automation, windows, options) => BuildWindowStateVerificationResult(
+                "maximize",
+                windows.Select(MapWindow).ToArray(),
+                ObserveWindowsByHandle(automation, windows).Select(MapWindow).ToArray(),
+                SafeGetActiveWindowInfo(automation) == null ? null : MapWindow(SafeGetActiveWindowInfo(automation)!),
+                options.VerificationTolerancePixels,
+                "Maximize"));
+    }
+
+    public static WindowChangeResult RestoreWindows(WindowSelectionCriteria criteria, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
+            "restore",
+            criteria,
+            "window-management",
+            artifactOptions,
+            automation => {
+                IReadOnlyList<WindowInfo> windows = ResolveWindowsForMutation(automation, criteria);
+                foreach (WindowInfo window in windows) {
+                    automation.RestoreWindow(window.Handle);
+                }
+
+                return windows;
+            },
+            verify: (automation, windows, options) => BuildWindowStateVerificationResult(
+                "restore",
+                windows.Select(MapWindow).ToArray(),
+                ObserveWindowsByHandle(automation, windows).Select(MapWindow).ToArray(),
+                SafeGetActiveWindowInfo(automation) == null ? null : MapWindow(SafeGetActiveWindowInfo(automation)!),
+                options.VerificationTolerancePixels,
+                "Normal"));
+    }
+
+    public static WindowChangeResult CloseWindows(WindowSelectionCriteria criteria, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
+            "close",
+            criteria,
+            "window-management",
+            artifactOptions,
+            automation => {
+                IReadOnlyList<WindowInfo> windows = ResolveWindowsForMutation(automation, criteria);
+                foreach (WindowInfo window in windows) {
+                    automation.CloseWindow(window.Handle);
+                }
+
+                return windows;
+            },
+            verify: (automation, windows, options) => BuildWindowClosedVerificationResult(
+                "close",
+                windows.Select(MapWindow).ToArray(),
+                ObserveWindowsByHandle(automation, windows).Select(MapWindow).ToArray(),
+                options.VerificationTolerancePixels));
+    }
+
+    public static WindowChangeResult SetWindowTopMost(WindowSelectionCriteria criteria, bool topMost, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
+            topMost ? "set-topmost" : "clear-topmost",
+            criteria,
+            "window-management",
+            artifactOptions,
+            automation => {
+                IReadOnlyList<WindowInfo> windows = ResolveWindowsForMutation(automation, criteria);
+                foreach (WindowInfo window in windows) {
+                    automation.SetWindowTopMost(window.Handle, topMost);
+                }
+
+                return windows;
+            },
+            verify: (automation, windows, options) => BuildWindowBooleanVerificationResult(
+                topMost ? "set-topmost" : "clear-topmost",
+                windows.Select(MapWindow).ToArray(),
+                ObserveWindowsByHandle(automation, windows).Select(MapWindow).ToArray(),
+                options.VerificationTolerancePixels,
+                "topmost",
+                window => window.IsTopMost,
+                topMost));
+    }
+
+    public static WindowChangeResult SetWindowVisibility(WindowSelectionCriteria criteria, bool visible, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
+            visible ? "show-window" : "hide-window",
+            criteria,
+            "window-management",
+            artifactOptions,
+            automation => {
+                IReadOnlyList<WindowInfo> windows = ResolveWindowsForMutation(automation, criteria);
+                foreach (WindowInfo window in windows) {
+                    automation.SetWindowVisibility(window.Handle, visible);
+                }
+
+                return windows;
+            },
+            verify: (automation, windows, options) => BuildWindowBooleanVerificationResult(
+                visible ? "show-window" : "hide-window",
+                windows.Select(MapWindow).ToArray(),
+                ObserveWindowsByHandle(automation, windows).Select(MapWindow).ToArray(),
+                options.VerificationTolerancePixels,
+                "visible",
+                window => window.IsVisible,
+                visible));
+    }
+
+    public static WindowChangeResult SetWindowTransparency(WindowSelectionCriteria criteria, byte alpha, MutationArtifactOptions? artifactOptions = null) {
+        return ExecuteWindowMutation(
+            "set-transparency",
+            criteria,
+            "window-management",
+            artifactOptions,
+            automation => {
+                IReadOnlyList<WindowInfo> windows = ResolveWindowsForMutation(automation, criteria);
+                foreach (WindowInfo window in windows) {
+                    automation.SetWindowTransparency(window.Handle, alpha);
+                }
+
+                return windows;
+            });
+    }
+
     public static WindowChangeResult SnapWindow(WindowSelectionCriteria criteria, string position, MutationArtifactOptions? artifactOptions = null) {
         if (!TryParseSnapPosition(position, out SnapPosition snapPosition)) {
             throw new CommandLineException($"Unsupported snap position '{position}'.");
@@ -234,8 +556,8 @@ internal static partial class DesktopOperations {
             automation => automation.SendWindowKeys(CreateWindowQuery(criteria), virtualKeys, activate, criteria.All));
     }
 
-    public static IReadOnlyList<MonitorResult> ListMonitors(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null) {
-        return ExecuteCore(() => new DesktopAutomationService().GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index)
+    public static IReadOnlyList<MonitorResult> ListMonitors(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+        return ExecuteCore(() => new DesktopAutomationService().GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName)
             .Select(monitor => new MonitorResult {
                 Index = monitor.Index,
                 DeviceName = monitor.DeviceName,
@@ -251,6 +573,210 @@ internal static partial class DesktopOperations {
                 SerialNumber = monitor.SerialNumber
             })
             .ToArray());
+    }
+
+    public static IReadOnlyList<MonitorBrightnessResult> GetMonitorBrightness(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            return automation.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName)
+                .Select(monitor => new MonitorBrightnessResult {
+                    Index = monitor.Index,
+                    DeviceName = monitor.DeviceName,
+                    DeviceId = monitor.DeviceId,
+                    IsPrimary = monitor.IsPrimary,
+                    Brightness = automation.GetMonitorBrightness(monitor.DeviceId)
+                })
+                .ToArray();
+        });
+    }
+
+    public static IReadOnlyList<MonitorWallpaperResult> GetMonitorWallpaper(bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            return automation.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName)
+                .Select(monitor => new MonitorWallpaperResult {
+                    Index = monitor.Index,
+                    DeviceName = monitor.DeviceName,
+                    DeviceId = monitor.DeviceId,
+                    IsPrimary = monitor.IsPrimary,
+                    Wallpaper = automation.GetMonitorWallpaper(monitor.DeviceId)
+                })
+                .ToArray();
+        });
+    }
+
+    public static IReadOnlyList<MonitorWallpaperResult> SetMonitorWallpaper(string? wallpaperPath, string? url, DesktopWallpaperPosition? wallpaperPosition = null, bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+        if (string.IsNullOrWhiteSpace(wallpaperPath) && string.IsNullOrWhiteSpace(url)) {
+            throw new CommandLineException("Either wallpaperPath or url must be provided.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(wallpaperPath) && !string.IsNullOrWhiteSpace(url)) {
+            throw new CommandLineException("Specify only one of wallpaperPath or url.");
+        }
+
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            IReadOnlyList<Monitor> monitors = automation.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName);
+            foreach (Monitor monitor in monitors) {
+                if (!string.IsNullOrWhiteSpace(wallpaperPath)) {
+                    automation.SetMonitorWallpaper(monitor.DeviceId, wallpaperPath);
+                } else {
+                    automation.SetMonitorWallpaperFromUrl(monitor.DeviceId, url!);
+                }
+            }
+
+            if (wallpaperPosition.HasValue) {
+                automation.SetDesktopWallpaperPosition(wallpaperPosition.Value);
+            }
+
+            return monitors.Select(monitor => new MonitorWallpaperResult {
+                Index = monitor.Index,
+                DeviceName = monitor.DeviceName,
+                DeviceId = monitor.DeviceId,
+                IsPrimary = monitor.IsPrimary,
+                Wallpaper = automation.GetMonitorWallpaper(monitor.DeviceId)
+            }).ToArray();
+        });
+    }
+
+    public static IReadOnlyList<MonitorBrightnessResult> SetMonitorBrightness(int brightness, bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            IReadOnlyList<Monitor> monitors = automation.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName);
+            foreach (Monitor monitor in monitors) {
+                automation.SetMonitorBrightness(monitor.DeviceId, brightness);
+            }
+
+            return monitors.Select(monitor => new MonitorBrightnessResult {
+                Index = monitor.Index,
+                DeviceName = monitor.DeviceName,
+                DeviceId = monitor.DeviceId,
+                IsPrimary = monitor.IsPrimary,
+                Brightness = automation.GetMonitorBrightness(monitor.DeviceId)
+            }).ToArray();
+        });
+    }
+
+    public static DesktopColorResult GetDesktopBackgroundColor() {
+        return ExecuteCore(() => MapDesktopColor(new DesktopAutomationService().GetDesktopBackgroundColor()));
+    }
+
+    public static DesktopColorResult SetDesktopBackgroundColor(uint color) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            automation.SetDesktopBackgroundColor(color);
+            return MapDesktopColor(automation.GetDesktopBackgroundColor());
+        });
+    }
+
+    public static DesktopWallpaperPositionResult GetDesktopWallpaperPosition() {
+        return ExecuteCore(() => MapDesktopWallpaperPosition(new DesktopAutomationService().GetDesktopWallpaperPosition()));
+    }
+
+    public static DesktopWallpaperPositionResult SetDesktopWallpaperPosition(DesktopWallpaperPosition position) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            automation.SetDesktopWallpaperPosition(position);
+            return MapDesktopWallpaperPosition(automation.GetDesktopWallpaperPosition());
+        });
+    }
+
+    public static DesktopSlideshowResult StartDesktopSlideshow(IReadOnlyList<string> imagePaths) {
+        if (imagePaths == null || imagePaths.Count == 0) {
+            throw new CommandLineException("At least one slideshow image path is required.");
+        }
+
+        return ExecuteCore(() => {
+            new DesktopAutomationService().StartDesktopSlideshow(imagePaths);
+            return new DesktopSlideshowResult {
+                Action = "start-desktop-slideshow",
+                IsRunning = true,
+                ImageCount = imagePaths.Count
+            };
+        });
+    }
+
+    public static DesktopSlideshowResult StopDesktopSlideshow() {
+        return ExecuteCore(() => {
+            new DesktopAutomationService().StopDesktopSlideshow();
+            return new DesktopSlideshowResult {
+                Action = "stop-desktop-slideshow",
+                IsRunning = false
+            };
+        });
+    }
+
+    public static DesktopSlideshowResult AdvanceDesktopSlideshow(DesktopSlideshowDirection direction) {
+        return ExecuteCore(() => {
+            new DesktopAutomationService().AdvanceDesktopSlideshow(direction);
+            return new DesktopSlideshowResult {
+                Action = "advance-desktop-slideshow",
+                IsRunning = true,
+                Direction = direction.ToString()
+            };
+        });
+    }
+
+    public static IReadOnlyList<MonitorResult> SetMonitorPosition(int left, int top, int right, int bottom, bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            IReadOnlyList<Monitor> monitors = automation.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName, refresh: true);
+            MonitorPosition position = new(left, top, right, bottom);
+            foreach (Monitor monitor in monitors) {
+                automation.SetMonitorPosition(monitor.DeviceId, position);
+            }
+
+            return ListMonitors(connectedOnly, primaryOnly, index, deviceId, deviceName);
+        });
+    }
+
+    public static IReadOnlyList<MonitorResult> SetMonitorResolution(int width, int height, DisplayOrientation? orientation = null, bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            IReadOnlyList<Monitor> monitors = automation.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName, refresh: true);
+            foreach (Monitor monitor in monitors) {
+                automation.SetMonitorResolution(monitor.DeviceId, width, height);
+                if (orientation.HasValue) {
+                    automation.SetMonitorOrientation(monitor.DeviceId, orientation.Value);
+                }
+            }
+
+            return ListMonitors(connectedOnly, primaryOnly, index, deviceId, deviceName);
+        });
+    }
+
+    public static IReadOnlyList<MonitorResult> SetMonitorDpiScaling(int scalingPercent, bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            IReadOnlyList<Monitor> monitors = automation.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName, refresh: true);
+            foreach (Monitor monitor in monitors) {
+                automation.SetMonitorDpiScaling(monitor.DeviceId, scalingPercent);
+            }
+
+            return ListMonitors(connectedOnly, primaryOnly, index, deviceId, deviceName);
+        });
+    }
+
+    public static IReadOnlyList<MonitorResult> SetTaskbarPosition(TaskbarPosition? position, bool? visible = null, bool? connectedOnly = null, bool? primaryOnly = null, int? index = null, string? deviceId = null, string? deviceName = null) {
+        if (!position.HasValue && !visible.HasValue) {
+            throw new CommandLineException("At least one of position or visible must be provided.");
+        }
+
+        return ExecuteCore(() => {
+            var automation = new DesktopAutomationService();
+            IReadOnlyList<Monitor> monitors = automation.GetMonitors(connectedOnly: connectedOnly, primaryOnly: primaryOnly, index: index, deviceId: deviceId, deviceName: deviceName, refresh: true);
+            foreach (Monitor monitor in monitors) {
+                if (position.HasValue) {
+                    automation.SetTaskbarPosition(monitor.Index, position.Value);
+                }
+
+                if (visible.HasValue) {
+                    automation.SetTaskbarVisibility(monitor.Index, visible.Value);
+                }
+            }
+
+            return ListMonitors(connectedOnly, primaryOnly, index, deviceId, deviceName);
+        });
     }
 
     public static IReadOnlyList<ControlResult> ListControls(WindowSelectionCriteria windowCriteria, ControlSelectionCriteria controlCriteria, bool allWindows) {
@@ -754,6 +1280,31 @@ internal static partial class DesktopOperations {
         };
     }
 
+    private static WindowMutationVerificationResult BuildWindowClosedVerificationResult(string action, IReadOnlyList<WindowResult> expected, IReadOnlyList<WindowResult> observed, int tolerancePixels) {
+        int observedMatches = CountObservedHandles(expected, observed);
+        bool verified = observedMatches == 0;
+
+        return new WindowMutationVerificationResult {
+            Verified = verified,
+            Mode = "closed",
+            Summary = verified
+                ? $"Observed all requested window(s) closed after '{action}'."
+                : $"Observed {observedMatches} requested window(s) still present after '{action}'.",
+            ExpectedCount = expected.Count,
+            ObservedCount = observed.Count,
+            MatchedCount = Math.Max(0, expected.Count - observedMatches),
+            MismatchCount = observedMatches,
+            TolerancePixels = tolerancePixels,
+            Notes = verified
+                ? Array.Empty<string>()
+                : observed
+                    .Where(window => expected.Any(expectedWindow => string.Equals(expectedWindow.Handle, window.Handle, StringComparison.OrdinalIgnoreCase)))
+                    .Select(window => $"Window {window.Handle} remained observable after '{action}'.")
+                    .ToArray(),
+            ObservedWindows = observed
+        };
+    }
+
     internal static WindowMutationVerificationResult BuildWindowPostconditionVerificationResult(string action, IReadOnlyList<WindowInfo> expectedWindows, IReadOnlyList<WindowInfo> observedWindows, WindowInfo? activeWindow, int tolerancePixels, int? monitorIndex = null, int? x = null, int? y = null, int? width = null, int? height = null, bool requireForegroundMatch = false) {
         WindowResult[] expected = expectedWindows.Select(MapWindow).ToArray();
         WindowResult[] observed = observedWindows.Select(MapWindow).ToArray();
@@ -899,6 +1450,40 @@ internal static partial class DesktopOperations {
         };
     }
 
+    private static WindowMutationVerificationResult BuildWindowBooleanVerificationResult(string action, IReadOnlyList<WindowResult> expected, IReadOnlyList<WindowResult> observed, int tolerancePixels, string propertyName, Func<WindowResult, bool> selector, bool expectedValue) {
+        var observedByHandle = observed.ToDictionary(window => window.Handle, StringComparer.OrdinalIgnoreCase);
+        var notes = new List<string>();
+        int matchedCount = 0;
+        foreach (WindowResult expectedWindow in expected) {
+            if (!observedByHandle.TryGetValue(expectedWindow.Handle, out WindowResult? observedWindow)) {
+                notes.Add($"Window {expectedWindow.Handle} is no longer observable after '{action}'.");
+                continue;
+            }
+
+            if (selector(observedWindow) == expectedValue) {
+                matchedCount++;
+            } else {
+                notes.Add($"Window {observedWindow.Handle} reported {propertyName}={selector(observedWindow)} instead of {expectedValue}.");
+            }
+        }
+
+        bool verified = matchedCount == expected.Count;
+        return new WindowMutationVerificationResult {
+            Verified = verified,
+            Mode = propertyName,
+            Summary = verified
+                ? $"Observed {matchedCount} of {expected.Count} mutated window(s) with {propertyName}={expectedValue}."
+                : $"Only {matchedCount} of {expected.Count} mutated window(s) reported {propertyName}={expectedValue}.",
+            ExpectedCount = expected.Count,
+            ObservedCount = observed.Count,
+            MatchedCount = matchedCount,
+            MismatchCount = Math.Max(0, expected.Count - matchedCount),
+            TolerancePixels = tolerancePixels,
+            Notes = notes,
+            ObservedWindows = observed
+        };
+    }
+
     private static int CountObservedHandles(IReadOnlyList<WindowResult> expected, IReadOnlyList<WindowResult> observed) {
         var observedHandles = new HashSet<string>(observed.Select(window => window.Handle), StringComparer.OrdinalIgnoreCase);
         return expected.Count(window => observedHandles.Contains(window.Handle));
@@ -939,6 +1524,103 @@ internal static partial class DesktopOperations {
             Height = window.Height,
             MonitorIndex = window.MonitorIndex,
             MonitorDeviceName = window.MonitorDeviceName
+        };
+    }
+
+    internal static WindowProcessInfoResult MapWindowProcessInfo(WindowInfo window, WindowProcessInfo info, bool owner) {
+        return new WindowProcessInfoResult {
+            Window = MapWindow(window),
+            IsOwnerProcess = owner,
+            ProcessId = info.ProcessId,
+            ThreadId = info.ThreadId,
+            ProcessName = info.ProcessName,
+            ProcessPath = info.ProcessPath,
+            IsElevated = info.IsElevated,
+            IsWow64 = info.IsWow64
+        };
+    }
+
+    private static MouseStateResult MapMouseState(DesktopMouseState state) {
+        return new MouseStateResult {
+            X = state.X,
+            Y = state.Y,
+            IsLeftButtonDown = state.IsLeftButtonDown,
+            IsRightButtonDown = state.IsRightButtonDown,
+            IsCursorVisible = state.IsCursorVisible,
+            CursorHandle = state.CursorHandle == IntPtr.Zero ? string.Empty : $"0x{state.CursorHandle.ToInt64():X}"
+        };
+    }
+
+    private static FocusedControlObservationResult MapFocusedControlObservation(DesktopFocusedControlObservation observation) {
+        return new FocusedControlObservationResult {
+            WindowHandle = $"0x{observation.WindowHandle.ToInt64():X}",
+            WindowTitle = observation.WindowTitle,
+            FocusedHandle = $"0x{observation.FocusedHandle.ToInt64():X}",
+            ClassName = observation.ClassName,
+            AutomationId = observation.AutomationId,
+            ControlType = observation.ControlType,
+            Text = observation.Text,
+            Value = observation.Value,
+            IsKeyboardFocusable = observation.IsKeyboardFocusable,
+            IsEnabled = observation.IsEnabled
+        };
+    }
+
+    private static WindowTextObservationResult MapWindowTextObservation(DesktopWindowTextObservation observation) {
+        return new WindowTextObservationResult {
+            WindowHandle = $"0x{observation.WindowHandle.ToInt64():X}",
+            WindowTitle = observation.WindowTitle,
+            ControlHandle = observation.ControlHandle == IntPtr.Zero ? string.Empty : $"0x{observation.ControlHandle.ToInt64():X}",
+            ControlClassName = observation.ControlClassName,
+            ControlAutomationId = observation.ControlAutomationId,
+            ControlType = observation.ControlType,
+            Value = observation.Value,
+            Source = observation.Source,
+            ContainsExpected = observation.ContainsExpected,
+            IsTruncated = observation.IsTruncated
+        };
+    }
+
+    private static WaitCompletionResult MapWaitCompletion(DesktopWaitResult result) {
+        return new WaitCompletionResult {
+            ElapsedMilliseconds = result.ElapsedMilliseconds
+        };
+    }
+
+    private static ControlStateResult MapControlState(DesktopControlState state) {
+        return new ControlStateResult {
+            WindowHandle = state.WindowHandle == IntPtr.Zero ? string.Empty : $"0x{state.WindowHandle.ToInt64():X}",
+            ControlHandle = state.ControlHandle == IntPtr.Zero ? string.Empty : $"0x{state.ControlHandle.ToInt64():X}",
+            ClassName = state.ClassName,
+            AutomationId = state.AutomationId,
+            ControlType = state.ControlType,
+            Text = state.Text,
+            Value = state.Value,
+            IsEnabled = state.IsEnabled,
+            IsVisible = state.IsVisible,
+            IsFocused = state.IsFocused,
+            IsKeyboardFocusable = state.IsKeyboardFocusable,
+            IsOffscreen = state.IsOffscreen,
+            SupportsBackgroundClick = state.SupportsBackgroundClick,
+            SupportsBackgroundText = state.SupportsBackgroundText,
+            SupportsBackgroundKeys = state.SupportsBackgroundKeys,
+            SupportsForegroundInputFallback = state.SupportsForegroundInputFallback,
+            Left = state.Left,
+            Top = state.Top,
+            Width = state.Width,
+            Height = state.Height
+        };
+    }
+
+    private static DesktopTextObservationOptions? CreateTextObservationOptions(int? maxLength, int? retryCount, int? retryDelayMilliseconds) {
+        if (!maxLength.HasValue && !retryCount.HasValue && !retryDelayMilliseconds.HasValue) {
+            return null;
+        }
+
+        return new DesktopTextObservationOptions {
+            MaxObservedTextLength = maxLength ?? 2048,
+            RetryCount = retryCount ?? 5,
+            RetryDelayMilliseconds = retryDelayMilliseconds ?? 50
         };
     }
 
@@ -1244,6 +1926,19 @@ internal static partial class DesktopOperations {
             AllowForegroundInputFallback = criteria.AllowForegroundInputFallback,
             UseUiAutomation = criteria.UiAutomation,
             IncludeUiAutomation = criteria.IncludeUiAutomation
+        };
+    }
+
+    private static DesktopColorResult MapDesktopColor(uint color) {
+        return new DesktopColorResult {
+            Value = color,
+            HexValue = "0x" + color.ToString("X6")
+        };
+    }
+
+    private static DesktopWallpaperPositionResult MapDesktopWallpaperPosition(DesktopWallpaperPosition position) {
+        return new DesktopWallpaperPositionResult {
+            Position = position.ToString()
         };
     }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace DesktopManager.Cli;
@@ -7,17 +8,39 @@ namespace DesktopManager.Cli;
 internal static class McpCatalog {
     private static readonly HashSet<string> KnownToolNames = new(StringComparer.Ordinal) {
         "get_active_window",
+        "get_mouse_state",
+        "get_clipboard_text",
+        "get_elevation_status",
+        "get_desktop_background_color",
+        "set_desktop_background_color",
+        "get_desktop_wallpaper_position",
+        "set_desktop_wallpaper_position",
+        "start_desktop_slideshow",
+        "stop_desktop_slideshow",
+        "advance_desktop_slideshow",
         "list_windows",
         "get_window_geometry",
+        "get_window_process_info",
+        "get_owner_window_process_info",
         "window_exists",
         "active_window_matches",
         "wait_for_window",
+        "wait_for_window_close",
+        "wait_for_window_to_lose_focus",
+        "observe_window_text",
+        "wait_for_observed_text",
+        "get_focused_control",
+        "wait_for_focused_control",
+        "get_control_state",
         "list_window_controls",
         "diagnose_window_controls",
         "control_exists",
         "assert_control_value",
         "wait_for_control",
         "click_control",
+        "focus_control",
+        "set_control_enabled",
+        "set_control_visibility",
         "set_control_text",
         "send_control_keys",
         "move_window",
@@ -27,13 +50,31 @@ internal static class McpCatalog {
         "type_window_text",
         "send_window_keys",
         "focus_window",
+        "list_window_keep_alive",
+        "start_window_keep_alive",
+        "stop_window_keep_alive",
         "minimize_windows",
+        "maximize_windows",
+        "restore_windows",
+        "close_windows",
+        "set_window_topmost",
+        "set_window_visibility",
+        "set_window_transparency",
         "snap_window",
         "list_monitors",
+        "get_monitor_brightness",
+        "get_monitor_wallpaper",
+        "set_monitor_wallpaper",
+        "set_monitor_brightness",
+        "set_monitor_position",
+        "set_monitor_resolution",
+        "set_monitor_dpi_scaling",
+        "set_taskbar_position",
         "screenshot_desktop",
         "screenshot_window",
         "launch_process",
         "launch_and_wait_for_window",
+        "set_clipboard_text",
         "list_named_targets",
         "get_named_target",
         "save_window_target",
@@ -55,7 +96,16 @@ internal static class McpCatalog {
     };
 
     private static readonly HashSet<string> MutatingToolNames = new(StringComparer.Ordinal) {
+        "set_clipboard_text",
+        "set_desktop_background_color",
+        "set_desktop_wallpaper_position",
+        "start_desktop_slideshow",
+        "stop_desktop_slideshow",
+        "advance_desktop_slideshow",
         "click_control",
+        "focus_control",
+        "set_control_enabled",
+        "set_control_visibility",
         "set_control_text",
         "send_control_keys",
         "move_window",
@@ -65,8 +115,22 @@ internal static class McpCatalog {
         "type_window_text",
         "send_window_keys",
         "focus_window",
+        "start_window_keep_alive",
+        "stop_window_keep_alive",
         "minimize_windows",
+        "maximize_windows",
+        "restore_windows",
+        "close_windows",
+        "set_window_topmost",
+        "set_window_visibility",
+        "set_window_transparency",
         "snap_window",
+        "set_monitor_brightness",
+        "set_monitor_wallpaper",
+        "set_monitor_position",
+        "set_monitor_resolution",
+        "set_monitor_dpi_scaling",
+        "set_taskbar_position",
         "launch_process",
         "launch_and_wait_for_window",
         "save_window_target",
@@ -82,6 +146,9 @@ internal static class McpCatalog {
 
     private static readonly HashSet<string> LiveDesktopMutationToolNames = new(StringComparer.Ordinal) {
         "click_control",
+        "focus_control",
+        "set_control_enabled",
+        "set_control_visibility",
         "set_control_text",
         "send_control_keys",
         "move_window",
@@ -91,7 +158,15 @@ internal static class McpCatalog {
         "type_window_text",
         "send_window_keys",
         "focus_window",
+        "start_window_keep_alive",
+        "stop_window_keep_alive",
         "minimize_windows",
+        "maximize_windows",
+        "restore_windows",
+        "close_windows",
+        "set_window_topmost",
+        "set_window_visibility",
+        "set_window_transparency",
         "snap_window",
         "launch_process",
         "launch_and_wait_for_window",
@@ -148,7 +223,14 @@ internal static class McpCatalog {
             case "type_window_text":
             case "send_window_keys":
             case "focus_window":
+            case "start_window_keep_alive":
             case "minimize_windows":
+            case "maximize_windows":
+            case "restore_windows":
+            case "close_windows":
+            case "set_window_topmost":
+            case "set_window_visibility":
+            case "set_window_transparency":
             case "snap_window":
                 string? processName = ReadOptionalString(arguments, "processName");
                 if (!string.IsNullOrWhiteSpace(processName) && !string.Equals(processName.Trim(), "*", StringComparison.Ordinal)) {
@@ -158,6 +240,24 @@ internal static class McpCatalog {
 
                 error = "Process-scoped MCP safety filters require an explicit 'processName' selector for this tool.";
                 return false;
+            case "stop_window_keep_alive":
+                if (ReadBool(arguments, "allSessions")) {
+                    error = "This tool can affect multiple applications and is blocked while MCP process allow/deny filters are active.";
+                    return false;
+                }
+
+                string? keepAliveProcessName = ReadOptionalString(arguments, "processName");
+                if (!string.IsNullOrWhiteSpace(keepAliveProcessName) && !string.Equals(keepAliveProcessName.Trim(), "*", StringComparison.Ordinal)) {
+                    processPatterns = new[] { keepAliveProcessName.Trim() };
+                    return true;
+                }
+
+                error = "Process-scoped MCP safety filters require an explicit 'processName' selector for this tool.";
+                return false;
+            case "focus_control":
+            case "set_control_enabled":
+            case "set_control_visibility":
+                return TryResolveProcessPatternsFromWindowHandle(arguments, "windowHandle", out processPatterns, out error);
             case "apply_named_layout":
             case "restore_saved_snapshot":
             case "prepare_for_coding":
@@ -170,11 +270,71 @@ internal static class McpCatalog {
         }
     }
 
+    private static bool TryResolveProcessPatternsFromWindowHandle(JsonElement arguments, string propertyName, out string[] processPatterns, out string? error) {
+        processPatterns = Array.Empty<string>();
+        error = null;
+
+        string? handleValue = ReadOptionalString(arguments, propertyName);
+        if (string.IsNullOrWhiteSpace(handleValue)) {
+            error = $"Process-scoped MCP safety filters require a non-empty '{propertyName}' handle for this tool.";
+            return false;
+        }
+
+        try {
+            IntPtr handle = DesktopHandleParser.Parse(handleValue);
+            WindowInfo? window = new DesktopAutomationService().GetWindow(handle, includeHidden: true, includeCloaked: true, includeOwned: true, includeEmptyTitles: true);
+            if (window == null || window.ProcessId == 0) {
+                error = "The target window could not be resolved to a running process.";
+                return false;
+            }
+
+            using Process process = Process.GetProcessById((int)window.ProcessId);
+            if (string.IsNullOrWhiteSpace(process.ProcessName)) {
+                error = "The target window process name could not be resolved.";
+                return false;
+            }
+
+            processPatterns = new[] { process.ProcessName };
+            return true;
+        } catch (Exception ex) {
+            error = $"The target window process could not be resolved: {ex.Message}";
+            return false;
+        }
+    }
+
     public static object[] GetTools() {
         return new object[] {
             CreateTool("get_active_window", "Get Active Window", "Return information about the currently focused window.", CreateObjectSchema(), readOnly: true),
+            CreateTool("get_mouse_state", "Get Mouse State", "Return the current desktop mouse position, button state, and cursor visibility.", CreateObjectSchema(), readOnly: true),
+            CreateTool("get_clipboard_text", "Get Clipboard Text", "Return the current Unicode clipboard text when available.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["retryCount"] = CreateIntegerSchema("Number of attempts to open the clipboard."),
+                    ["retryDelayMs"] = CreateIntegerSchema("Delay between clipboard retry attempts in milliseconds.")
+                }), readOnly: true),
+            CreateTool("get_elevation_status", "Get Elevation Status", "Return whether the current DesktopManager host process is elevated.", CreateObjectSchema(), readOnly: true),
+            CreateTool("get_desktop_background_color", "Get Desktop Background Color", "Return the current desktop background color.", CreateObjectSchema(), readOnly: true),
+            CreateTool("set_desktop_background_color", "Set Desktop Background Color", "Set the desktop background color.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["color"] = CreateStringSchema("RGB color value as decimal, 0xRRGGBB, or #RRGGBB.")
+                }, new[] { "color" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("get_desktop_wallpaper_position", "Get Desktop Wallpaper Position", "Return the current desktop wallpaper position.", CreateObjectSchema(), readOnly: true),
+            CreateTool("set_desktop_wallpaper_position", "Set Desktop Wallpaper Position", "Set the desktop wallpaper position.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["position"] = CreateStringSchema("Wallpaper position: center, tile, stretch, fit, fill, or span.")
+                }, new[] { "position" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("start_desktop_slideshow", "Start Desktop Slideshow", "Start a desktop wallpaper slideshow.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["imagePaths"] = CreateArraySchema("Wallpaper image paths for the slideshow.", CreateStringSchema("Image path."))
+                }, new[] { "imagePaths" }), readOnly: false, destructive: false, idempotent: false),
+            CreateTool("stop_desktop_slideshow", "Stop Desktop Slideshow", "Stop the active desktop wallpaper slideshow.", CreateObjectSchema(), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("advance_desktop_slideshow", "Advance Desktop Slideshow", "Advance the desktop wallpaper slideshow.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["direction"] = CreateStringSchema("Advance direction: forward or backward.")
+                }, new[] { "direction" }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("list_windows", "List Windows", "List visible desktop windows with optional filtering.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
             CreateTool("get_window_geometry", "Get Window Geometry", "Return outer-window and client-area geometry for matching windows.", CreateWindowSelectorSchema(includeAll: true, includeEmpty: true), readOnly: true),
+            CreateTool("get_window_process_info", "Get Window Process Info", "Return process metadata for one or more matching windows.", CreateWindowSelectorSchema(includeAll: true, includeEmpty: true), readOnly: true),
+            CreateTool("get_owner_window_process_info", "Get Owner Window Process Info", "Return owner-window process metadata for one or more matching windows when available.", CreateWindowSelectorSchema(includeAll: true, includeEmpty: true), readOnly: true),
             CreateTool("window_exists", "Window Exists", "Check whether a matching window currently exists.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
             CreateTool("active_window_matches", "Active Window Matches", "Check whether the current foreground window matches the selector.", CreateWindowSelectorSchema(includeAll: false, includeEmpty: true), readOnly: true),
             CreateTool("wait_for_window", "Wait For Window", "Wait for a matching window to appear.", CreateObjectSchema(
@@ -193,6 +353,107 @@ internal static class McpCatalog {
                     ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
                     ["intervalMs"] = CreateIntegerSchema("Polling interval in milliseconds.")
                 }), readOnly: true),
+            CreateTool("wait_for_window_close", "Wait For Window Close", "Wait for a matching window to close.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["all"] = CreateBooleanSchema("Track all matching windows instead of the first match."),
+                    ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
+                    ["intervalMs"] = CreateIntegerSchema("Polling interval in milliseconds.")
+                }), readOnly: true),
+            CreateTool("wait_for_window_to_lose_focus", "Wait For Window To Lose Focus", "Wait for a matching window to no longer own foreground focus.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["all"] = CreateBooleanSchema("Track all matching windows instead of the first match."),
+                    ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
+                    ["intervalMs"] = CreateIntegerSchema("Polling interval in milliseconds.")
+                }), readOnly: true),
+            CreateTool("observe_window_text", "Observe Window Text", "Return the best available text observation for a matching window.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["expectedText"] = CreateStringSchema("Optional text to prefer when present."),
+                    ["maxLength"] = CreateIntegerSchema("Maximum observed text length."),
+                    ["retryCount"] = CreateIntegerSchema("Observation retry count."),
+                    ["retryDelayMs"] = CreateIntegerSchema("Delay between observation retries in milliseconds.")
+                }), readOnly: true),
+            CreateTool("wait_for_observed_text", "Wait For Observed Text", "Wait until observed window text contains the requested value.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["expectedText"] = CreateStringSchema("Text to wait for."),
+                    ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
+                    ["intervalMs"] = CreateIntegerSchema("Polling interval in milliseconds."),
+                    ["maxLength"] = CreateIntegerSchema("Maximum observed text length."),
+                    ["retryCount"] = CreateIntegerSchema("Observation retry count."),
+                    ["retryDelayMs"] = CreateIntegerSchema("Delay between observation retries in milliseconds.")
+                }, new[] { "expectedText" }), readOnly: true),
+            CreateTool("get_focused_control", "Get Focused Control", "Return focused-control metadata for a matching window.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles.")
+                }), readOnly: true),
+            CreateTool("wait_for_focused_control", "Wait For Focused Control", "Wait until a matching window exposes a focused control.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["timeoutMs"] = CreateIntegerSchema("Maximum time to wait in milliseconds."),
+                    ["intervalMs"] = CreateIntegerSchema("Polling interval in milliseconds.")
+                }), readOnly: true),
+            CreateTool("get_control_state", "Get Control State", "Return the observable state for a specific control handle.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowHandle"] = CreateStringSchema("Parent window handle in decimal or hexadecimal format."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format.")
+                }, new[] { "windowHandle", "controlHandle" }), readOnly: true),
             CreateTool("list_window_controls", "List Window Controls", "List child controls for one or more matching windows.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -371,6 +632,24 @@ internal static class McpCatalog {
                     ["all"] = CreateBooleanSchema("Apply to all matching controls."),
                     ["allWindows"] = CreateBooleanSchema("Target controls in all matching windows.")
                 })), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("focus_control", "Focus Control", "Focus a specific control handle.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["windowHandle"] = CreateStringSchema("Parent window handle in decimal or hexadecimal format."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["ensureForegroundWindow"] = CreateBooleanSchema("Ensure the parent window becomes foreground before focusing the control.")
+                }), new[] { "windowHandle", "controlHandle" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_control_enabled", "Set Control Enabled", "Enable or disable a specific control handle.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["windowHandle"] = CreateStringSchema("Parent window handle in decimal or hexadecimal format."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["enabled"] = CreateBooleanSchema("True to enable the control; false to disable it.")
+                }), new[] { "windowHandle", "controlHandle", "enabled" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_control_visibility", "Set Control Visibility", "Show or hide a specific control handle.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["windowHandle"] = CreateStringSchema("Parent window handle in decimal or hexadecimal format."),
+                    ["controlHandle"] = CreateStringSchema("Control handle in decimal or hexadecimal format."),
+                    ["visible"] = CreateBooleanSchema("True to show the control; false to hide it.")
+                }), new[] { "windowHandle", "controlHandle", "visible" }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("set_control_text", "Set Control Text", "Set text on a matching child control.", CreateObjectSchema(
                 AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -545,7 +824,83 @@ internal static class McpCatalog {
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
                 }), new[] { "keys" }), readOnly: false, destructive: false, idempotent: false),
             CreateTool("focus_window", "Focus Window", "Bring a matching window to the foreground.", CreateWindowMutationSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("list_window_keep_alive", "List Window Keep Alive", "List windows that currently have active keep-alive timers.", CreateObjectSchema(), readOnly: true),
+            CreateTool("start_window_keep_alive", "Start Window Keep Alive", "Start periodic keep-alive activity for one or more matching windows.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["intervalMs"] = CreateIntegerSchema("Keep-alive interval in milliseconds. Defaults to 60000."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
+                }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("stop_window_keep_alive", "Stop Window Keep Alive", "Stop keep-alive activity for matching windows or all active keep-alive sessions.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["includeEmpty"] = CreateBooleanSchema("Include windows with empty titles."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match."),
+                    ["allSessions"] = CreateBooleanSchema("Stop every active keep-alive session across the desktop.")
+                }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("minimize_windows", "Minimize Windows", "Minimize one or more matching windows.", CreateWindowMutationSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("maximize_windows", "Maximize Windows", "Maximize one or more matching windows.", CreateWindowMutationSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("restore_windows", "Restore Windows", "Restore one or more matching windows to their normal state.", CreateWindowMutationSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("close_windows", "Close Windows", "Close one or more matching windows.", CreateWindowMutationSelectorSchema(includeAll: true, includeEmpty: false), readOnly: false, destructive: true, idempotent: false),
+            CreateTool("set_window_topmost", "Set Window Topmost", "Enable or disable the topmost flag for matching windows.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["topMost"] = CreateBooleanSchema("Whether the matching windows should become topmost."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
+                }), new[] { "topMost" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_window_visibility", "Set Window Visibility", "Show or hide matching windows.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["visible"] = CreateBooleanSchema("Whether the matching windows should be visible."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
+                }), new[] { "visible" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_window_transparency", "Set Window Transparency", "Set window transparency for matching windows.", CreateObjectSchema(
+                AddMutationArtifactProperties(new Dictionary<string, object> {
+                    ["windowTitle"] = CreateStringSchema("Window title filter."),
+                    ["processName"] = CreateStringSchema("Process name filter."),
+                    ["className"] = CreateStringSchema("Window class filter."),
+                    ["processId"] = CreateIntegerSchema("Process identifier."),
+                    ["handle"] = CreateStringSchema("Window handle in decimal or hexadecimal format."),
+                    ["activeWindow"] = CreateBooleanSchema("Target only the current foreground window."),
+                    ["includeHidden"] = CreateBooleanSchema("Include hidden windows."),
+                    ["excludeCloaked"] = CreateBooleanSchema("Exclude DWM-cloaked windows."),
+                    ["excludeOwned"] = CreateBooleanSchema("Exclude owned windows."),
+                    ["alpha"] = CreateIntegerSchema("Transparency alpha from 0 to 255."),
+                    ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
+                }), new[] { "alpha" }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("snap_window", "Snap Window", "Snap one or more matching windows to a predefined monitor region.", CreateObjectSchema(
                 AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["windowTitle"] = CreateStringSchema("Window title filter."),
@@ -558,11 +913,43 @@ internal static class McpCatalog {
                     ["all"] = CreateBooleanSchema("Apply to all matching windows instead of the first match.")
                 }), new[] { "position" }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("list_monitors", "List Monitors", "List connected monitors and their bounds.", CreateObjectSchema(
-                new Dictionary<string, object> {
-                    ["connectedOnly"] = CreateBooleanSchema("Return only connected monitors."),
-                    ["primaryOnly"] = CreateBooleanSchema("Return only the primary monitor."),
-                    ["index"] = CreateIntegerSchema("Specific monitor index to return.")
-                }), readOnly: true),
+                CreateMonitorSelectorProperties()), readOnly: true),
+            CreateTool("get_monitor_brightness", "Get Monitor Brightness", "Return brightness values for one or more matching monitors.", CreateObjectSchema(
+                CreateMonitorSelectorProperties()), readOnly: true),
+            CreateTool("get_monitor_wallpaper", "Get Monitor Wallpaper", "Return wallpaper paths for one or more matching monitors.", CreateObjectSchema(
+                CreateMonitorSelectorProperties()), readOnly: true),
+            CreateTool("set_monitor_wallpaper", "Set Monitor Wallpaper", "Set wallpaper for one or more matching monitors.", CreateObjectSchema(
+                CreateMonitorMutationProperties(new Dictionary<string, object> {
+                    ["wallpaperPath"] = CreateStringSchema("Wallpaper file path."),
+                    ["url"] = CreateStringSchema("Wallpaper URL."),
+                    ["position"] = CreateStringSchema("Optional wallpaper position: center, tile, stretch, fit, fill, or span.")
+                })), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_monitor_brightness", "Set Monitor Brightness", "Set brightness for one or more matching monitors.", CreateObjectSchema(
+                CreateMonitorMutationProperties(new Dictionary<string, object> {
+                    ["brightness"] = CreateIntegerSchema("Brightness level to apply from 0 to 100.")
+                }), new[] { "brightness" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_monitor_position", "Set Monitor Position", "Set monitor bounds for one or more matching monitors.", CreateObjectSchema(
+                CreateMonitorMutationProperties(new Dictionary<string, object> {
+                    ["left"] = CreateIntegerSchema("Monitor left coordinate."),
+                    ["top"] = CreateIntegerSchema("Monitor top coordinate."),
+                    ["right"] = CreateIntegerSchema("Monitor right coordinate."),
+                    ["bottom"] = CreateIntegerSchema("Monitor bottom coordinate.")
+                }), new[] { "left", "top", "right", "bottom" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_monitor_resolution", "Set Monitor Resolution", "Set monitor resolution and optional orientation for one or more matching monitors.", CreateObjectSchema(
+                CreateMonitorMutationProperties(new Dictionary<string, object> {
+                    ["width"] = CreateIntegerSchema("Monitor width in pixels."),
+                    ["height"] = CreateIntegerSchema("Monitor height in pixels."),
+                    ["orientation"] = CreateStringSchema("Optional display orientation: default, degrees90, degrees180, or degrees270.")
+                }), new[] { "width", "height" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_monitor_dpi_scaling", "Set Monitor Dpi Scaling", "Set monitor DPI scaling for one or more matching monitors.", CreateObjectSchema(
+                CreateMonitorMutationProperties(new Dictionary<string, object> {
+                    ["scalingPercent"] = CreateIntegerSchema("Scaling percentage to apply, such as 100, 125, or 150.")
+                }), new[] { "scalingPercent" }), readOnly: false, destructive: false, idempotent: true),
+            CreateTool("set_taskbar_position", "Set Taskbar Position", "Set taskbar edge and optional visibility for one or more matching monitors.", CreateObjectSchema(
+                CreateMonitorMutationProperties(new Dictionary<string, object> {
+                    ["position"] = CreateStringSchema("Optional taskbar edge: left, top, right, or bottom."),
+                    ["visible"] = CreateBooleanSchema("Optional taskbar visibility flag.")
+                })), readOnly: false, destructive: false, idempotent: true),
             CreateTool("screenshot_desktop", "Screenshot Desktop", "Capture the desktop, a monitor, or a region to a PNG file.", CreateObjectSchema(
                 new Dictionary<string, object> {
                     ["monitor"] = CreateIntegerSchema("Target monitor index."),
@@ -597,6 +984,12 @@ internal static class McpCatalog {
                     ["windowClassName"] = CreateStringSchema("Optional launched-window class filter."),
                     ["requireWindow"] = CreateBooleanSchema("Require a launched window to be found before returning.")
                 }, new[] { "filePath" }), readOnly: false, destructive: false, idempotent: false),
+            CreateTool("set_clipboard_text", "Set Clipboard Text", "Replace the current Unicode clipboard text.", CreateObjectSchema(
+                new Dictionary<string, object> {
+                    ["text"] = CreateStringSchema("Text to place on the clipboard."),
+                    ["retryCount"] = CreateIntegerSchema("Number of attempts to open the clipboard."),
+                    ["retryDelayMs"] = CreateIntegerSchema("Delay between clipboard retry attempts in milliseconds.")
+                }, new[] { "text" }), readOnly: false, destructive: false, idempotent: true),
             CreateTool("launch_and_wait_for_window", "Launch And Wait For Window", "Start a desktop application or process, then wait for a matching launched window.", CreateObjectSchema(
                 AddMutationArtifactProperties(new Dictionary<string, object> {
                     ["filePath"] = CreateStringSchema("Executable path or shell command."),
@@ -840,14 +1233,62 @@ internal static class McpCatalog {
         try {
             result = name switch {
                 "get_active_window" => DesktopOperations.GetActiveWindow(),
+                "get_mouse_state" => DesktopOperations.GetMouseState(),
+                "get_clipboard_text" => DesktopOperations.GetClipboardText(
+                    ReadInt(arguments, "retryCount"),
+                    ReadInt(arguments, "retryDelayMs")),
+                "get_elevation_status" => DesktopOperations.GetElevationStatus(),
+                "get_desktop_background_color" => DesktopOperations.GetDesktopBackgroundColor(),
+                "set_desktop_background_color" => DesktopOperations.SetDesktopBackgroundColor(
+                    ReadColor(arguments, "color")),
+                "get_desktop_wallpaper_position" => DesktopOperations.GetDesktopWallpaperPosition(),
+                "set_desktop_wallpaper_position" => DesktopOperations.SetDesktopWallpaperPosition(
+                    ReadWallpaperPosition(arguments, "position") ?? throw new CommandLineException("Property 'position' is required.")),
+                "start_desktop_slideshow" => DesktopOperations.StartDesktopSlideshow(
+                    ReadStringList(arguments, "imagePaths")),
+                "stop_desktop_slideshow" => DesktopOperations.StopDesktopSlideshow(),
+                "advance_desktop_slideshow" => DesktopOperations.AdvanceDesktopSlideshow(
+                    ReadSlideshowDirection(arguments, "direction") ?? throw new CommandLineException("Property 'direction' is required.")),
                 "list_windows" => DesktopOperations.ListWindows(ReadWindowCriteria(arguments, false)),
                 "get_window_geometry" => DesktopOperations.GetWindowGeometry(ReadWindowCriteria(arguments, true)),
+                "get_window_process_info" => DesktopOperations.GetWindowProcessInfo(ReadWindowCriteria(arguments, true), owner: false),
+                "get_owner_window_process_info" => DesktopOperations.GetWindowProcessInfo(ReadWindowCriteria(arguments, true), owner: true),
                 "window_exists" => DesktopOperations.WindowExists(ReadWindowCriteria(arguments, true)),
                 "active_window_matches" => DesktopOperations.ActiveWindowMatches(ReadWindowCriteria(arguments, true)),
                 "wait_for_window" => DesktopOperations.WaitForWindow(
                     ReadWindowCriteria(arguments, true),
                     ReadInt(arguments, "timeoutMs") ?? 10000,
                     ReadInt(arguments, "intervalMs") ?? 200),
+                "wait_for_window_close" => DesktopOperations.WaitForWindowToClose(
+                    ReadWindowCriteria(arguments, true),
+                    ReadInt(arguments, "timeoutMs") ?? 10000,
+                    ReadInt(arguments, "intervalMs") ?? 200),
+                "wait_for_window_to_lose_focus" => DesktopOperations.WaitForWindowToLoseFocus(
+                    ReadWindowCriteria(arguments, true),
+                    ReadInt(arguments, "timeoutMs") ?? 10000,
+                    ReadInt(arguments, "intervalMs") ?? 200),
+                "observe_window_text" => DesktopOperations.ObserveWindowText(
+                    ReadWindowCriteria(arguments, true),
+                    ReadOptionalString(arguments, "expectedText"),
+                    ReadInt(arguments, "maxLength"),
+                    ReadInt(arguments, "retryCount"),
+                    ReadInt(arguments, "retryDelayMs"))!,
+                "wait_for_observed_text" => DesktopOperations.WaitForObservedText(
+                    ReadWindowCriteria(arguments, true),
+                    ReadRequiredString(arguments, "expectedText"),
+                    ReadInt(arguments, "timeoutMs") ?? 10000,
+                    ReadInt(arguments, "intervalMs") ?? 200,
+                    ReadInt(arguments, "maxLength"),
+                    ReadInt(arguments, "retryCount"),
+                    ReadInt(arguments, "retryDelayMs")),
+                "get_focused_control" => DesktopOperations.GetFocusedControl(ReadWindowCriteria(arguments, true))!,
+                "wait_for_focused_control" => DesktopOperations.WaitForFocusedControl(
+                    ReadWindowCriteria(arguments, true),
+                    ReadInt(arguments, "timeoutMs") ?? 10000,
+                    ReadInt(arguments, "intervalMs") ?? 200),
+                "get_control_state" => DesktopOperations.GetControlState(
+                    ReadRequiredString(arguments, "windowHandle"),
+                    ReadRequiredString(arguments, "controlHandle")),
                 "move_window" => DesktopOperations.MoveWindow(
                     ReadWindowCriteria(arguments, true),
                     ReadInt(arguments, "monitor"),
@@ -861,9 +1302,98 @@ internal static class McpCatalog {
                 "drag_window_points" => CallDragWindowPoints(arguments),
                 "scroll_window_point" => CallScrollWindowPoint(arguments),
                 "focus_window" => DesktopOperations.FocusWindow(ReadWindowCriteria(arguments, true), ReadMutationArtifactOptions(arguments)),
+                "list_window_keep_alive" => DesktopOperations.ListWindowKeepAlive(),
+                "start_window_keep_alive" => DesktopOperations.StartWindowKeepAlive(
+                    ReadWindowCriteria(arguments, true),
+                    ReadPositiveInteger(arguments, "intervalMs") ?? 60000),
+                "stop_window_keep_alive" => ReadBool(arguments, "allSessions")
+                    ? DesktopOperations.StopAllWindowKeepAlive()
+                    : DesktopOperations.StopWindowKeepAlive(ReadWindowCriteria(arguments, true)),
                 "minimize_windows" => DesktopOperations.MinimizeWindows(ReadWindowCriteria(arguments, true), ReadMutationArtifactOptions(arguments)),
+                "maximize_windows" => DesktopOperations.MaximizeWindows(ReadWindowCriteria(arguments, true), ReadMutationArtifactOptions(arguments)),
+                "restore_windows" => DesktopOperations.RestoreWindows(ReadWindowCriteria(arguments, true), ReadMutationArtifactOptions(arguments)),
+                "close_windows" => DesktopOperations.CloseWindows(ReadWindowCriteria(arguments, true), ReadMutationArtifactOptions(arguments)),
+                "set_window_topmost" => DesktopOperations.SetWindowTopMost(
+                    ReadWindowCriteria(arguments, true),
+                    ReadRequiredBool(arguments, "topMost"),
+                    ReadMutationArtifactOptions(arguments)),
+                "set_window_visibility" => DesktopOperations.SetWindowVisibility(
+                    ReadWindowCriteria(arguments, true),
+                    ReadRequiredBool(arguments, "visible"),
+                    ReadMutationArtifactOptions(arguments)),
+                "set_window_transparency" => DesktopOperations.SetWindowTransparency(
+                    ReadWindowCriteria(arguments, true),
+                    ReadByte(arguments, "alpha"),
+                    ReadMutationArtifactOptions(arguments)),
                 "snap_window" => DesktopOperations.SnapWindow(ReadWindowCriteria(arguments, true), ReadRequiredString(arguments, "position"), ReadMutationArtifactOptions(arguments)),
-                "list_monitors" => DesktopOperations.ListMonitors(ReadNullableBool(arguments, "connectedOnly"), ReadNullableBool(arguments, "primaryOnly"), ReadInt(arguments, "index")),
+                "list_monitors" => DesktopOperations.ListMonitors(
+                    ReadNullableBool(arguments, "connectedOnly"),
+                    ReadNullableBool(arguments, "primaryOnly"),
+                    ReadInt(arguments, "index"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName")),
+                "get_monitor_brightness" => DesktopOperations.GetMonitorBrightness(
+                    ReadNullableBool(arguments, "connectedOnly"),
+                    ReadNullableBool(arguments, "primaryOnly"),
+                    ReadInt(arguments, "index"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName")),
+                "get_monitor_wallpaper" => DesktopOperations.GetMonitorWallpaper(
+                    ReadNullableBool(arguments, "connectedOnly"),
+                    ReadNullableBool(arguments, "primaryOnly"),
+                    ReadInt(arguments, "index"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName")),
+                "set_monitor_wallpaper" => DesktopOperations.SetMonitorWallpaper(
+                    ReadOptionalString(arguments, "wallpaperPath"),
+                    ReadOptionalString(arguments, "url"),
+                    ReadWallpaperPosition(arguments, "position"),
+                    ReadNullableBool(arguments, "connectedOnly"),
+                    ReadNullableBool(arguments, "primaryOnly"),
+                    ReadInt(arguments, "index"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName")),
+                "set_monitor_brightness" => DesktopOperations.SetMonitorBrightness(
+                    ReadInt(arguments, "brightness") ?? throw new CommandLineException("Property 'brightness' is required."),
+                    ReadNullableBool(arguments, "connectedOnly"),
+                    ReadNullableBool(arguments, "primaryOnly"),
+                    ReadInt(arguments, "index"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName")),
+                "set_monitor_position" => DesktopOperations.SetMonitorPosition(
+                    ReadInt(arguments, "left") ?? throw new CommandLineException("Property 'left' is required."),
+                    ReadInt(arguments, "top") ?? throw new CommandLineException("Property 'top' is required."),
+                    ReadInt(arguments, "right") ?? throw new CommandLineException("Property 'right' is required."),
+                    ReadInt(arguments, "bottom") ?? throw new CommandLineException("Property 'bottom' is required."),
+                    ReadNullableBool(arguments, "connectedOnly"),
+                    ReadNullableBool(arguments, "primaryOnly"),
+                    ReadInt(arguments, "index"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName")),
+                "set_monitor_resolution" => DesktopOperations.SetMonitorResolution(
+                    ReadInt(arguments, "width") ?? throw new CommandLineException("Property 'width' is required."),
+                    ReadInt(arguments, "height") ?? throw new CommandLineException("Property 'height' is required."),
+                    ReadDisplayOrientation(arguments, "orientation"),
+                    ReadNullableBool(arguments, "connectedOnly"),
+                    ReadNullableBool(arguments, "primaryOnly"),
+                    ReadInt(arguments, "index"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName")),
+                "set_monitor_dpi_scaling" => DesktopOperations.SetMonitorDpiScaling(
+                    ReadInt(arguments, "scalingPercent") ?? throw new CommandLineException("Property 'scalingPercent' is required."),
+                    ReadNullableBool(arguments, "connectedOnly"),
+                    ReadNullableBool(arguments, "primaryOnly"),
+                    ReadInt(arguments, "index"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName")),
+                "set_taskbar_position" => DesktopOperations.SetTaskbarPosition(
+                    ReadTaskbarPosition(arguments, "position"),
+                    ReadNullableBool(arguments, "visible"),
+                    ReadNullableBool(arguments, "connectedOnly"),
+                    ReadNullableBool(arguments, "primaryOnly"),
+                    ReadInt(arguments, "index"),
+                    ReadOptionalString(arguments, "deviceId"),
+                    ReadOptionalString(arguments, "deviceName")),
                 "screenshot_desktop" => DesktopOperations.CaptureDesktopScreenshot(
                     ReadInt(arguments, "monitor"),
                     ReadOptionalString(arguments, "deviceId"),
@@ -886,6 +1416,10 @@ internal static class McpCatalog {
                     ReadOptionalString(arguments, "windowTitle"),
                     ReadOptionalString(arguments, "windowClassName"),
                     ReadBool(arguments, "requireWindow")),
+                "set_clipboard_text" => DesktopOperations.SetClipboardText(
+                    ReadRequiredString(arguments, "text"),
+                    ReadInt(arguments, "retryCount"),
+                    ReadInt(arguments, "retryDelayMs")),
                 "launch_and_wait_for_window" => DesktopOperations.LaunchAndWaitForWindow(
                     ReadRequiredString(arguments, "filePath"),
                     ReadOptionalString(arguments, "arguments"),
@@ -1004,6 +1538,18 @@ internal static class McpCatalog {
                         ReadBool(arguments, "allWindows"),
                         ReadBool(arguments, "all"),
                         ReadMutationArtifactOptions(arguments)),
+                "focus_control" => DesktopOperations.FocusControl(
+                    ReadRequiredString(arguments, "windowHandle"),
+                    ReadRequiredString(arguments, "controlHandle"),
+                    ReadBool(arguments, "ensureForegroundWindow")),
+                "set_control_enabled" => DesktopOperations.SetControlEnabled(
+                    ReadRequiredString(arguments, "windowHandle"),
+                    ReadRequiredString(arguments, "controlHandle"),
+                    ReadRequiredBool(arguments, "enabled")),
+                "set_control_visibility" => DesktopOperations.SetControlVisibility(
+                    ReadRequiredString(arguments, "windowHandle"),
+                    ReadRequiredString(arguments, "controlHandle"),
+                    ReadRequiredBool(arguments, "visible")),
                 "set_control_text" => string.IsNullOrWhiteSpace(ReadOptionalString(arguments, "targetName"))
                     ? DesktopOperations.SetControlText(
                         ReadWindowCriteria(arguments, true, "windowTitle", "processName", "windowClassName", "processId", "windowHandle"),
@@ -1332,6 +1878,24 @@ internal static class McpCatalog {
         return CreateObjectSchema(AddMutationArtifactProperties(properties));
     }
 
+    private static Dictionary<string, object> CreateMonitorSelectorProperties() {
+        return new Dictionary<string, object> {
+            ["connectedOnly"] = CreateBooleanSchema("Return only connected monitors."),
+            ["primaryOnly"] = CreateBooleanSchema("Return only the primary monitor."),
+            ["index"] = CreateIntegerSchema("Specific monitor index to return."),
+            ["deviceId"] = CreateStringSchema("Specific monitor device identifier to return."),
+            ["deviceName"] = CreateStringSchema("Specific monitor device name to return.")
+        };
+    }
+
+    private static Dictionary<string, object> CreateMonitorMutationProperties(Dictionary<string, object> properties) {
+        foreach (KeyValuePair<string, object> property in CreateMonitorSelectorProperties()) {
+            properties[property.Key] = property.Value;
+        }
+
+        return properties;
+    }
+
     private static Dictionary<string, object> AddMutationArtifactProperties(Dictionary<string, object> properties) {
         properties["captureBefore"] = CreateBooleanSchema("Capture a best-effort screenshot before the mutation.");
         properties["captureAfter"] = CreateBooleanSchema("Capture a best-effort screenshot after the mutation.");
@@ -1462,6 +2026,15 @@ internal static class McpCatalog {
         throw new CommandLineException($"Property '{propertyName}' expects an integer value.");
     }
 
+    private static int? ReadPositiveInteger(JsonElement element, string propertyName) {
+        int? value = ReadInt(element, propertyName);
+        if (value.HasValue && value.Value <= 0) {
+            throw new CommandLineException($"Property '{propertyName}' expects a value greater than 0.");
+        }
+
+        return value;
+    }
+
     private static double? ReadDouble(JsonElement element, string propertyName) {
         if (!TryReadProperty(element, propertyName, out JsonElement property) || property.ValueKind == JsonValueKind.Null) {
             return null;
@@ -1478,8 +2051,30 @@ internal static class McpCatalog {
         throw new CommandLineException($"Property '{propertyName}' expects a numeric value.");
     }
 
+    private static byte ReadByte(JsonElement element, string propertyName) {
+        int value = ReadInt(element, propertyName) ?? throw new CommandLineException($"Property '{propertyName}' is required.");
+        if (value < byte.MinValue || value > byte.MaxValue) {
+            throw new CommandLineException($"Property '{propertyName}' expects a value from 0 to 255.");
+        }
+
+        return (byte)value;
+    }
+
+    private static DisplayOrientation? ReadDisplayOrientation(JsonElement element, string propertyName) {
+        return DesktopValueParser.ParseOptionalDisplayOrientation(ReadOptionalString(element, propertyName), $"Property '{propertyName}'");
+    }
+
+    private static uint ReadColor(JsonElement element, string propertyName) {
+        return DesktopValueParser.ParseRequiredColor(ReadOptionalString(element, propertyName), $"Property '{propertyName}'");
+    }
+
     private static bool ReadBool(JsonElement element, string propertyName) {
         return ReadNullableBool(element, propertyName) ?? false;
+    }
+
+    private static bool ReadRequiredBool(JsonElement element, string propertyName) {
+        bool? value = ReadNullableBool(element, propertyName);
+        return value ?? throw new CommandLineException($"Property '{propertyName}' is required.");
     }
 
     private static MutationArtifactOptions? ReadMutationArtifactOptions(JsonElement element) {
@@ -1519,6 +2114,18 @@ internal static class McpCatalog {
         }
 
         throw new CommandLineException($"Property '{propertyName}' expects a boolean value.");
+    }
+
+    private static TaskbarPosition? ReadTaskbarPosition(JsonElement element, string propertyName) {
+        return DesktopValueParser.ParseOptionalTaskbarPosition(ReadOptionalString(element, propertyName), $"Property '{propertyName}'");
+    }
+
+    private static DesktopWallpaperPosition? ReadWallpaperPosition(JsonElement element, string propertyName) {
+        return DesktopValueParser.ParseOptionalWallpaperPosition(ReadOptionalString(element, propertyName), $"Property '{propertyName}'");
+    }
+
+    private static DesktopSlideshowDirection? ReadSlideshowDirection(JsonElement element, string propertyName) {
+        return DesktopValueParser.ParseOptionalSlideshowDirection(ReadOptionalString(element, propertyName), $"Property '{propertyName}'");
     }
 
     private static bool TryReadProperty(JsonElement element, string propertyName, out JsonElement property) {

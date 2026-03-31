@@ -9,9 +9,10 @@ Usage:
   desktopmanager <group> <command> [options]
 
 Groups:
+  desktop    Manage desktop-wide personalization
   window     List and control windows
   control    Inspect and interact with child controls
-  monitor    Inspect connected monitors
+  monitor    Inspect and configure monitors
   process    Start desktop applications
   screenshot Capture the desktop, monitors, or windows
   target     Save and resolve reusable window-relative targets
@@ -24,6 +25,7 @@ Groups:
   help       Show help for a command group
 
 Examples:
+  desktopmanager desktop background-color
   desktopmanager window list
   desktopmanager window wait --process notepad --timeout-ms 5000
   desktopmanager control list --window-process notepad
@@ -34,6 +36,7 @@ Examples:
   desktopmanager control-target save edge-address --control-type Edit --background-text --uia
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400
   desktopmanager monitor list --json
+  desktopmanager monitor set-resolution --primary --width 2560 --height 1440 --orientation default
   desktopmanager layout save coding
   desktopmanager layout apply coding --validate
   desktopmanager layout assert coding --position-tolerance-px 50 --size-tolerance-px 50
@@ -42,6 +45,7 @@ Examples:
   desktopmanager diagnostic hosted-session --summary-only
 
 Use:
+  desktopmanager help desktop
   desktopmanager help window
   desktopmanager help control
   desktopmanager help monitor
@@ -62,6 +66,8 @@ Use:
 Window commands:
   desktopmanager window list [--title <pattern>] [--process <pattern>] [--class <pattern>] [--pid <id>] [--handle <value>] [--active] [--include-empty] [--include-hidden] [--exclude-cloaked] [--exclude-owned] [--json]
   desktopmanager window geometry [selector] [--all] [--json]
+  desktopmanager window process-info [selector] [--all] [--json]
+  desktopmanager window owner-process-info [selector] [--all] [--json]
   desktopmanager window exists [selector] [--json]
   desktopmanager window active-matches [selector] [--json]
   desktopmanager window move [selector] [--monitor <index>] [--x <value>] [--y <value>] [--width <value>] [--height <value>] [--activate] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
@@ -69,7 +75,16 @@ Window commands:
   desktopmanager window drag [selector] (((--start-x <value> --start-y <value>) | (--start-x-ratio <value> --start-y-ratio <value>)) ((--end-x <value> --end-y <value>) | (--end-x-ratio <value> --end-y-ratio <value>)) | (--start-target <name> --end-target <name>)) [--button <left|right>] [--step-delay-ms <value>] [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
   desktopmanager window scroll [selector] ((--x <value> --y <value> | --x-ratio <value> --y-ratio <value>) | --target <name>) --delta <value> [--activate] [--client-area] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
   desktopmanager window focus [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window keep-alive-list [--json]
+  desktopmanager window keep-alive-start [selector] [--interval-ms <value>] [--all] [--json]
+  desktopmanager window keep-alive-stop [selector] [--all | --all-sessions] [--json]
   desktopmanager window minimize [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window maximize [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window restore [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window close [selector] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window topmost [selector] (--on | --off) [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window visibility [selector] (--show | --hide) [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
+  desktopmanager window transparency [selector] --alpha <value> [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
   desktopmanager window snap [selector] --position <left|right|top-left|top-right|bottom-left|bottom-right> [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
   desktopmanager window type [selector] --text <value> [--paste] [--foreground-input] [--physical-keys] [--hosted-session] [--script] [--chunk-size <value>] [--line-delay-ms <value>] [--delay-ms <value>] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
   desktopmanager window keys [selector] --keys <value>[,<value>...] [--no-activate] [--capture-before] [--capture-after] [--artifact-directory <path>] [--verify] [--verify-tolerance-px <value>] [--all] [--json]
@@ -92,6 +107,8 @@ Selectors:
 Examples:
   desktopmanager window list --title "*Notepad*" --json
   desktopmanager window geometry --handle 0xFF1802 --json
+  desktopmanager window process-info --process notepad
+  desktopmanager window owner-process-info --handle 0xFF1802 --json
   desktopmanager window exists --process notepad
   desktopmanager window active-matches --title "Codex"
   desktopmanager window click --process notepad --x 200 --y 200 --client-area
@@ -110,6 +127,15 @@ Examples:
   desktopmanager window type --process Devolutions.RemoteDesktopManager --text "Write-Host 'hi'`nGet-Date" --script --foreground-input --line-delay-ms 20
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --activate
   desktopmanager window move --title "Visual Studio Code" --x 0 --y 0 --width 1920 --height 1400 --verify --verify-tolerance-px 12
+  desktopmanager window keep-alive-list
+  desktopmanager window keep-alive-start --process notepad --interval-ms 30000
+  desktopmanager window keep-alive-stop --all-sessions
+  desktopmanager window maximize --process notepad --verify
+  desktopmanager window restore --process notepad
+  desktopmanager window close --process notepad --verify
+  desktopmanager window topmost --process notepad --on
+  desktopmanager window visibility --process notepad --hide
+  desktopmanager window transparency --process notepad --alpha 180
   desktopmanager window snap --process notepad --position left
   desktopmanager window type --process notepad --text "Hello world"
   desktopmanager window keys --process msedge --keys VK_RETURN
@@ -120,6 +146,28 @@ Notes:
   Hosted-session typing stops immediately if foreground ownership changes mid-input.
   Hosted-session harness diagnostics are written under Artifacts\HostedSessionTyping with a .json snapshot and a companion .summary.txt file.
   --verify re-queries the mutated window and reports observed postconditions instead of only the request outcome.
+""";
+    }
+
+    public static string GetDesktopHelp() {
+        return """
+Desktop commands:
+  desktopmanager desktop background-color [--json]
+  desktopmanager desktop set-background-color --color <decimal|0xRRGGBB|#RRGGBB> [--json]
+  desktopmanager desktop wallpaper-position [--json]
+  desktopmanager desktop set-wallpaper-position --position <center|tile|stretch|fit|fill|span> [--json]
+  desktopmanager desktop start-slideshow --image <path> [--image <path>...] [--json]
+  desktopmanager desktop stop-slideshow [--json]
+  desktopmanager desktop advance-slideshow --direction <forward|backward> [--json]
+
+Examples:
+  desktopmanager desktop background-color
+  desktopmanager desktop set-background-color --color 0x102040
+  desktopmanager desktop wallpaper-position --json
+  desktopmanager desktop set-wallpaper-position --position fill
+  desktopmanager desktop start-slideshow --image C:\Wallpapers\img1.jpg --image C:\Wallpapers\img2.jpg
+  desktopmanager desktop stop-slideshow
+  desktopmanager desktop advance-slideshow --direction forward
 """;
     }
 
@@ -300,12 +348,28 @@ Examples:
     public static string GetMonitorHelp() {
         return """
 Monitor commands:
-  desktopmanager monitor list [--connected] [--primary] [--index <value>] [--json]
+  desktopmanager monitor list [--connected] [--primary] [--index <value>] [--device-id <value>] [--device-name <value>] [--json]
+  desktopmanager monitor brightness [--connected] [--primary] [--index <value>] [--device-id <value>] [--device-name <value>] [--json]
+  desktopmanager monitor wallpaper [--connected] [--primary] [--index <value>] [--device-id <value>] [--device-name <value>] [--json]
+  desktopmanager monitor set-wallpaper [--wallpaper-path <path> | --url <value>] [--position <center|tile|stretch|fit|fill|span>] [--connected] [--primary] [--index <value>] [--device-id <value>] [--device-name <value>] [--json]
+  desktopmanager monitor set-brightness --brightness <value> [--connected] [--primary] [--index <value>] [--device-id <value>] [--device-name <value>] [--json]
+  desktopmanager monitor set-position --left <value> --top <value> --right <value> --bottom <value> [--connected] [--primary] [--index <value>] [--device-id <value>] [--device-name <value>] [--json]
+  desktopmanager monitor set-resolution --width <value> --height <value> [--orientation <default|degrees90|degrees180|degrees270>] [--connected] [--primary] [--index <value>] [--device-id <value>] [--device-name <value>] [--json]
+  desktopmanager monitor set-dpi-scaling --scaling-percent <value> [--connected] [--primary] [--index <value>] [--device-id <value>] [--device-name <value>] [--json]
+  desktopmanager monitor set-taskbar [--position <left|top|right|bottom>] [--show|--hide] [--connected] [--primary] [--index <value>] [--device-id <value>] [--device-name <value>] [--json]
 
 Examples:
   desktopmanager monitor list
   desktopmanager monitor list --json
   desktopmanager monitor list --primary
+  desktopmanager monitor brightness --primary
+  desktopmanager monitor wallpaper --index 1 --json
+  desktopmanager monitor set-wallpaper --primary --wallpaper-path C:\Wallpapers\Aurora.jpg --position fill
+  desktopmanager monitor set-brightness --primary --brightness 65
+  desktopmanager monitor set-position --device-name \\.\DISPLAY2 --left 1920 --top 0 --right 3840 --bottom 1440
+  desktopmanager monitor set-resolution --primary --width 2560 --height 1440 --orientation default
+  desktopmanager monitor set-dpi-scaling --primary --scaling-percent 150
+  desktopmanager monitor set-taskbar --primary --position bottom --show
 """;
     }
 
